@@ -42,3 +42,4 @@ Ebitengine の性能モデルは3行で要約できる:
 ## このプロジェクトでの注意
 
 - ゲームロジック（`core` 予定）と描画を分離するのが README の方針。Ebitengine への依存を core に持ち込まず、core 層は `ebiten.Image` を知らない設計にする。
+- Ebitengineは `go get github.com/hajimehoshi/ebiten/v2` で**v2系**を導入する。
