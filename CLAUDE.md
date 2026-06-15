@@ -4,9 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-An Ebitengine game jam 2026 entry. Written in Go using the Ebitengine game engine. Supports both desktop and WebAssembly (WASM) builds.
+**Ebitengine Game Jam 2026** entry. Theme: **"Disconnect"**.
+
+Written in Go using the Ebitengine game engine. Supports both desktop and WebAssembly (WASM) builds.
 
 **Module:** `github.com/noppikinatta/ebitenginegamejam2026`
+
+## Game Concept
+
+ジャンル：ヴァンサバライク（Vampire Survivors風アクション）
+
+### コアアイデア
+
+- 自機は**戦車**
+- 通常のヴァンサバライクとは逆の発想：**最初から大量の武器が自機にくっついている**
+- ただし配線が混乱しているため、最初は武器が扱いづらく、ジェネレータのエネルギーが分散して各武装が弱い
+- レベルアップ時に武装パーツを**切り離す（Disconnect）**ことでパワーアップする
+  - 不要なパーツを切り離す → 残った武装にエネルギーが集中 → パワーアップ
+- プレイヤーは武装の動作を観察しながら、どのパーツを切り離すか判断する
+
+### ゲームループ
+
+1. 戦車で敵を倒しながら経験値を集める
+2. レベルアップ時に「切り離すパーツ」を選択
+3. 切り離したパーツ分のエネルギーが残存武装に再配分されて強化される
+4. より少ない武装でより強力に戦う構成を目指す
+
+## Notes on Codebase
+
+去年のコード（`ebitenginegamejam2025`）から再利用可能な断片を引用しているため、コンパイルエラーが残っている箇所がある。`scene/lang.go` や `scene/sequence.go` のimportパスに古いモジュール名が残っている可能性があるので注意。InGame・Resultシーンは未実装。
 
 ## Commands
 
