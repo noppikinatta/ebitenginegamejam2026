@@ -46,19 +46,25 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 ## Development Roadmap / Progress
 
-標準的なヴァンサバライクを先に完成させ、後から配線ツリー（Disconnect）を**武装の energy 変調として**乗せる方針。
+標準的なヴァンサバライクを先に完成させ、後から配線ツリー（Disconnect）を**武装の energy 変調として**乗せる方針。ヘックスマップへのピボット後は H0〜H4 フェーズで実装。
 
 - [x] **フェーズ0：ビルドを通す** — `ui` パッケージ作成、旧 `2025` import 修正、InGame/Result スタブ、埋め込みアセットのプレースホルダ整備。WASM ビルドと vet が通る
-- [x] **フェーズ1：最小VSループ** — `core` パッケージ（Ebiten非依存）で 戦車移動・自動武装・弾・敵・経験値ジェム・レベルアップ・スポーンを実装。InGame シーンで描画＋入力。単体テスト 23 件
-- [x] **フェーズ2：レベルアップ選択（簡易版）** — レベルアップで `StateLevelUp` にポーズし、カタログから3択（1/2/3キー）。`core/upgrade.go` の `Upgrade` + `World.ChooseUpgrade`。まだツリーではない
-- [ ] **フェーズ3：配線ツリー（Disconnect本体）** — 砲塔ノードのツリー。切ると下流も切れ、energy が残存経路へ再配分。Phase 2 の3択UIをツリー切断UIに置き換える
+- [x] **フェーズ1：最小VSループ** — `core` パッケージで 戦車移動・自動武装・弾・敵・経験値ジェム・レベルアップ・スポーンを実装。単体テスト
+- [x] **フェーズ2：レベルアップ選択（簡易版）** — `core/upgrade.go` の `Upgrade` + `World.ChooseUpgrade`
+- [x] **H0：クリーンアップ** — `hexmap` テスト import 修正、固定 RNG シード可変化、デッドコード除去
+- [x] **H1：ヘックスグリッド電力ソルバー** — `core/turret.go`。`Component` インターフェース（Wire/Capacitor/ProportionalWeapon/ThresholdWeapon）、BFS距離リング電力配布アルゴリズム、PurgeTile/PurgeWeapon、13テスト
+- [x] **H2：ランダム砲塔生成** — `core/turret_gen.go`。フロンティア成長アルゴリズム、BranchProb で枝分かれ制御、6テスト
+- [x] **H3：World統合** — `core/world.go` を `Turret` ベースに全面書き換え。`core/tree.go` 削除、WeaponKind を `weapon.go` へ移動。buildDisconnectChoices でタイルパージ/武装パージ両択を生成
+- [x] **H4：クリックUI** — `scene/ingame.go` に六角ブリックレイアウト砲塔オーバーレイ。左クリック=Cut（タイルパージ+速度ボーナス）、Shift+クリック=Disarm（武装のみパージ）、ホバー時ツールチップ、数字キーフォールバック
+- [ ] **H5：複数ジェネレータ対応** — 初版は中央1基のみ。後続バージョンで追加予定
 
 ### 既知の暫定対応・残課題
 
 - **音声はプレースホルダ**。`asset/sound/bgm.ogg` は OggS ヘッダのみのダミー、`explosion.wav` は無音。`LoadSounds()` はデコード失敗を握りつぶす（ログして継続）よう変更済みなので落ちないが、本物の音源に差し替えるまで鳴らない。`LoadSounds()` はまだどこからも呼ばれていない
 - **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
 - **言語CSVが空**。`asset/lang/english.csv` / `japanese.csv` は存在するが中身が無い。`scene/title.go` は `story-1` キーを参照（現状フォールバック表示）
-- レベルアップ報酬は Phase 1 の暫定（第1武装に energy+1 と HP+10 を自動付与）。Phase 2 でプレイヤー選択に置き換える
+- **H4 UIの選択マッチング** — `handleLevelUpInput` でクリック時に選択肢をタイル座標文字列で検索しているが、UI の改善余地あり（H4は暫定実装）
+- **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity等）は初期値のまま。プレイテストで要調整
 
 ### Build/Verify この環境での注意
 
@@ -118,11 +124,21 @@ go test ./lang/... -run TestName -v
 
 **Ebiten に依存しない**ので単体テストできるのが要点。シーン層（`scene/ingame.go`）は入力を `geom.PointF` の移動ベクトルに変換して `World.Update(move)` を毎フレーム呼び、`World` の状態を読んで描画するだけ。
 
-- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems、State、Tick、RNG）を保持。`Update(move)` が1tick進める（移動→武装発射→弾→敵→ジェム→スポーン→死亡コンパクション）。`NewWorld(seed)` はスポーンが決定的でテスト可能
+- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems、Choices、State、Tick、RNG、turret）を保持。`NewWorld(seed)` は RNG → `GenerateTurret` → `ActiveWeapons` で初期化
 - `entity.go` — `Player`（戦車）/ `Enemy` / `Projectile` / `Gem`。位置は `geom.PointF`、当たり判定は円（半径）
-- `weapon.go` — `Weapon` と `StatsFromEnergy()`。**`energy` から戦闘数値（ダメージ/連射間隔/射程）を導出する関数が配線ツリー統合の唯一の接点**。武装ロジックを変えずに energy 配分だけで強弱を変えられる設計
-- `State`：`StatePlaying` / `StateLevelUp`（Phase 2 用・予約）/ `StateGameOver`
+- `weapon.go` — `WeaponKind`（Cannon/Shotgun/Sniper）+ `Weapon` と `StatsFromEnergy()`。**`energy` から戦闘数値（ダメージ/連射間隔/射程）を導出する関数がソルバー統合の唯一の接点**
+- `turret.go` — ヘックスグリッド電力ソルバー。`Component` インターフェース（Wire/Capacitor/ProportionalWeapon/ThresholdWeapon）、BFS距離リング配布、CanPurgeTile/CanPurgeWeapon、ActiveWeapons
+- `turret_gen.go` — `GenerateTurret()` フロンティア成長アルゴリズム、`DefaultTurretGenConfig`
+- `upgrade.go` — `type Upgrade struct { Name, Desc string; Apply func(*World) }` (軽量選択肢モデル)
+- `State`：`StatePlaying` / `StateLevelUp` / `StateGameOver`
 - シーン再入場時の世界リセットは `InGame.OnStart()`（bamenn の `OnStarter`）で行う
+
+### hexmap パッケージ
+
+ヘックスグリッド座標系（cube coord: x+y+z=0）を提供。
+
+- `index.go` — `Index{x,y}` キューブ座標。`IdxXY/IdxYZ/IdxZX` 生成、`Add/Mul/Distance`、6方向定数（Direction01〜Direction11）、`AppendAround`
+- `size.go` — `Size{radius}` と `Contains(idx)`（原点からの距離≤半径かどうか）
 
 ### drawing パッケージ
 
