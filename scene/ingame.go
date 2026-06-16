@@ -22,10 +22,10 @@ const (
 	gridGap = 64
 
 	// Turret overlay layout constants.
-	tileSize       = 48.0  // px per hex tile square (level-up overlay)
-	combatTileSize = 14.0  // px per hex tile square (combat miniature on tank)
-	turretAreaW    = 500.0 // width of the turret overlay panel
-	turretAreaH    = 400.0 // height of the turret overlay panel
+	tileSize       = 48.0                // px per hex tile square (level-up overlay)
+	combatTileSize = core.TurretTileSize // px per hex tile (combat miniature; matches muzzle world offsets)
+	turretAreaW    = 500.0               // width of the turret overlay panel
+	turretAreaH    = 400.0               // height of the turret overlay panel
 	turretAreaX    = (screenW - turretAreaW) / 2.0
 	turretAreaY    = (screenH-turretAreaH)/2.0 + 20
 	turretCenterX  = turretAreaX + turretAreaW/2.0

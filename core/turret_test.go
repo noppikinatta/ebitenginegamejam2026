@@ -440,6 +440,63 @@ func TestActiveWeapons_SetsEnergy(t *testing.T) {
 	}
 }
 
+// TestActiveWeapons_SetsTileIdx: ActiveWeapons records which tile each weapon
+// sits on, so firing can originate from the correct turret position.
+func TestActiveWeapons_SetsTileIdx(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	wpos := hexmap.IdxXY(1, 0)
+
+	w := NewWeapon("w", 0, KindCannon)
+	tiles := map[hexmap.Index]*Tile{
+		gen:  wireT(),
+		wpos: makeTile(ProportionalWeapon{Weapon: w}),
+	}
+	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
+	weapons := tr.ActiveWeapons()
+
+	if len(weapons) != 1 {
+		t.Fatalf("got %d active weapons, want 1", len(weapons))
+	}
+	if weapons[0].TileIdx != wpos {
+		t.Errorf("weapon TileIdx = %v, want %v", weapons[0].TileIdx, wpos)
+	}
+}
+
+// TestMuzzleOffset_FacingUpIsIdentity: with the default facing (-pi/2 = up),
+// the muzzle offset equals the unrotated local tile offset.
+func TestMuzzleOffset_FacingUpIsIdentity(t *testing.T) {
+	idx := hexmap.IdxXY(1, 0)
+	got := MuzzleOffset(idx, -math.Pi/2)
+	wantX := 1 * TurretTileSize * 0.866
+	wantY := 0.5 * TurretTileSize
+	if !approx(got.X, wantX) || !approx(got.Y, wantY) {
+		t.Errorf("MuzzleOffset facing up = (%v,%v), want (%v,%v)", got.X, got.Y, wantX, wantY)
+	}
+}
+
+// TestMuzzleOffset_GeneratorIsZero: the generator tile at the origin has no
+// offset regardless of facing.
+func TestMuzzleOffset_GeneratorIsZero(t *testing.T) {
+	got := MuzzleOffset(hexmap.IdxXY(0, 0), 1.23)
+	if got.Abs() != 0 {
+		t.Errorf("MuzzleOffset of generator = %v, want zero", got)
+	}
+}
+
+// TestMuzzleOffset_RotationPreservesMagnitude: rotating to a different facing
+// keeps the muzzle the same distance from the tank centre but moves it.
+func TestMuzzleOffset_RotationPreservesMagnitude(t *testing.T) {
+	idx := hexmap.IdxXY(2, 1)
+	up := MuzzleOffset(idx, -math.Pi/2)
+	right := MuzzleOffset(idx, 0)
+	if !approx(up.Abs(), right.Abs()) {
+		t.Errorf("magnitude changed under rotation: up=%v right=%v", up.Abs(), right.Abs())
+	}
+	if approx(up.X, right.X) && approx(up.Y, right.Y) {
+		t.Errorf("muzzle did not move when facing changed: %v", up)
+	}
+}
+
 // TestActiveWeapons_ExcludesInactiveThreshold: a threshold weapon below its
 // minimum should not appear in ActiveWeapons.
 func TestActiveWeapons_ExcludesInactiveThreshold(t *testing.T) {

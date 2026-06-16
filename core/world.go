@@ -135,7 +135,10 @@ func (w *World) updateWeapons() {
 			continue
 		}
 
-		dir := target.Pos.Subtract(w.Player.Pos)
+		// Projectiles spawn from the weapon's turret tile, offset and rotated to
+		// match the tank's facing, and aim from there toward the target.
+		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+		dir := target.Pos.Subtract(muzzle)
 		d := dir.Abs()
 		if d == 0 {
 			continue
@@ -145,7 +148,7 @@ func (w *World) updateWeapons() {
 		for _, offset := range weapon.ProjectileOffsets() {
 			vel := geom.PointFFromPolar(stats.ProjectileSpeed, baseAngle+offset)
 			w.Projectiles = append(w.Projectiles, &Projectile{
-				Pos:    w.Player.Pos,
+				Pos:    muzzle,
 				Vel:    vel,
 				Damage: stats.Damage,
 				Radius: 5,

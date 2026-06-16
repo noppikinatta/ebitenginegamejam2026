@@ -1,5 +1,7 @@
 package core
 
+import "github.com/noppikinatta/ebitenginegamejam2026/hexmap"
+
 // WeaponKind determines the firing pattern and stat scaling of a weapon.
 type WeaponKind int
 
@@ -30,11 +32,12 @@ type WeaponStats struct {
 	Range           float64 // only enemies within this distance are targeted
 }
 
-// Weapon is a single auto-firing armament attached to the turret tree.
+// Weapon is a single auto-firing armament mounted on a turret tile.
 type Weapon struct {
 	Name     string
 	Kind     WeaponKind
-	Energy   float64 // assigned by the Turret power solver; do not set directly
+	Energy   float64      // assigned by the Turret power solver; do not set directly
+	TileIdx  hexmap.Index // the turret tile this weapon sits on; set by ActiveWeapons
 	cooldown int
 }
 

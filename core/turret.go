@@ -1,10 +1,37 @@
 package core
 
 import (
+	"math"
 	"sort"
 
+	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
+
+// TurretTileSize is the world-space spacing of turret tiles (= screen px at the
+// game's 1:1 camera). The scene combat renderer must use the same value so that
+// drawn tiles line up with the muzzle positions weapons fire from.
+const TurretTileSize = 14.0
+
+// tileLocalOffset returns a tile's unrotated offset from the turret centre in
+// world units, using the vertical brick layout where local "up" (-Y) = forward.
+func tileLocalOffset(idx hexmap.Index) geom.PointF {
+	q := float64(idx.X())
+	r := float64(idx.Y())
+	return geom.PointF{X: q * TurretTileSize * 0.866, Y: (r + q*0.5) * TurretTileSize}
+}
+
+// MuzzleOffset returns the world-space offset of a turret tile from the tank
+// centre, rotated so the turret's local "up" aligns with facingAngle. Add this
+// to Player.Pos to get the world position a weapon on that tile fires from.
+func MuzzleOffset(idx hexmap.Index, facingAngle float64) geom.PointF {
+	off := tileLocalOffset(idx)
+	if off.Abs() == 0 {
+		return off
+	}
+	theta := facingAngle + math.Pi/2
+	return geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
+}
 
 // Component is the behavior of a single hex tile on the turret.
 // Distribute is called during power solving with the total power received by
@@ -374,6 +401,7 @@ func (t *Turret) ActiveWeapons() []*Weapon {
 		}
 		if w != nil {
 			w.Energy = p
+			w.TileIdx = idx
 			weapons = append(weapons, w)
 		}
 	}
