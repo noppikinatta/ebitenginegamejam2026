@@ -303,7 +303,7 @@ func (g *InGame) drawTurretGrid(screen *ebiten.Image) {
 		h := tileSize - pad*2
 
 		if tile.IsPurged() {
-			drawing.DrawRect(screen, x, y, w, h, 0.15, 0.15, 0.2, 0.6)
+			// Purged tiles are removed from the turret entirely; don't draw them.
 			continue
 		}
 

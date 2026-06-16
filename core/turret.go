@@ -304,15 +304,36 @@ func (t *Turret) CanPurgeWeapon(idx hexmap.Index, minWeapons int) bool {
 }
 
 // PurgeTile removes the tile at idx entirely. The tile stops conducting power;
-// all downstream tiles lose their power supply. Returns false if the tile does
-// not exist or is already purged.
+// all downstream tiles lose their power supply. Any tiles that become
+// unreachable from the generator as a result are also marked purged (cascade),
+// so the visible turret matches its actual connectivity. Returns false if the
+// tile does not exist or is already purged.
 func (t *Turret) PurgeTile(idx hexmap.Index) bool {
 	tile, ok := t.tiles[idx]
 	if !ok || tile.purged {
 		return false
 	}
 	tile.purged = true
+	t.propagatePurge()
 	return true
+}
+
+// propagatePurge marks every tile that can no longer be reached from the
+// generator (through active tiles) as purged. This cascades the effect of a
+// tile-purge to its now-orphaned downstream tiles.
+func (t *Turret) propagatePurge() {
+	if len(t.generators) == 0 {
+		return
+	}
+	reachable := t.distancesFrom(t.generators[0])
+	for idx, tile := range t.tiles {
+		if tile.purged {
+			continue
+		}
+		if _, ok := reachable[idx]; !ok {
+			tile.purged = true
+		}
+	}
 }
 
 // PurgeWeapon replaces the component at idx with a Wire, so the tile continues

@@ -308,6 +308,74 @@ func TestPurgeTile_BlocksDownstream(t *testing.T) {
 	}
 }
 
+// TestPurgeTile_CascadesToOrphans: purging a tile mid-chain also marks the now
+// unreachable downstream tiles as purged (cascade), not just unpowered.
+func TestPurgeTile_CascadesToOrphans(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	mid := hexmap.IdxXY(1, 0)
+	weapon := hexmap.IdxXY(2, 0)
+	tail := hexmap.IdxXY(3, 0)
+
+	w := NewWeapon("w", 0, KindCannon)
+	tiles := map[hexmap.Index]*Tile{
+		gen:    wireT(),
+		mid:    wireT(),
+		weapon: makeTile(ProportionalWeapon{Weapon: w}),
+		tail:   wireT(),
+	}
+	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
+
+	if !tr.PurgeTile(mid) {
+		t.Fatal("PurgeTile(mid) returned false unexpectedly")
+	}
+
+	// mid was purged directly; weapon and tail are now unreachable from gen and
+	// must be cascade-purged.
+	for _, idx := range []hexmap.Index{mid, weapon, tail} {
+		if !tr.Tiles()[idx].IsPurged() {
+			t.Errorf("tile %v should be purged after cascade", idx)
+		}
+	}
+	// The generator must remain unpurged.
+	if tr.Tiles()[gen].IsPurged() {
+		t.Errorf("generator tile was purged by cascade")
+	}
+}
+
+// TestPurgeTile_DoesNotCascadeAcrossAlternatePath: if an orphaned-looking tile
+// still has another route to the generator, it stays active.
+func TestPurgeTile_DoesNotCascadeAcrossAlternatePath(t *testing.T) {
+	// Diamond: gen feeds p1 and p2; both feed child. Purging p1 leaves child
+	// reachable via p2, so child must NOT be cascade-purged.
+	gen := hexmap.IdxXY(0, 0)
+	p1 := hexmap.IdxXY(1, 0)
+	p2 := hexmap.IdxXY(0, 1)
+	child := hexmap.IdxXY(1, 1)
+
+	w := NewWeapon("w", 0, KindCannon)
+	tiles := map[hexmap.Index]*Tile{
+		gen:   wireT(),
+		p1:    wireT(),
+		p2:    wireT(),
+		child: makeTile(ProportionalWeapon{Weapon: w}),
+	}
+	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
+
+	if !tr.PurgeTile(p1) {
+		t.Fatal("PurgeTile(p1) returned false unexpectedly")
+	}
+
+	if !tr.Tiles()[p1].IsPurged() {
+		t.Errorf("p1 should be purged")
+	}
+	if tr.Tiles()[child].IsPurged() {
+		t.Errorf("child has an alternate path via p2 and must not be cascade-purged")
+	}
+	if tr.Tiles()[p2].IsPurged() {
+		t.Errorf("p2 should remain active")
+	}
+}
+
 // TestPurgeWeapon_TileRemainsActive: PurgeWeapon replaces the component with Wire
 // so downstream tiles still receive power.
 func TestPurgeWeapon_TileRemainsActive(t *testing.T) {
