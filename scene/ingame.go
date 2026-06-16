@@ -207,6 +207,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	for _, p := range w.Projectiles {
 		drawEntity(screen, cam, p.Pos, 8, 8, 1, 0.9, 0.3, 1)
 	}
+	g.drawBeams(screen, cam)
 
 	// Player tank.
 	pr := w.Player.Radius * 2
@@ -563,4 +564,27 @@ func scale(r, g, b, a float32) ebiten.ColorScale {
 	var cs ebiten.ColorScale
 	cs.Scale(r, g, b, a)
 	return cs
+}
+
+// drawBeams renders active laser beams as rotated quads using DrawTriangles.
+func (g *InGame) drawBeams(screen *ebiten.Image, cam geom.PointF) {
+	for _, b := range g.world.ActiveBeams() {
+		end := b.Origin.Add(b.Dir.Multiply(b.Length))
+
+		// Perpendicular unit vector (90° CCW rotation of Dir).
+		perp := geom.PointF{X: -b.Dir.Y, Y: b.Dir.X}
+		hw := float32(b.Width / 2)
+
+		ox, oy := float32(b.Origin.X-cam.X), float32(b.Origin.Y-cam.Y)
+		ex, ey := float32(end.X-cam.X), float32(end.Y-cam.Y)
+		px, py := float32(perp.X)*hw, float32(perp.Y)*hw
+
+		vertices := []ebiten.Vertex{
+			{DstX: ox + px, DstY: oy + py, SrcX: 0, SrcY: 0, ColorR: 0.2, ColorG: 1, ColorB: 0.4, ColorA: 0.9},
+			{DstX: ox - px, DstY: oy - py, SrcX: 0, SrcY: 0, ColorR: 0.2, ColorG: 1, ColorB: 0.4, ColorA: 0.9},
+			{DstX: ex + px, DstY: ey + py, SrcX: 0, SrcY: 0, ColorR: 0.2, ColorG: 1, ColorB: 0.4, ColorA: 0.9},
+			{DstX: ex - px, DstY: ey - py, SrcX: 0, SrcY: 0, ColorR: 0.2, ColorG: 1, ColorB: 0.4, ColorA: 0.9},
+		}
+		screen.DrawTriangles(vertices, []uint16{0, 1, 2, 1, 3, 2}, drawing.WhitePixel, &ebiten.DrawTrianglesOptions{})
+	}
 }

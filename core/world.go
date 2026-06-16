@@ -83,6 +83,7 @@ func (w *World) Update(move geom.PointF) {
 	w.Tick++
 	w.updatePlayer(move)
 	w.updateWeapons()
+	w.updateBeams()
 	w.updateProjectiles()
 	w.updateEnemies()
 	w.updateGems()
@@ -135,9 +136,15 @@ func (w *World) updateWeapons() {
 			continue
 		}
 
-		// Projectiles spawn from the weapon's turret tile, offset and rotated to
-		// match the tank's facing, and aim from there toward the target.
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+
+		if weapon.Kind == KindLaser {
+			weapon.beamTicksLeft = stats.BeamDuration
+			weapon.cooldown = stats.FireInterval
+			continue
+		}
+
+		// Projectiles aim from the turret tile muzzle toward the target.
 		dir := target.Pos.Subtract(muzzle)
 		d := dir.Abs()
 		if d == 0 {
@@ -158,6 +165,73 @@ func (w *World) updateWeapons() {
 		}
 		weapon.cooldown = stats.FireInterval
 	}
+}
+
+// updateBeams applies DPS from active laser beams each tick.
+// Beams track the nearest enemy each frame and penetrate all enemies in path.
+func (w *World) updateBeams() {
+	for _, weapon := range w.Player.Weapons {
+		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
+			continue
+		}
+		weapon.beamTicksLeft--
+
+		stats := weapon.StatsFromEnergy()
+		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+		target := w.nearestEnemy(muzzle, stats.Range)
+		if target == nil {
+			continue
+		}
+
+		dir := target.Pos.Subtract(muzzle)
+		d := dir.Abs()
+		if d == 0 {
+			continue
+		}
+		unitDir := dir.Multiply(1 / d)
+		end := muzzle.Add(unitDir.Multiply(stats.BeamLength))
+		halfWidth := stats.BeamWidth / 2
+
+		for _, e := range w.Enemies {
+			if !e.alive {
+				continue
+			}
+			if geom.PointSegmentDistance(e.Pos, muzzle, end) <= halfWidth+e.Radius {
+				e.HP -= stats.Damage
+				if e.HP <= 0 {
+					w.killEnemy(e)
+				}
+			}
+		}
+	}
+}
+
+// ActiveBeams returns snapshots of all currently firing laser beams for drawing.
+func (w *World) ActiveBeams() []BeamView {
+	var out []BeamView
+	for _, weapon := range w.Player.Weapons {
+		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
+			continue
+		}
+		stats := weapon.StatsFromEnergy()
+		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+		target := w.nearestEnemy(muzzle, stats.Range)
+		if target == nil {
+			continue
+		}
+		dir := target.Pos.Subtract(muzzle)
+		d := dir.Abs()
+		if d == 0 {
+			continue
+		}
+		out = append(out, BeamView{
+			Origin: muzzle,
+			Dir:    dir.Multiply(1 / d),
+			Length: stats.BeamLength,
+			Width:  stats.BeamWidth,
+		})
+	}
+	return out
 }
 
 func (w *World) nearestEnemy(from geom.PointF, maxRange float64) *Enemy {

@@ -61,3 +61,21 @@ func PointFFromPoint(p image.Point) PointF {
 		Y: float64(p.Y),
 	}
 }
+
+// PointSegmentDistance returns the shortest distance from point p to the
+// line segment from a to b (clamped to the endpoints).
+func PointSegmentDistance(p, a, b PointF) float64 {
+	ab := b.Subtract(a)
+	lenSq := ab.InnerProduct(ab)
+	if lenSq == 0 {
+		return p.Subtract(a).Abs()
+	}
+	t := p.Subtract(a).InnerProduct(ab) / lenSq
+	if t < 0 {
+		t = 0
+	} else if t > 1 {
+		t = 1
+	}
+	closest := a.Add(ab.Multiply(t))
+	return p.Subtract(closest).Abs()
+}

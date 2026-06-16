@@ -44,3 +44,11 @@ type Gem struct {
 	Value float64
 	alive bool
 }
+
+// BeamView is a read-only snapshot of an active laser beam for the scene layer to draw.
+type BeamView struct {
+	Origin geom.PointF // world-space muzzle position
+	Dir    geom.PointF // unit vector toward the target
+	Length float64
+	Width  float64
+}
