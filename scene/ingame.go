@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -265,6 +266,8 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 }
 
 // drawTurretGrid draws all tiles on the turret as coloured squares in hex brick layout.
+// Tiles are sorted before drawing to ensure a deterministic draw order every frame,
+// which prevents flicker caused by random map iteration order in Go.
 func (g *InGame) drawTurretGrid(screen *ebiten.Image) {
 	tr := g.world.Turret()
 	if tr == nil {
@@ -274,7 +277,24 @@ func (g *InGame) drawTurretGrid(screen *ebiten.Image) {
 	// Compute powered tiles for colour coding.
 	power := tr.ComputePower()
 
-	for idx, tile := range tr.Tiles() {
+	// Collect and sort indices: left-to-right (px), then top-to-bottom (py).
+	// This eliminates flicker from random map iteration order.
+	tiles := tr.Tiles()
+	indices := make([]hexmap.Index, 0, len(tiles))
+	for idx := range tiles {
+		indices = append(indices, idx)
+	}
+	sort.Slice(indices, func(i, j int) bool {
+		pxi, pyi := g.hexToScreen(indices[i])
+		pxj, pyj := g.hexToScreen(indices[j])
+		if pxi != pxj {
+			return pxi < pxj
+		}
+		return pyi < pyj
+	})
+
+	for _, idx := range indices {
+		tile := tiles[idx]
 		px, py := g.hexToScreen(idx)
 		const pad = 2.0
 		x := px - tileSize/2 + pad
@@ -345,14 +365,19 @@ func (g *InGame) tileHasChoice(idx hexmap.Index) bool {
 }
 
 // hexToScreen converts a hex index to screen pixel position (centre of the tile).
-// Brick-layout: x-axis maps to screen-right with y-axis half-offset (offset coords).
+// Vertical brick layout: tank "up" is screen up, so columns run vertically.
+// Column q is offset horizontally by 0.866*tileSize; within each column, row r
+// shifts down by half a tile for odd q values (brick stagger).
+//
+// Formula (pointy-top hex rendered as vertical bricks):
+//
+//	px = center + q * tileSize * 0.866
+//	py = center + (r + q*0.5) * tileSize
 func (g *InGame) hexToScreen(idx hexmap.Index) (px, py float64) {
-	// Axial (q,r) = (x, y) in our cube coord system.
 	q := float64(idx.X())
 	r := float64(idx.Y())
-	// Brick offset: each row shifts right by half a tile.
-	px = turretCenterX + (q+r*0.5)*tileSize
-	py = turretCenterY + r*tileSize*0.866
+	px = turretCenterX + q*tileSize*0.866
+	py = turretCenterY + (r+q*0.5)*tileSize
 	return
 }
 
