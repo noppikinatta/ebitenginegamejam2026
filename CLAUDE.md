@@ -50,8 +50,8 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 - [x] **フェーズ0：ビルドを通す** — `ui` パッケージ作成、旧 `2025` import 修正、InGame/Result スタブ、埋め込みアセットのプレースホルダ整備。WASM ビルドと vet が通る
 - [x] **フェーズ1：最小VSループ** — `core` パッケージ（Ebiten非依存）で 戦車移動・自動武装・弾・敵・経験値ジェム・レベルアップ・スポーンを実装。InGame シーンで描画＋入力。単体テスト 23 件
-- [ ] **フェーズ2：レベルアップ選択（簡易版）** — レベルアップでポーズし、強化を1つ選ぶ簡易UI（まだツリーではない）
-- [ ] **フェーズ3：配線ツリー（Disconnect本体）** — 砲塔ノードのツリー。切ると下流も切れ、energy が残存経路へ再配分
+- [x] **フェーズ2：レベルアップ選択（簡易版）** — レベルアップで `StateLevelUp` にポーズし、カタログから3択（1/2/3キー）。`core/upgrade.go` の `Upgrade` + `World.ChooseUpgrade`。まだツリーではない
+- [ ] **フェーズ3：配線ツリー（Disconnect本体）** — 砲塔ノードのツリー。切ると下流も切れ、energy が残存経路へ再配分。Phase 2 の3択UIをツリー切断UIに置き換える
 
 ### 既知の暫定対応・残課題
 
