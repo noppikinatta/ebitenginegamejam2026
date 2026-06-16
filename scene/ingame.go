@@ -104,7 +104,6 @@ func lerpAngle(a, b, t float64) float64 {
 
 // handleLevelUpInput handles click / Shift+click on the turret overlay.
 // Left-click on a tile → tile-purge (Cut); Shift+left-click → weapon-purge (Disarm).
-// Falls back to numeric keys 1-9 for non-mouse scenarios.
 func (g *InGame) handleLevelUpInput() {
 	mx, my := ebiten.CursorPosition()
 	g.hoveredSet = false
@@ -134,23 +133,6 @@ func (g *InGame) handleLevelUpInput() {
 					return
 				}
 			}
-		}
-	}
-
-	// Numeric key fallback (for keyboard-only / development).
-	kb := g.input.Keyboard
-	if kb == nil {
-		return
-	}
-	keys := []ebiten.Key{
-		ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3,
-		ebiten.KeyDigit4, ebiten.KeyDigit5, ebiten.KeyDigit6,
-		ebiten.KeyDigit7, ebiten.KeyDigit8, ebiten.KeyDigit9,
-	}
-	for i, k := range keys {
-		if i < len(g.world.Choices) && kb.IsJustPressed(k) {
-			g.world.ChooseUpgrade(i)
-			return
 		}
 	}
 }
