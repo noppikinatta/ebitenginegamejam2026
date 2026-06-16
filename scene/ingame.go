@@ -44,6 +44,11 @@ type InGame struct {
 	// hovered is the hex index the mouse is currently over during level-up.
 	hovered    *hexmap.Index
 	hoveredSet bool
+
+	// turretRenderedAngle is the smoothed turret facing used for combat drawing.
+	// It eases toward world.Player.FacingAngle so the turret rotates over a few
+	// frames instead of snapping instantly.
+	turretRenderedAngle float64
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -63,11 +68,15 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 // directly with a fixed seed for deterministic tests.
 func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano())
+	// Snap the rendered turret angle to the fresh world's facing so it doesn't
+	// spin from a stale value on scene entry.
+	g.turretRenderedAngle = g.world.Player.FacingAngle
 }
 
 func (g *InGame) Update() error {
 	if g.world == nil {
 		g.world = core.NewWorld(time.Now().UnixNano())
+		g.turretRenderedAngle = g.world.Player.FacingAngle
 	}
 
 	switch g.world.State {
@@ -80,7 +89,17 @@ func (g *InGame) Update() error {
 	default:
 		g.world.Update(g.readMove())
 	}
+
+	// Ease the rendered turret angle toward the tank's facing every frame.
+	g.turretRenderedAngle = lerpAngle(g.turretRenderedAngle, g.world.Player.FacingAngle, 0.18)
 	return nil
+}
+
+// lerpAngle eases a toward b by fraction t along the shortest angular path,
+// so wrapping across ±pi rotates the short way rather than spinning around.
+func lerpAngle(a, b, t float64) float64 {
+	diff := math.Atan2(math.Sin(b-a), math.Cos(b-a))
+	return a + diff*t
 }
 
 // handleLevelUpInput handles click / Shift+click on the turret overlay.
@@ -281,7 +300,8 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 	psy := g.world.Player.Pos.Y - cam.Y
 
 	// Rotate so that -pi/2 (default facing = up) maps to 0 rotation on screen.
-	theta := g.world.Player.FacingAngle + math.Pi/2
+	// Use the smoothed angle so the turret eases into new headings.
+	theta := g.turretRenderedAngle + math.Pi/2
 
 	power := tr.ComputePower()
 
