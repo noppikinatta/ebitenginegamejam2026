@@ -11,6 +11,7 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/core"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
+	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
@@ -18,6 +19,15 @@ const (
 	screenW = 1280
 	screenH = 720
 	gridGap = 64
+
+	// Turret overlay layout constants.
+	tileSize     = 48.0  // px per hex tile square
+	turretAreaW  = 500.0 // width of the turret overlay panel
+	turretAreaH  = 400.0 // height of the turret overlay panel
+	turretAreaX  = (screenW - turretAreaW) / 2.0
+	turretAreaY  = (screenH-turretAreaH)/2.0 + 20
+	turretCenterX = turretAreaX + turretAreaW/2.0
+	turretCenterY = turretAreaY + turretAreaH/2.0
 )
 
 // InGame is the main gameplay scene: a Vampire-Survivors-like run driven by the
@@ -28,6 +38,10 @@ type InGame struct {
 	nextScene  ebiten.Game
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
+
+	// hovered is the hex index the mouse is currently over during level-up.
+	hovered    *hexmap.Index
+	hoveredSet bool
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -67,8 +81,52 @@ func (g *InGame) Update() error {
 	return nil
 }
 
-// handleLevelUpInput lets the player pick a disconnect by pressing 1–9.
+// handleLevelUpInput handles click / Shift+click on the turret overlay.
+// Left-click on a tile → tile-purge (Cut); Shift+left-click → weapon-purge (Disarm).
+// Falls back to numeric keys 1-9 for non-mouse scenarios.
 func (g *InGame) handleLevelUpInput() {
+	mx, my := ebiten.CursorPosition()
+	g.hoveredSet = false
+
+	// Update hover state.
+	if idx, ok := g.screenToHex(float64(mx), float64(my)); ok {
+		g.hovered = &idx
+		g.hoveredSet = true
+	} else {
+		g.hovered = nil
+	}
+
+	if g.input.Mouse != nil && g.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {
+		if g.hoveredSet && g.hovered != nil {
+			idx := *g.hovered
+			shiftHeld := ebiten.IsKeyPressed(ebiten.KeyShift)
+			prefix := "Cut "
+			if shiftHeld {
+				prefix = "Disarm "
+			}
+			// Find the matching choice by prefix + index string.
+			idxStr := idx.String()
+			for i, c := range g.world.Choices {
+				if len(c.Name) >= len(prefix) && c.Name[:len(prefix)] == prefix &&
+					len(c.Name) >= len(prefix)+len(idxStr) &&
+					c.Name[len(prefix)+len(c.Name[len(prefix):len(prefix)+4]):] != "" {
+					// Match on the hex coordinate embedded in the name.
+					_ = i
+				}
+			}
+			// Simpler: match by looking for idxStr anywhere in the name.
+			for i, c := range g.world.Choices {
+				hasPrefix := len(c.Name) >= len(prefix) && c.Name[:len(prefix)] == prefix
+				hasIdx := containsStr(c.Name, idxStr)
+				if hasPrefix && hasIdx {
+					g.world.ChooseUpgrade(i)
+					return
+				}
+			}
+		}
+	}
+
+	// Numeric key fallback (for keyboard-only / development).
 	kb := g.input.Keyboard
 	if kb == nil {
 		return
@@ -84,6 +142,18 @@ func (g *InGame) handleLevelUpInput() {
 			return
 		}
 	}
+}
+
+func containsStr(s, sub string) bool {
+	if len(sub) == 0 {
+		return true
+	}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *InGame) readMove() geom.PointF {
@@ -127,7 +197,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawEntity(screen, cam, p.Pos, 8, 8, 1, 0.9, 0.3, 1)
 	}
 
-	// Player tank, blinking while invulnerable.
+	// Player tank.
 	pr := w.Player.Radius * 2
 	drawEntity(screen, cam, w.Player.Pos, pr, pr, 0.3, 0.8, 0.5, 1)
 
@@ -150,38 +220,192 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 	drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.65)
 
+	// Panel background.
+	drawing.DrawRect(screen, turretAreaX-12, turretAreaY-60, turretAreaW+24, turretAreaH+80, 0.05, 0.07, 0.14, 0.97)
+
 	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(515, 30)
-	drawing.DrawText(screen, "DISCONNECT", 42, opt)
+	opt.GeoM.Translate(turretAreaX, turretAreaY-54)
+	drawing.DrawText(screen, fmt.Sprintf("DISCONNECT  Lv %d", g.world.Player.Level), 28, opt)
 
 	opt = &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(410, 90)
-	drawing.DrawText(screen, fmt.Sprintf("Lv %d — Press a number key to cut a node", g.world.Player.Level), 18, opt)
+	opt.GeoM.Translate(turretAreaX, turretAreaY-24)
+	drawing.DrawText(screen, "Click tile to Cut  |  Shift+Click to Disarm weapon only  |  1-9 keys also work", 13, opt)
 
-	const (
-		cardW = 740
-		cardH = 64
-		gap   = 8
-	)
-	n := len(g.world.Choices)
-	totalH := float64(n*(cardH+gap) - gap)
-	x := float64(screenW-cardW) / 2
-	y := (float64(screenH) - totalH) / 2
+	// Draw turret hex grid.
+	g.drawTurretGrid(screen)
 
-	for i, c := range g.world.Choices {
-		drawing.DrawRect(screen, x, y, cardW, cardH, 0.12, 0.15, 0.25, 0.95)
-		drawing.DrawRect(screen, x, y, 4, cardH, 0.6, 0.3, 1, 1) // left accent
-
-		opt := &ebiten.DrawImageOptions{}
-		opt.GeoM.Translate(x+16, y+8)
-		drawing.DrawText(screen, fmt.Sprintf("%d. %s", i+1, c.Name), 22, opt)
-
-		opt = &ebiten.DrawImageOptions{}
-		opt.GeoM.Translate(x+16, y+38)
-		drawing.DrawText(screen, c.Desc, 15, opt)
-
-		y += cardH + gap
+	// Draw the currently hovered tile's choice description at the bottom.
+	if g.hoveredSet && g.hovered != nil {
+		idx := *g.hovered
+		idxStr := idx.String()
+		for _, c := range g.world.Choices {
+			if containsStr(c.Name, idxStr) {
+				opt = &ebiten.DrawImageOptions{}
+				opt.GeoM.Translate(turretAreaX, turretAreaY+turretAreaH+4)
+				drawing.DrawText(screen, c.Name, 16, opt)
+				opt = &ebiten.DrawImageOptions{}
+				opt.GeoM.Translate(turretAreaX, turretAreaY+turretAreaH+24)
+				drawing.DrawText(screen, c.Desc, 13, opt)
+				break
+			}
+		}
+	} else {
+		// Show numbered list as fallback when nothing is hovered.
+		y := turretAreaY + turretAreaH + 4
+		for i, c := range g.world.Choices {
+			if i >= 6 {
+				break
+			}
+			opt = &ebiten.DrawImageOptions{}
+			opt.GeoM.Translate(turretAreaX, y)
+			drawing.DrawText(screen, fmt.Sprintf("%d. %s", i+1, c.Name), 13, opt)
+			y += 16
+		}
 	}
+}
+
+// drawTurretGrid draws all tiles on the turret as coloured squares in hex brick layout.
+func (g *InGame) drawTurretGrid(screen *ebiten.Image) {
+	tr := g.world.Turret()
+	if tr == nil {
+		return
+	}
+
+	// Compute powered tiles for colour coding.
+	power := tr.ComputePower()
+
+	for idx, tile := range tr.Tiles() {
+		px, py := g.hexToScreen(idx)
+		const pad = 2.0
+		x := px - tileSize/2 + pad
+		y := py - tileSize/2 + pad
+		w := tileSize - pad*2
+		h := tileSize - pad*2
+
+		if tile.IsPurged() {
+			drawing.DrawRect(screen, x, y, w, h, 0.15, 0.15, 0.2, 0.6)
+			continue
+		}
+
+		p := power[idx]
+		isGen := tr.IsGenerator(idx)
+
+		var r, gr, b float32
+		switch tile.Component.(type) {
+		case core.ProportionalWeapon, core.ThresholdWeapon:
+			if p > 0 {
+				r, gr, b = 1, 0.6, 0.1 // orange: active weapon
+			} else {
+				r, gr, b = 0.5, 0.25, 0.05 // dim orange: unpowered weapon
+			}
+		case core.Capacitor:
+			r, gr, b = 0.3, 0.9, 0.6 // teal: capacitor
+		default: // Wire or generator
+			if isGen {
+				r, gr, b = 1, 1, 0.2 // yellow: generator
+			} else if p > 0 {
+				r, gr, b = 0.25, 0.45, 0.85 // blue: powered wire
+			} else {
+				r, gr, b = 0.12, 0.18, 0.35 // dark: unpowered wire
+			}
+		}
+
+		// Highlight hovered tile.
+		if g.hoveredSet && g.hovered != nil && *g.hovered == idx {
+			r = clamp32(r+0.3, 0, 1)
+			gr = clamp32(gr+0.3, 0, 1)
+			b = clamp32(b+0.3, 0, 1)
+		}
+
+		drawing.DrawRect(screen, x, y, w, h, r, gr, b, 1)
+
+		// Draw left accent bar if the tile has a choice.
+		if g.tileHasChoice(idx) {
+			drawing.DrawRect(screen, x, y, 3, h, 1, 1, 1, 0.6)
+		}
+
+		// Label inside the tile.
+		lbl := tileShortLabel(tile, isGen)
+		if lbl != "" {
+			opt := &ebiten.DrawImageOptions{}
+			opt.GeoM.Translate(px-tileSize/2+5, py-7)
+			drawing.DrawText(screen, lbl, 11, opt)
+		}
+	}
+}
+
+func (g *InGame) tileHasChoice(idx hexmap.Index) bool {
+	idxStr := idx.String()
+	for _, c := range g.world.Choices {
+		if containsStr(c.Name, idxStr) {
+			return true
+		}
+	}
+	return false
+}
+
+// hexToScreen converts a hex index to screen pixel position (centre of the tile).
+// Brick-layout: x-axis maps to screen-right with y-axis half-offset (offset coords).
+func (g *InGame) hexToScreen(idx hexmap.Index) (px, py float64) {
+	// Axial (q,r) = (x, y) in our cube coord system.
+	q := float64(idx.X())
+	r := float64(idx.Y())
+	// Brick offset: each row shifts right by half a tile.
+	px = turretCenterX + (q+r*0.5)*tileSize
+	py = turretCenterY + r*tileSize*0.866
+	return
+}
+
+// screenToHex converts a screen pixel position to the nearest hex index,
+// returning ok=false if the position is outside any tile bounding box.
+func (g *InGame) screenToHex(sx, sy float64) (hexmap.Index, bool) {
+	if g.world == nil || g.world.Turret() == nil {
+		return hexmap.Index{}, false
+	}
+	for idx := range g.world.Turret().Tiles() {
+		px, py := g.hexToScreen(idx)
+		if sx >= px-tileSize/2 && sx < px+tileSize/2 &&
+			sy >= py-tileSize/2 && sy < py+tileSize/2 {
+			return idx, true
+		}
+	}
+	return hexmap.Index{}, false
+}
+
+func tileShortLabel(tile *core.Tile, isGen bool) string {
+	if isGen {
+		return "GEN"
+	}
+	if tile == nil {
+		return ""
+	}
+	switch c := tile.Component.(type) {
+	case core.ProportionalWeapon:
+		n := c.Weapon.Name
+		if len(n) > 4 {
+			n = n[:4]
+		}
+		return n
+	case core.ThresholdWeapon:
+		n := c.Weapon.Name
+		if len(n) > 4 {
+			n = n[:4]
+		}
+		return n
+	case core.Capacitor:
+		return "CAP"
+	}
+	return "W" // wire
+}
+
+func clamp32(v, lo, hi float32) float32 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
 
 func (g *InGame) drawGrid(screen *ebiten.Image, cam geom.PointF) {
@@ -218,7 +442,7 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(20, 64)
-	drawing.DrawText(screen, fmt.Sprintf("Lv %d", p.Level), 18, opt)
+	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f", p.Level, p.Speed), 18, opt)
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW-220, 20)

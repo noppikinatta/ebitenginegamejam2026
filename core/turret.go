@@ -74,6 +74,11 @@ func (t *Tile) IsActive() bool {
 	return !t.purged && t.Component != nil
 }
 
+// IsPurged reports whether the tile has been purged from the grid.
+func (t *Tile) IsPurged() bool {
+	return t.purged
+}
+
 // ---- Turret ----
 
 // Turret is the hex-grid turret mounted on the tank. Generator tiles at given
