@@ -125,17 +125,7 @@ func (g *InGame) handleLevelUpInput() {
 			if shiftHeld {
 				prefix = "Disarm "
 			}
-			// Find the matching choice by prefix + index string.
 			idxStr := idx.String()
-			for i, c := range g.world.Choices {
-				if len(c.Name) >= len(prefix) && c.Name[:len(prefix)] == prefix &&
-					len(c.Name) >= len(prefix)+len(idxStr) &&
-					c.Name[len(prefix)+len(c.Name[len(prefix):len(prefix)+4]):] != "" {
-					// Match on the hex coordinate embedded in the name.
-					_ = i
-				}
-			}
-			// Simpler: match by looking for idxStr anywhere in the name.
 			for i, c := range g.world.Choices {
 				hasPrefix := len(c.Name) >= len(prefix) && c.Name[:len(prefix)] == prefix
 				hasIdx := containsStr(c.Name, idxStr)
