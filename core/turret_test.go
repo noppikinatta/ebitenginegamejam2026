@@ -51,14 +51,14 @@ func TestCapacitor_Amplifies(t *testing.T) {
 func TestProportionalWeapon_KeepsOneShare(t *testing.T) {
 	pw := ProportionalWeapon{Weapon: NewWeapon("w", 0, KindCannon)}
 	cases := []struct {
-		received     float64
-		downstream   int
-		wantSelf     float64
-		wantThrough  float64
+		received    float64
+		downstream  int
+		wantSelf    float64
+		wantThrough float64
 	}{
-		{12, 0, 12, 0},  // no downstream: keeps everything
-		{12, 2, 4, 8},   // 3 shares total: keeps 1, forwards 2
-		{12, 5, 2, 10},  // 6 shares: keeps 1, forwards 5
+		{12, 0, 12, 0}, // no downstream: keeps everything
+		{12, 2, 4, 8},  // 3 shares total: keeps 1, forwards 2
+		{12, 5, 2, 10}, // 6 shares: keeps 1, forwards 5
 	}
 	for _, tc := range cases {
 		self, through := pw.Distribute(tc.received, tc.downstream)

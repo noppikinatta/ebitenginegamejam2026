@@ -524,7 +524,31 @@ func TestDeterminism_DifferentSeedsDifferentSpawns(t *testing.T) {
 	}
 }
 
-// ── 8. Enemy chases player ────────────────────────────────────────────────────
+// ── 8. FacingAngle tracks movement ───────────────────────────────────────────
+
+func TestUpdate_FacingAngleTracksMovement(t *testing.T) {
+	w := NewWorld(testSeed)
+
+	// Move right: angle should be 0.
+	w.Update(geom.PointF{X: 1, Y: 0})
+	if !almostEqual(w.Player.FacingAngle, 0, 1e-9) {
+		t.Errorf("FacingAngle after rightward move = %.6f, want ~0", w.Player.FacingAngle)
+	}
+
+	// Zero move: FacingAngle must not change.
+	w.Update(geom.PointF{X: 0, Y: 0})
+	if !almostEqual(w.Player.FacingAngle, 0, 1e-9) {
+		t.Errorf("FacingAngle changed on zero move: %.6f, want ~0", w.Player.FacingAngle)
+	}
+
+	// Move up (Y negative in screen coords): angle should be -pi/2.
+	w.Update(geom.PointF{X: 0, Y: -1})
+	if !almostEqual(w.Player.FacingAngle, -math.Pi/2, 1e-9) {
+		t.Errorf("FacingAngle after upward move = %.6f, want ~-pi/2 (%.6f)", w.Player.FacingAngle, -math.Pi/2)
+	}
+}
+
+// ── 9. Enemy chases player ───────────────────────────────────────────────────
 
 func TestUpdate_EnemyChasesPlayer(t *testing.T) {
 	w := NewWorld(testSeed)
@@ -548,7 +572,7 @@ func TestUpdate_EnemyChasesPlayer(t *testing.T) {
 	}
 }
 
-// ── 9. Projectile life expiry ─────────────────────────────────────────────────
+// ── 10. Projectile life expiry ────────────────────────────────────────────────
 
 func TestUpdate_ProjectileExpiresAfterLifeTicks(t *testing.T) {
 	w := NewWorld(testSeed)

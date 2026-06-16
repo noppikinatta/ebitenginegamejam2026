@@ -6,51 +6,51 @@ import (
 
 func TestStatsFromEnergy_TableDriven(t *testing.T) {
 	tests := []struct {
-		name             string
-		energy           float64
-		wantDamageMin    float64 // Damage must be >= this
-		wantRangeMin     float64 // Range must be >= this
-		wantIntervalMax  int     // FireInterval must be <= this
-		wantIntervalFloor int    // FireInterval must be >= this (clamp floor)
+		name              string
+		energy            float64
+		wantDamageMin     float64 // Damage must be >= this
+		wantRangeMin      float64 // Range must be >= this
+		wantIntervalMax   int     // FireInterval must be <= this
+		wantIntervalFloor int     // FireInterval must be >= this (clamp floor)
 	}{
 		{
-			name:             "zero energy",
-			energy:           0,
-			wantDamageMin:    5,    // 5 + 0*3
-			wantRangeMin:     220,  // 220 + 0*20
-			wantIntervalMax:  45,   // 45 - 0*4
+			name:              "zero energy",
+			energy:            0,
+			wantDamageMin:     5,   // 5 + 0*3
+			wantRangeMin:      220, // 220 + 0*20
+			wantIntervalMax:   45,  // 45 - 0*4
 			wantIntervalFloor: 6,
 		},
 		{
-			name:             "small energy (3)",
-			energy:           3,
-			wantDamageMin:    14,   // 5 + 3*3
-			wantRangeMin:     280,  // 220 + 3*20
-			wantIntervalMax:  33,   // 45 - 3*4
+			name:              "small energy (3)",
+			energy:            3,
+			wantDamageMin:     14,  // 5 + 3*3
+			wantRangeMin:      280, // 220 + 3*20
+			wantIntervalMax:   33,  // 45 - 3*4
 			wantIntervalFloor: 6,
 		},
 		{
-			name:             "medium energy (9)",
-			energy:           9,
-			wantDamageMin:    32,   // 5 + 9*3
-			wantRangeMin:     400,  // 220 + 9*20
-			wantIntervalMax:  9,    // 45 - 9*4 = 9
+			name:              "medium energy (9)",
+			energy:            9,
+			wantDamageMin:     32,  // 5 + 9*3
+			wantRangeMin:      400, // 220 + 9*20
+			wantIntervalMax:   9,   // 45 - 9*4 = 9
 			wantIntervalFloor: 6,
 		},
 		{
-			name:             "high energy hits fire-interval floor",
-			energy:           20,
-			wantDamageMin:    65,   // 5 + 20*3
-			wantRangeMin:     620,  // 220 + 20*20
-			wantIntervalMax:  6,    // clamped to 6
+			name:              "high energy hits fire-interval floor",
+			energy:            20,
+			wantDamageMin:     65,  // 5 + 20*3
+			wantRangeMin:      620, // 220 + 20*20
+			wantIntervalMax:   6,   // clamped to 6
 			wantIntervalFloor: 6,
 		},
 		{
-			name:             "very high energy still clamped",
-			energy:           100,
-			wantDamageMin:    305,  // 5 + 100*3
-			wantRangeMin:     2220, // 220 + 100*20
-			wantIntervalMax:  6,    // clamped to 6
+			name:              "very high energy still clamped",
+			energy:            100,
+			wantDamageMin:     305,  // 5 + 100*3
+			wantRangeMin:      2220, // 220 + 100*20
+			wantIntervalMax:   6,    // clamped to 6
 			wantIntervalFloor: 6,
 		},
 	}

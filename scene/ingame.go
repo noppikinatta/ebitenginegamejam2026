@@ -22,13 +22,14 @@ const (
 	gridGap = 64
 
 	// Turret overlay layout constants.
-	tileSize     = 48.0  // px per hex tile square
-	turretAreaW  = 500.0 // width of the turret overlay panel
-	turretAreaH  = 400.0 // height of the turret overlay panel
-	turretAreaX  = (screenW - turretAreaW) / 2.0
-	turretAreaY  = (screenH-turretAreaH)/2.0 + 20
-	turretCenterX = turretAreaX + turretAreaW/2.0
-	turretCenterY = turretAreaY + turretAreaH/2.0
+	tileSize       = 48.0  // px per hex tile square (level-up overlay)
+	combatTileSize = 14.0  // px per hex tile square (combat miniature on tank)
+	turretAreaW    = 500.0 // width of the turret overlay panel
+	turretAreaH    = 400.0 // height of the turret overlay panel
+	turretAreaX    = (screenW - turretAreaW) / 2.0
+	turretAreaY    = (screenH-turretAreaH)/2.0 + 20
+	turretCenterX  = turretAreaX + turretAreaW/2.0
+	turretCenterY  = turretAreaY + turretAreaH/2.0
 )
 
 // InGame is the main gameplay scene: a Vampire-Survivors-like run driven by the
@@ -202,6 +203,9 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	pr := w.Player.Radius * 2
 	drawEntity(screen, cam, w.Player.Pos, pr, pr, 0.3, 0.8, 0.5, 1)
 
+	// Turret miniature on top of the tank body, rotated to face movement direction.
+	g.drawTurretCombat(screen, cam)
+
 	g.drawHUD(screen)
 
 	switch w.State {
@@ -265,6 +269,81 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 	}
 }
 
+// drawTurretCombat draws the turret hex grid miniature centred on the player tank,
+// rotated to match the player's FacingAngle. Called every frame during play.
+func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
+	tr := g.world.Turret()
+	if tr == nil {
+		return
+	}
+
+	psx := g.world.Player.Pos.X - cam.X
+	psy := g.world.Player.Pos.Y - cam.Y
+
+	// Rotate so that -pi/2 (default facing = up) maps to 0 rotation on screen.
+	theta := g.world.Player.FacingAngle + math.Pi/2
+
+	power := tr.ComputePower()
+
+	// Collect and sort tiles for deterministic draw order.
+	tiles := tr.Tiles()
+	indices := make([]hexmap.Index, 0, len(tiles))
+	for idx := range tiles {
+		if tiles[idx].IsPurged() {
+			continue
+		}
+		indices = append(indices, idx)
+	}
+	sort.Slice(indices, func(i, j int) bool {
+		dxi, dyi := hexLocalOffset(indices[i], combatTileSize)
+		offi := geom.PointF{X: dxi, Y: dyi}
+		roti := geom.PointFFromPolar(offi.Abs(), offi.Angle()+theta)
+		dxj, dyj := hexLocalOffset(indices[j], combatTileSize)
+		offj := geom.PointF{X: dxj, Y: dyj}
+		rotj := geom.PointFFromPolar(offj.Abs(), offj.Angle()+theta)
+		cxi := psx + roti.X
+		cxj := psx + rotj.X
+		if cxi != cxj {
+			return cxi < cxj
+		}
+		return psy+roti.Y < psy+rotj.Y
+	})
+
+	for _, idx := range indices {
+		tile := tiles[idx]
+		dx, dy := hexLocalOffset(idx, combatTileSize)
+		off := geom.PointF{X: dx, Y: dy}
+		rot := geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
+		cx := psx + rot.X
+		cy := psy + rot.Y
+
+		r, gr, b := tileColorRGB(tr, idx, tile, power[idx])
+		drawing.DrawRect(screen, cx-combatTileSize/2, cy-combatTileSize/2, combatTileSize-2, combatTileSize-2, r, gr, b, 1)
+	}
+}
+
+// tileColorRGB returns the display colour for a tile given its power level.
+func tileColorRGB(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64) (r, gr, b float32) {
+	isGen := tr.IsGenerator(idx)
+	switch tile.Component.(type) {
+	case core.ProportionalWeapon, core.ThresholdWeapon:
+		if power > 0 {
+			return 1, 0.6, 0.1 // orange: active weapon
+		}
+		return 0.5, 0.25, 0.05 // dim orange: unpowered weapon
+	case core.Capacitor:
+		return 0.3, 0.9, 0.6 // teal: capacitor
+	default: // Wire or generator
+		if isGen {
+			return 1, 1, 0.2 // yellow: generator
+		}
+		if power > 0 {
+			return 0.25, 0.45, 0.85 // blue: powered wire
+		}
+		return 0.12, 0.18, 0.35 // dark: unpowered wire
+	}
+}
+
 // drawTurretGrid draws all tiles on the turret as coloured squares in hex brick layout.
 // Tiles are sorted before drawing to ensure a deterministic draw order every frame,
 // which prevents flicker caused by random map iteration order in Go.
@@ -307,28 +386,7 @@ func (g *InGame) drawTurretGrid(screen *ebiten.Image) {
 			continue
 		}
 
-		p := power[idx]
-		isGen := tr.IsGenerator(idx)
-
-		var r, gr, b float32
-		switch tile.Component.(type) {
-		case core.ProportionalWeapon, core.ThresholdWeapon:
-			if p > 0 {
-				r, gr, b = 1, 0.6, 0.1 // orange: active weapon
-			} else {
-				r, gr, b = 0.5, 0.25, 0.05 // dim orange: unpowered weapon
-			}
-		case core.Capacitor:
-			r, gr, b = 0.3, 0.9, 0.6 // teal: capacitor
-		default: // Wire or generator
-			if isGen {
-				r, gr, b = 1, 1, 0.2 // yellow: generator
-			} else if p > 0 {
-				r, gr, b = 0.25, 0.45, 0.85 // blue: powered wire
-			} else {
-				r, gr, b = 0.12, 0.18, 0.35 // dark: unpowered wire
-			}
-		}
+		r, gr, b := tileColorRGB(tr, idx, tile, power[idx])
 
 		// Highlight hovered tile.
 		if g.hoveredSet && g.hovered != nil && *g.hovered == idx {
@@ -345,6 +403,7 @@ func (g *InGame) drawTurretGrid(screen *ebiten.Image) {
 		}
 
 		// Label inside the tile.
+		isGen := tr.IsGenerator(idx)
 		lbl := tileShortLabel(tile, isGen)
 		if lbl != "" {
 			opt := &ebiten.DrawImageOptions{}
@@ -364,6 +423,16 @@ func (g *InGame) tileHasChoice(idx hexmap.Index) bool {
 	return false
 }
 
+// hexLocalOffset returns the tile centre offset (px) from the turret centre,
+// for a tile at hex index idx, using the given tile size. Vertical brick layout.
+func hexLocalOffset(idx hexmap.Index, size float64) (dx, dy float64) {
+	q := float64(idx.X())
+	r := float64(idx.Y())
+	dx = q * size * 0.866
+	dy = (r + q*0.5) * size
+	return
+}
+
 // hexToScreen converts a hex index to screen pixel position (centre of the tile).
 // Vertical brick layout: tank "up" is screen up, so columns run vertically.
 // Column q is offset horizontally by 0.866*tileSize; within each column, row r
@@ -374,11 +443,8 @@ func (g *InGame) tileHasChoice(idx hexmap.Index) bool {
 //	px = center + q * tileSize * 0.866
 //	py = center + (r + q*0.5) * tileSize
 func (g *InGame) hexToScreen(idx hexmap.Index) (px, py float64) {
-	q := float64(idx.X())
-	r := float64(idx.Y())
-	px = turretCenterX + q*tileSize*0.866
-	py = turretCenterY + (r+q*0.5)*tileSize
-	return
+	dx, dy := hexLocalOffset(idx, tileSize)
+	return turretCenterX + dx, turretCenterY + dy
 }
 
 // screenToHex converts a screen pixel position to the nearest hex index,

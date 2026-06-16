@@ -54,14 +54,15 @@ func NewWorld(seed int64) *World {
 	weapons := turret.ActiveWeapons()
 
 	p := &Player{
-		Pos:      geom.PointF{X: 0, Y: 0},
-		HP:       100,
-		MaxHP:    100,
-		Speed:    3,
-		Radius:   16,
-		Level:    1,
-		XPToNext: 10,
-		Weapons:  weapons,
+		Pos:         geom.PointF{X: 0, Y: 0},
+		HP:          100,
+		MaxHP:       100,
+		Speed:       3,
+		Radius:      16,
+		Level:       1,
+		XPToNext:    10,
+		Weapons:     weapons,
+		FacingAngle: -math.Pi / 2,
 	}
 	return &World{
 		Player: p,
@@ -111,6 +112,9 @@ func (w *World) ChooseUpgrade(i int) {
 func (w *World) updatePlayer(move geom.PointF) {
 	if mag := move.Abs(); mag > 1 {
 		move = move.Multiply(1 / mag)
+	}
+	if move.Abs() > 0 {
+		w.Player.FacingAngle = move.Angle()
 	}
 	w.Player.Pos = w.Player.Pos.Add(move.Multiply(w.Player.Speed))
 	if w.Player.invuln > 0 {

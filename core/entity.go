@@ -4,16 +4,17 @@ import "github.com/noppikinatta/ebitenginegamejam2026/geom"
 
 // Player is the tank controlled by the player.
 type Player struct {
-	Pos      geom.PointF
-	HP       float64
-	MaxHP    float64
-	Speed    float64 // px per tick
-	Radius   float64
-	Weapons  []*Weapon
-	Level    int
-	XP       float64
-	XPToNext float64
-	invuln   int // i-frame ticks remaining after taking contact damage
+	Pos         geom.PointF
+	HP          float64
+	MaxHP       float64
+	Speed       float64 // px per tick
+	Radius      float64
+	Weapons     []*Weapon
+	Level       int
+	XP          float64
+	XPToNext    float64
+	FacingAngle float64 // radians; direction the tank/turret faces. -pi/2 = straight up = forward (default)
+	invuln      int     // i-frame ticks remaining after taking contact damage
 }
 
 // Enemy chases the player and deals contact damage.
