@@ -253,6 +253,51 @@ func (t *Turret) activeDownstream(idx hexmap.Index, thisDist int, dist map[hexma
 	return result
 }
 
+// IsGenerator reports whether idx is a generator position.
+func (t *Turret) IsGenerator(idx hexmap.Index) bool {
+	for _, g := range t.generators {
+		if g == idx {
+			return true
+		}
+	}
+	return false
+}
+
+// CanPurgeTile returns true if purging the tile at idx (marking it gone and
+// cutting its downstream) would still leave at least minWeapons active weapons.
+// Returns false for generator tiles, absent tiles, or already-purged tiles.
+func (t *Turret) CanPurgeTile(idx hexmap.Index, minWeapons int) bool {
+	tile, ok := t.tiles[idx]
+	if !ok || tile.purged || t.IsGenerator(idx) {
+		return false
+	}
+	orig := tile.purged
+	tile.purged = true
+	n := len(t.ActiveWeapons())
+	tile.purged = orig
+	return n >= minWeapons
+}
+
+// CanPurgeWeapon returns true if replacing the weapon component at idx with a
+// Wire would leave at least minWeapons active weapons. Returns false for
+// non-weapon, absent, or purged tiles.
+func (t *Turret) CanPurgeWeapon(idx hexmap.Index, minWeapons int) bool {
+	tile, ok := t.tiles[idx]
+	if !ok || tile.purged {
+		return false
+	}
+	switch tile.Component.(type) {
+	case ProportionalWeapon, ThresholdWeapon:
+	default:
+		return false
+	}
+	orig := tile.Component
+	tile.Component = Wire{}
+	n := len(t.ActiveWeapons())
+	tile.Component = orig
+	return n >= minWeapons
+}
+
 // PurgeTile removes the tile at idx entirely. The tile stops conducting power;
 // all downstream tiles lose their power supply. Returns false if the tile does
 // not exist or is already purged.

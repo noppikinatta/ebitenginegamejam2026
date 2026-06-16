@@ -1,5 +1,25 @@
 package core
 
+// WeaponKind determines the firing pattern and stat scaling of a weapon.
+type WeaponKind int
+
+const (
+	KindCannon  WeaponKind = iota // balanced auto-fire
+	KindShotgun                   // 3-projectile spread, short range
+	KindSniper                    // single high-damage shot, very long range
+)
+
+func (k WeaponKind) String() string {
+	switch k {
+	case KindShotgun:
+		return "Shotgun"
+	case KindSniper:
+		return "Sniper"
+	default:
+		return "Cannon"
+	}
+}
+
 // WeaponStats are the concrete combat numbers derived from a weapon's energy.
 // Everything flows through StatsFromEnergy so the wiring-tree (Disconnect)
 // mechanic can tune weapon behaviour purely by changing energy routing.
@@ -14,7 +34,7 @@ type WeaponStats struct {
 type Weapon struct {
 	Name     string
 	Kind     WeaponKind
-	Energy   float64 // assigned by the TurretTree; do not set directly
+	Energy   float64 // assigned by the Turret power solver; do not set directly
 	cooldown int
 }
 

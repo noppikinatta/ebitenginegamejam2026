@@ -1,10 +1,12 @@
 package core
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
+	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
 
 // State is the high-level state of a run.
@@ -12,9 +14,12 @@ type State int
 
 const (
 	StatePlaying  State = iota
-	StateLevelUp        // awaiting the player's disconnect choice
+	StateLevelUp        // awaiting the player's purge choice
 	StateGameOver       // run ended
 )
+
+// speedBonusPerTilePurge is the px/tick speed gained per tile-purge.
+const speedBonusPerTilePurge = 0.3
 
 // World holds all gameplay state for a single run. It has no Ebiten dependency
 // so the simulation can be unit-tested in isolation.
@@ -24,27 +29,29 @@ type World struct {
 	Projectiles []*Projectile
 	Gems        []*Gem
 
-	// Choices are the disconnect options shown while State==StateLevelUp.
-	// Each Upgrade.Apply calls tree.Disconnect and syncs the weapon slice.
+	// Choices are the purge options shown while State==StateLevelUp.
 	Choices []Upgrade
 
 	State State
 	Tick  int
 	Kills int
 
-	tree            *TurretTree
+	turret          *Turret
 	pendingLevelUps int
 	spawnTimer      int
 	rng             *rand.Rand
 }
 
-// Tree exposes the wiring tree read-only so the scene layer can draw it.
-func (w *World) Tree() *TurretTree { return w.tree }
+// Turret exposes the turret grid read-only so the scene layer can draw it.
+func (w *World) Turret() *Turret { return w.turret }
 
-// NewWorld builds a fresh run. seed makes enemy spawning deterministic for tests.
+// NewWorld builds a fresh run. seed makes enemy spawning and turret generation
+// deterministic for tests; pass time.Now().UnixNano() for real gameplay.
 func NewWorld(seed int64) *World {
-	t := NewInitialTree()
-	weapons := t.LeafWeapons()
+	rng := rand.New(rand.NewSource(seed))
+	cfg := DefaultTurretGenConfig(rng)
+	turret := GenerateTurret(cfg, rng)
+	weapons := turret.ActiveWeapons()
 
 	p := &Player{
 		Pos:      geom.PointF{X: 0, Y: 0},
@@ -59,8 +66,8 @@ func NewWorld(seed int64) *World {
 	return &World{
 		Player: p,
 		State:  StatePlaying,
-		tree:   t,
-		rng:    rand.New(rand.NewSource(seed)),
+		turret: turret,
+		rng:    rng,
 	}
 }
 
@@ -82,8 +89,8 @@ func (w *World) Update(move geom.PointF) {
 	w.compact()
 }
 
-// ChooseUpgrade applies the i-th disconnect choice and resumes play (or
-// presents the next queued choice if multiple levels were earned at once).
+// ChooseUpgrade applies the i-th purge choice and resumes play (or presents
+// the next queued choice if multiple levels were earned at once).
 // No-op unless State==StateLevelUp and i is a valid index.
 func (w *World) ChooseUpgrade(i int) {
 	if w.State != StateLevelUp || i < 0 || i >= len(w.Choices) {
@@ -254,16 +261,14 @@ func (w *World) addXP(v float64) {
 	}
 }
 
-// rollChoices builds the list of available disconnect choices from all
-// disconnectable tree nodes. If nothing can be disconnected (only one weapon
-// remains), applies a fallback energy boost instead.
+// rollChoices builds the list of available purge choices. If nothing can be
+// purged (last weapon), applies a fallback heal instead of showing the menu.
 func (w *World) rollChoices() {
 	choices := w.buildDisconnectChoices()
 	if len(choices) == 0 {
-		// Nowhere to cut: boost remaining weapons and skip the menu.
-		for _, weapon := range w.Player.Weapons {
-			weapon.Energy += 0.5
-		}
+		// Nothing to purge: heal the player as a consolation reward.
+		heal := w.Player.MaxHP * 0.1
+		w.Player.HP = math.Min(w.Player.HP+heal, w.Player.MaxHP)
 		w.pendingLevelUps--
 		if w.pendingLevelUps > 0 {
 			w.rollChoices()
@@ -275,23 +280,98 @@ func (w *World) rollChoices() {
 	w.Choices = choices
 }
 
+// buildDisconnectChoices returns the set of tile-purge and weapon-purge choices
+// available on the current turret. At least one weapon must survive each choice.
 func (w *World) buildDisconnectChoices() []Upgrade {
 	var choices []Upgrade
-	for _, n := range w.tree.AllNodes() {
-		if !w.tree.CanDisconnect(n) {
+	for idx := range w.turret.Tiles() {
+		if w.turret.IsGenerator(idx) {
 			continue
 		}
-		nodeID := n.ID
-		choices = append(choices, Upgrade{
-			Name: w.tree.DisconnectLabel(n),
-			Desc: w.tree.DisconnectDesc(n),
-			Apply: func(world *World) {
-				world.tree.Disconnect(nodeID)
-				world.Player.Weapons = world.tree.LeafWeapons()
-			},
-		})
+		idx := idx // capture for closure
+
+		if w.turret.CanPurgeTile(idx, 1) {
+			name, desc := tileLabel(w.turret, idx, false)
+			choices = append(choices, Upgrade{
+				Name: name,
+				Desc: desc,
+				Apply: func(world *World) {
+					world.turret.PurgeTile(idx)
+					world.Player.Speed += speedBonusPerTilePurge
+					world.Player.Weapons = world.turret.ActiveWeapons()
+				},
+			})
+		}
+
+		if w.turret.CanPurgeWeapon(idx, 1) {
+			name, desc := tileLabel(w.turret, idx, true)
+			choices = append(choices, Upgrade{
+				Name: name,
+				Desc: desc,
+				Apply: func(world *World) {
+					world.turret.PurgeWeapon(idx)
+					world.Player.Weapons = world.turret.ActiveWeapons()
+				},
+			})
+		}
 	}
 	return choices
+}
+
+// tileLabel returns the display name and description for a purge choice.
+// weaponOnly=true means it's a weapon-only purge (tile keeps conducting).
+func tileLabel(t *Turret, idx hexmap.Index, weaponOnly bool) (name, desc string) {
+	tile := t.Tiles()[idx]
+	compName := componentName(tile)
+
+	// Count downstream tiles that would be cut (for tile-purge).
+	var downstream int
+	if !weaponOnly {
+		for checkIdx, checkTile := range t.Tiles() {
+			if checkTile.purged || t.IsGenerator(checkIdx) {
+				continue
+			}
+			if idx == checkIdx {
+				continue
+			}
+			// Temporarily purge to test reachability after cut.
+			tile.purged = true
+			dist := t.distancesFrom(t.generators[0])
+			tile.purged = false
+			if _, reachable := dist[checkIdx]; !reachable {
+				downstream++
+			}
+		}
+	}
+
+	if weaponOnly {
+		name = fmt.Sprintf("Disarm %s %s", compName, idx)
+		desc = fmt.Sprintf("Remove weapon — tile remains a conductor, power flows through")
+	} else if downstream > 0 {
+		name = fmt.Sprintf("Cut %s %s", compName, idx)
+		desc = fmt.Sprintf("Remove tile + %d downstream — gain +%.1f speed", downstream, speedBonusPerTilePurge)
+	} else {
+		name = fmt.Sprintf("Cut %s %s", compName, idx)
+		desc = fmt.Sprintf("Remove tile — gain +%.1f speed", speedBonusPerTilePurge)
+	}
+	return
+}
+
+func componentName(tile *Tile) string {
+	if tile == nil {
+		return "?"
+	}
+	switch c := tile.Component.(type) {
+	case ProportionalWeapon:
+		return c.Weapon.Name
+	case ThresholdWeapon:
+		return c.Weapon.Name
+	case Capacitor:
+		return "Capacitor"
+	case Wire:
+		return "Wire"
+	}
+	return "?"
 }
 
 func (w *World) spawnEnemies() {

@@ -144,7 +144,8 @@ func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 func pickComponent(cfg TurretGenConfig, rng *rand.Rand) *Tile {
 	r := rng.Float64()
 	if r < cfg.WeaponDensity {
-		w := NewWeapon("weapon", 0, pickWeaponKind(rng))
+		kind := pickWeaponKind(rng)
+		w := NewWeapon(kind.String(), 0, kind)
 		return &Tile{Component: ProportionalWeapon{Weapon: w}}
 	}
 	r -= cfg.WeaponDensity
