@@ -6,7 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
 	"github.com/noppikinatta/bamenn/bamennutil"
-	"github.com/noppikinatta/ebitenginegamejam2025/ui"
+	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
 func CreateSequence(input *ui.Input) ebiten.Game {
