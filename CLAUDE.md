@@ -44,19 +44,32 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 3. 切り離した分のエネルギーが残存経路に再配分されて強化される
 4. より少ない武装でより強力に戦う構成を目指す
 
-## Current State of the Codebase (重要)
+## Development Roadmap / Progress
 
-これは去年のゲーム（`ebitenginegamejam2025`）から再利用できそうなコードを**断片的にコピーしてきた状態**で、まだ**コンパイルが通らない**。ゲーム本体（戦車・武装・敵・配線ツリー）は未実装で、現状あるのは共通基盤（描画・アセット・言語・シーン枠組み）のみ。
+標準的なヴァンサバライクを先に完成させ、後から配線ツリー（Disconnect）を**武装の energy 変調として**乗せる方針。
 
-把握済みの未解決点：
+- [x] **フェーズ0：ビルドを通す** — `ui` パッケージ作成、旧 `2025` import 修正、InGame/Result スタブ、埋め込みアセットのプレースホルダ整備。WASM ビルドと vet が通る
+- [x] **フェーズ1：最小VSループ** — `core` パッケージ（Ebiten非依存）で 戦車移動・自動武装・弾・敵・経験値ジェム・レベルアップ・スポーンを実装。InGame シーンで描画＋入力。単体テスト 23 件
+- [ ] **フェーズ2：レベルアップ選択（簡易版）** — レベルアップでポーズし、強化を1つ選ぶ簡易UI（まだツリーではない）
+- [ ] **フェーズ3：配線ツリー（Disconnect本体）** — 砲塔ノードのツリー。切ると下流も切れ、energy が残存経路へ再配分
 
-- **`ui` パッケージが存在しない**。`app/main.go` / `scene/title.go` / `scene/sequence.go` が `ui.Input`（`Mouse` フィールドを持つ想定）を参照しているが、`ui/` ディレクトリ自体が無い → 要新規作成
-- **`NewInGame` / `NewResult` が未定義**。`scene/sequence.go` から呼ばれているがシーン実装ファイルが無い
-- **古いモジュールパスが残っている**。`scene/sequence.go` と `scene/lang.go` が `github.com/noppikinatta/ebitenginegamejam2025/...` を import している（`2026` に直す必要あり）
-- **埋め込みアセットの実体が無い**。`asset/embed.go` は `img/*.png` を、`asset/sound.go` は `sound/bgm.ogg` と `sound/explosion.wav` を `//go:embed` するが、`asset/img/` は `.gitkeep` のみ、`asset/sound/` ディレクトリ自体が無い → `go build` 時に embed エラー
-- **言語CSVが空**。`asset/lang/english.csv` / `asset/lang/japanese.csv` は存在するが中身が無い。`scene/title.go` は `story-1` キーを参照
-- `app/main.go` のウィンドウタイトルが `"Ebitengine Game Jam 2025"` のまま
-- `asset.LoadSounds()` は定義のみで init から呼ばれていない（音を使うなら明示呼び出しが必要）
+### 既知の暫定対応・残課題
+
+- **音声はプレースホルダ**。`asset/sound/bgm.ogg` は OggS ヘッダのみのダミー、`explosion.wav` は無音。`LoadSounds()` はデコード失敗を握りつぶす（ログして継続）よう変更済みなので落ちないが、本物の音源に差し替えるまで鳴らない。`LoadSounds()` はまだどこからも呼ばれていない
+- **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
+- **言語CSVが空**。`asset/lang/english.csv` / `japanese.csv` は存在するが中身が無い。`scene/title.go` は `story-1` キーを参照（現状フォールバック表示）
+- レベルアップ報酬は Phase 1 の暫定（第1武装に energy+1 と HP+10 を自動付与）。Phase 2 でプレイヤー選択に置き換える
+
+### Build/Verify この環境での注意
+
+デスクトップ向け `go build ./...` / `make run` は X11・ALSA 等のネイティブライブラリが必要で、ヘッドレス環境では失敗する。**コードのコンパイル検証は WASM ビルドで行う**：
+
+```bash
+GOOS=js GOARCH=wasm go build -o=release/game.wasm app/main.go
+GOOS=js GOARCH=wasm go vet ./...
+```
+
+`core` パッケージは Ebiten 非依存なので普通にテストできる：`go test ./core/...`
 
 ## Commands
 
@@ -93,12 +106,23 @@ go test ./lang/... -run TestName -v
 | Package | Role |
 |---|---|
 | `app/` | `main` パッケージ。エントリポイントのみ |
-| `scene/` | 各シーンとシーン配線。新シーンはここに追加 |
+| `core/` | **ゲームロジック本体（Ebiten非依存）**。後述 |
+| `scene/` | 各シーンとシーン配線。Ebiten の描画・入力アダプタ層。新シーンはここに追加 |
 | `drawing/` | 描画ユーティリティ（後述） |
 | `geom/` | `PointF`（2Dベクトル：Add/Subtract/Multiply/Angle/Abs/Distance/InnerProduct、極座標・image.Point 変換） |
 | `lang/` | 多言語テキスト（後述） |
 | `asset/` | `//go:embed` による埋め込みアセットと初期化（後述） |
-| `ui/` | **未作成**。`Input` 型（`nyuuryoku` のマウス等をまとめる）を置く想定 |
+| `ui/` | `Input` 型（`nyuuryoku` のマウス・キーボードをまとめる） |
+
+### core パッケージ（ゲームロジック）
+
+**Ebiten に依存しない**ので単体テストできるのが要点。シーン層（`scene/ingame.go`）は入力を `geom.PointF` の移動ベクトルに変換して `World.Update(move)` を毎フレーム呼び、`World` の状態を読んで描画するだけ。
+
+- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems、State、Tick、RNG）を保持。`Update(move)` が1tick進める（移動→武装発射→弾→敵→ジェム→スポーン→死亡コンパクション）。`NewWorld(seed)` はスポーンが決定的でテスト可能
+- `entity.go` — `Player`（戦車）/ `Enemy` / `Projectile` / `Gem`。位置は `geom.PointF`、当たり判定は円（半径）
+- `weapon.go` — `Weapon` と `StatsFromEnergy()`。**`energy` から戦闘数値（ダメージ/連射間隔/射程）を導出する関数が配線ツリー統合の唯一の接点**。武装ロジックを変えずに energy 配分だけで強弱を変えられる設計
+- `State`：`StatePlaying` / `StateLevelUp`（Phase 2 用・予約）/ `StateGameOver`
+- シーン再入場時の世界リセットは `InGame.OnStart()`（bamenn の `OnStarter`）で行う
 
 ### drawing パッケージ
 
