@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/noppikinatta/turnbased/hexmap"
+	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
 
 func TestIndexCreation(t *testing.T) {

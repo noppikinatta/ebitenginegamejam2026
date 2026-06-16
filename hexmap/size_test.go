@@ -3,7 +3,7 @@ package hexmap_test
 import (
 	"testing"
 
-	"github.com/noppikinatta/turnbased/hexmap"
+	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
 
 func TestSizeCreation(t *testing.T) {
