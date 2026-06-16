@@ -58,8 +58,8 @@ func TestStatsFromEnergy_TableDriven(t *testing.T) {
 	// Also verify that damage and range strictly increase with energy.
 	energyLevels := []float64{0, 1, 2, 5, 10, 20}
 	for i := 1; i < len(energyLevels); i++ {
-		lo := NewWeapon("w", energyLevels[i-1]).StatsFromEnergy()
-		hi := NewWeapon("w", energyLevels[i]).StatsFromEnergy()
+		lo := NewWeapon("w", energyLevels[i-1], KindCannon).StatsFromEnergy()
+		hi := NewWeapon("w", energyLevels[i], KindCannon).StatsFromEnergy()
 		if hi.Damage <= lo.Damage {
 			t.Errorf("Damage should increase: energy %.0f => %.2f, energy %.0f => %.2f",
 				energyLevels[i-1], lo.Damage, energyLevels[i], hi.Damage)
@@ -72,7 +72,7 @@ func TestStatsFromEnergy_TableDriven(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			w := NewWeapon("Cannon", tc.energy)
+			w := NewWeapon("Cannon", tc.energy, KindCannon)
 			stats := w.StatsFromEnergy()
 
 			if stats.Damage < tc.wantDamageMin {
@@ -92,8 +92,8 @@ func TestStatsFromEnergy_TableDriven(t *testing.T) {
 }
 
 func TestStatsFromEnergy_NegativeEnergyTreatedAsZero(t *testing.T) {
-	wNeg := NewWeapon("Cannon", -5)
-	wZero := NewWeapon("Cannon", 0)
+	wNeg := NewWeapon("Cannon", -5, KindCannon)
+	wZero := NewWeapon("Cannon", 0, KindCannon)
 
 	sNeg := wNeg.StatsFromEnergy()
 	sZero := wZero.StatsFromEnergy()
@@ -111,14 +111,14 @@ func TestStatsFromEnergy_NegativeEnergyTreatedAsZero(t *testing.T) {
 
 func TestStatsFromEnergy_FireIntervalFloorAt6(t *testing.T) {
 	// energy=10 would give interval = 45 - 10*4 = 5, which should be clamped to 6.
-	w := NewWeapon("Cannon", 10)
+	w := NewWeapon("Cannon", 10, KindCannon)
 	stats := w.StatsFromEnergy()
 	if stats.FireInterval != 6 {
 		t.Errorf("FireInterval = %d, want 6 (floor clamp)", stats.FireInterval)
 	}
 
 	// energy=9 gives 45 - 36 = 9, which is above the floor.
-	w9 := NewWeapon("Cannon", 9)
+	w9 := NewWeapon("Cannon", 9, KindCannon)
 	stats9 := w9.StatsFromEnergy()
 	if stats9.FireInterval != 9 {
 		t.Errorf("FireInterval = %d, want 9", stats9.FireInterval)

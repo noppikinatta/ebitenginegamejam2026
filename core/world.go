@@ -7,8 +7,8 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 )
 
-// Logical playfield is unbounded; these are the render viewport dimensions the
-// camera follows, used here only to decide where to spawn off-screen enemies.
+// Logical playfield is unbounded; these are the render viewport dimensions used
+// to decide how far off-screen enemies should spawn.
 const (
 	ViewW = 1280
 	ViewH = 720
@@ -18,33 +18,41 @@ const (
 type State int
 
 const (
-	StatePlaying State = iota
-	StateLevelUp // reserved for the Phase 2 level-up choice screen
-	StateGameOver
+	StatePlaying  State = iota
+	StateLevelUp        // awaiting the player's disconnect choice
+	StateGameOver       // run ended
 )
 
-// World holds all gameplay state for a single run. It has no dependency on
-// Ebiten so the simulation can be unit-tested in isolation.
+// World holds all gameplay state for a single run. It has no Ebiten dependency
+// so the simulation can be unit-tested in isolation.
 type World struct {
 	Player      *Player
 	Enemies     []*Enemy
 	Projectiles []*Projectile
 	Gems        []*Gem
 
+	// Choices are the disconnect options shown while State==StateLevelUp.
+	// Each Upgrade.Apply calls tree.Disconnect and syncs the weapon slice.
+	Choices []Upgrade
+
 	State State
 	Tick  int
 	Kills int
 
-	// Choices are the upgrade options presented while State==StateLevelUp.
-	Choices []Upgrade
-
+	tree            *TurretTree
 	pendingLevelUps int
 	spawnTimer      int
 	rng             *rand.Rand
 }
 
+// Tree exposes the wiring tree read-only so the scene layer can draw it.
+func (w *World) Tree() *TurretTree { return w.tree }
+
 // NewWorld builds a fresh run. seed makes enemy spawning deterministic for tests.
 func NewWorld(seed int64) *World {
+	t := NewInitialTree()
+	weapons := t.LeafWeapons()
+
 	p := &Player{
 		Pos:      geom.PointF{X: 0, Y: 0},
 		HP:       100,
@@ -53,18 +61,19 @@ func NewWorld(seed int64) *World {
 		Radius:   16,
 		Level:    1,
 		XPToNext: 10,
-		Weapons:  []*Weapon{NewWeapon("Cannon", 3)},
+		Weapons:  weapons,
 	}
 	return &World{
 		Player: p,
 		State:  StatePlaying,
+		tree:   t,
 		rng:    rand.New(rand.NewSource(seed)),
 	}
 }
 
 // Update advances the simulation by one tick. move is the desired movement
-// direction (each axis in [-1,1]); it is normalised internally so diagonal
-// movement is not faster.
+// direction (each axis in [-1,1]); it is normalised so diagonal is not faster.
+// While State != StatePlaying the world is frozen; use ChooseUpgrade to resume.
 func (w *World) Update(move geom.PointF) {
 	if w.State != StatePlaying {
 		return
@@ -79,6 +88,25 @@ func (w *World) Update(move geom.PointF) {
 	w.spawnEnemies()
 	w.compact()
 }
+
+// ChooseUpgrade applies the i-th disconnect choice and resumes play (or
+// presents the next queued choice if multiple levels were earned at once).
+// No-op unless State==StateLevelUp and i is a valid index.
+func (w *World) ChooseUpgrade(i int) {
+	if w.State != StateLevelUp || i < 0 || i >= len(w.Choices) {
+		return
+	}
+	w.Choices[i].Apply(w)
+	w.pendingLevelUps--
+	if w.pendingLevelUps > 0 {
+		w.rollChoices()
+		return
+	}
+	w.Choices = nil
+	w.State = StatePlaying
+}
+
+// ---- internal update steps ----
 
 func (w *World) updatePlayer(move geom.PointF) {
 	if mag := move.Abs(); mag > 1 {
@@ -108,15 +136,19 @@ func (w *World) updateWeapons() {
 		if d == 0 {
 			continue
 		}
+		baseAngle := dir.Angle()
 
-		w.Projectiles = append(w.Projectiles, &Projectile{
-			Pos:    w.Player.Pos,
-			Vel:    dir.Multiply(stats.ProjectileSpeed / d),
-			Damage: stats.Damage,
-			Radius: 5,
-			Life:   120,
-			alive:  true,
-		})
+		for _, offset := range weapon.ProjectileOffsets() {
+			vel := geom.PointFFromPolar(stats.ProjectileSpeed, baseAngle+offset)
+			w.Projectiles = append(w.Projectiles, &Projectile{
+				Pos:    w.Player.Pos,
+				Vel:    vel,
+				Damage: stats.Damage,
+				Radius: 5,
+				Life:   120,
+				alive:  true,
+			})
+		}
 		weapon.cooldown = stats.FireInterval
 	}
 }
@@ -141,14 +173,12 @@ func (w *World) updateProjectiles() {
 		if !p.alive {
 			continue
 		}
-
 		p.Pos = p.Pos.Add(p.Vel)
 		p.Life--
 		if p.Life <= 0 {
 			p.alive = false
 			continue
 		}
-
 		for _, e := range w.Enemies {
 			if !e.alive {
 				continue
@@ -176,7 +206,6 @@ func (w *World) updateEnemies() {
 		if !e.alive {
 			continue
 		}
-
 		dir := w.Player.Pos.Subtract(e.Pos)
 		d := dir.Abs()
 		if d > 0 {
@@ -206,7 +235,6 @@ func (w *World) updateGems() {
 		if !g.alive {
 			continue
 		}
-
 		d := g.Pos.Distance(w.Player.Pos)
 		switch {
 		case d <= pickupRange:
@@ -233,33 +261,44 @@ func (w *World) addXP(v float64) {
 	}
 }
 
-// ChooseUpgrade applies the i-th pending upgrade choice and resumes play. If
-// several level-ups were earned at once, the next choice is presented instead.
-// It is a no-op unless the world is currently awaiting a level-up choice.
-func (w *World) ChooseUpgrade(i int) {
-	if w.State != StateLevelUp || i < 0 || i >= len(w.Choices) {
+// rollChoices builds the list of available disconnect choices from all
+// disconnectable tree nodes. If nothing can be disconnected (only one weapon
+// remains), applies a fallback energy boost instead.
+func (w *World) rollChoices() {
+	choices := w.buildDisconnectChoices()
+	if len(choices) == 0 {
+		// Nowhere to cut: boost remaining weapons and skip the menu.
+		for _, weapon := range w.Player.Weapons {
+			weapon.Energy += 0.5
+		}
+		w.pendingLevelUps--
+		if w.pendingLevelUps > 0 {
+			w.rollChoices()
+		} else {
+			w.State = StatePlaying
+		}
 		return
 	}
-
-	w.Choices[i].Apply(w)
-	w.pendingLevelUps--
-
-	if w.pendingLevelUps > 0 {
-		w.rollChoices()
-		return
-	}
-	w.Choices = nil
-	w.State = StatePlaying
+	w.Choices = choices
 }
 
-func (w *World) rollChoices() {
-	all := upgradeCatalog()
-	w.rng.Shuffle(len(all), func(i, j int) { all[i], all[j] = all[j], all[i] })
-	n := 3
-	if n > len(all) {
-		n = len(all)
+func (w *World) buildDisconnectChoices() []Upgrade {
+	var choices []Upgrade
+	for _, n := range w.tree.AllNodes() {
+		if !w.tree.CanDisconnect(n) {
+			continue
+		}
+		nodeID := n.ID
+		choices = append(choices, Upgrade{
+			Name: w.tree.DisconnectLabel(n),
+			Desc: w.tree.DisconnectDesc(n),
+			Apply: func(world *World) {
+				world.tree.Disconnect(nodeID)
+				world.Player.Weapons = world.tree.LeafWeapons()
+			},
+		})
 	}
-	w.Choices = all[:n]
+	return choices
 }
 
 func (w *World) spawnEnemies() {
@@ -267,8 +306,6 @@ func (w *World) spawnEnemies() {
 		w.spawnTimer--
 		return
 	}
-
-	// Spawn cadence accelerates over time (down to one every 18 ticks).
 	interval := 60 - w.Tick/600
 	if interval < 18 {
 		interval = 18
@@ -276,12 +313,12 @@ func (w *World) spawnEnemies() {
 	w.spawnTimer = interval
 
 	angle := w.rng.Float64() * 2 * math.Pi
-	const spawnDist = 520.0 // just beyond the visible viewport around the player
+	const spawnDist = 520.0
 	pos := w.Player.Pos.Add(geom.PointFFromPolar(spawnDist, angle))
 
 	w.Enemies = append(w.Enemies, &Enemy{
 		Pos:     pos,
-		HP:      10 + float64(w.Tick)/120.0, // tougher as the run goes on
+		HP:      10 + float64(w.Tick)/120.0,
 		Speed:   1.2,
 		Radius:  12,
 		Damage:  8,
@@ -296,9 +333,6 @@ func (w *World) compact() {
 	w.Gems = filterAlive(w.Gems, func(g *Gem) bool { return g.alive })
 }
 
-// filterAlive compacts a slice in place, keeping only elements for which
-// alive returns true. The backing array is reused, so dead entries do not
-// accumulate across ticks.
 func filterAlive[T any](s []T, alive func(T) bool) []T {
 	out := s[:0]
 	for _, v := range s {

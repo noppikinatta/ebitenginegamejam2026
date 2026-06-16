@@ -32,8 +32,9 @@ func TestNewWorld_InitialState(t *testing.T) {
 	if w.Player.HP != w.Player.MaxHP {
 		t.Errorf("HP %.2f != MaxHP %.2f", w.Player.HP, w.Player.MaxHP)
 	}
-	if len(w.Player.Weapons) != 1 {
-		t.Errorf("len(Weapons) = %d, want 1", len(w.Player.Weapons))
+	// Initial tree: 4 leaf weapons (Cannon α, Shotgun α, Cannon β, Sniper α)
+	if len(w.Player.Weapons) != 4 {
+		t.Errorf("len(Weapons) = %d, want 4", len(w.Player.Weapons))
 	}
 	if w.Player.Level != 1 {
 		t.Errorf("Level = %d, want 1", w.Player.Level)
@@ -354,8 +355,9 @@ func TestUpdate_LevelUpPausesForChoice(t *testing.T) {
 	if w.State != StateLevelUp {
 		t.Errorf("State = %d after level-up, want StateLevelUp (%d)", w.State, StateLevelUp)
 	}
-	if len(w.Choices) != 3 {
-		t.Errorf("len(Choices) = %d, want 3", len(w.Choices))
+	// Initial tree has 6 disconnectable nodes (all non-root nodes).
+	if len(w.Choices) == 0 {
+		t.Errorf("no disconnect choices after level-up")
 	}
 
 	// The world is paused: Update must be a no-op until a choice is made.
@@ -400,8 +402,8 @@ func TestChooseUpgrade_MultipleLevelUpsQueueChoices(t *testing.T) {
 	if w.State != StateLevelUp {
 		t.Errorf("State = %d after first of two choices, want StateLevelUp", w.State)
 	}
-	if len(w.Choices) != 3 {
-		t.Errorf("len(Choices) = %d after re-roll, want 3", len(w.Choices))
+	if len(w.Choices) == 0 {
+		t.Errorf("no disconnect choices after first of two level-ups")
 	}
 
 	// Second choice resumes play.
@@ -411,13 +413,64 @@ func TestChooseUpgrade_MultipleLevelUpsQueueChoices(t *testing.T) {
 	}
 }
 
-func TestUpgradeCatalog_HealsAreCappedAtMaxHP(t *testing.T) {
-	for _, u := range upgradeCatalog() {
-		w := NewWorld(testSeed)
-		w.Player.HP = w.Player.MaxHP // already full
-		u.Apply(w)
-		if w.Player.HP > w.Player.MaxHP {
-			t.Errorf("upgrade %q raised HP %.2f above MaxHP %.2f", u.Name, w.Player.HP, w.Player.MaxHP)
+func TestDisconnect_RemovesWeaponAndBoostsEnergy(t *testing.T) {
+	w := NewWorld(testSeed)
+
+	startWeapons := len(w.Player.Weapons)
+	// All non-root nodes should be disconnectable at start.
+	choices := w.buildDisconnectChoices()
+	if len(choices) == 0 {
+		t.Fatal("no disconnect choices on fresh world")
+	}
+	// Apply first choice (disconnect some node).
+	choices[0].Apply(w)
+
+	if len(w.Player.Weapons) >= startWeapons {
+		t.Errorf("weapon count did not decrease: was %d, now %d", startWeapons, len(w.Player.Weapons))
+	}
+	// Remaining weapons should have higher energy (total energy redistributed).
+	for _, wp := range w.Player.Weapons {
+		if wp.Energy <= 2 {
+			t.Errorf("weapon %q energy %.2f not boosted after disconnect", wp.Name, wp.Energy)
+		}
+	}
+}
+
+func TestTree_CannotDisconnectLastWeapon(t *testing.T) {
+	// Disconnect down to exactly 2 weapons, then verify that disconnecting
+	// either of their parent nodes is refused (would leave 0 weapons).
+	w := NewWorld(testSeed)
+	tr := w.tree
+
+	// Manually reduce to a single branch with 2 leaves by disconnecting all of
+	// one array. The tree has: root -> left(Cannon α, Shotgun α), right(Cannon β, Sniper α)
+	// Disconnect the entire right branch first.
+	var rightBranchID int
+	for _, n := range tr.AllNodes() {
+		if n.Name == "Starboard Array" {
+			rightBranchID = n.ID
+		}
+	}
+	ok := tr.Disconnect(rightBranchID)
+	if !ok {
+		t.Fatal("could not disconnect Starboard Array")
+	}
+
+	// Now left has Cannon α and Shotgun α. Disconnecting Cannon α is OK (Shotgun remains).
+	// Disconnecting Shotgun α is also OK (Cannon remains).
+	// But if we disconnect Cannon α first, then Shotgun α must NOT be disconnectable.
+	for _, n := range tr.AllNodes() {
+		if n.Name == "Cannon α" {
+			tr.Disconnect(n.ID)
+			break
+		}
+	}
+	// Now only Shotgun α remains. It must not be disconnectable.
+	for _, n := range tr.AllNodes() {
+		if n.Name == "Shotgun α" {
+			if tr.CanDisconnect(n) {
+				t.Errorf("CanDisconnect returned true for the last weapon node")
+			}
 		}
 	}
 }
