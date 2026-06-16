@@ -52,15 +52,32 @@ func (g *InGame) Update() error {
 		g.world = core.NewWorld(1)
 	}
 
-	if g.world.State == core.StateGameOver {
+	switch g.world.State {
+	case core.StateGameOver:
 		if g.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {
 			g.sequence.SwitchWithTransition(g.nextScene, g.transition)
 		}
-		return nil
+	case core.StateLevelUp:
+		g.handleLevelUpInput()
+	default:
+		g.world.Update(g.readMove())
 	}
-
-	g.world.Update(g.readMove())
 	return nil
+}
+
+// handleLevelUpInput lets the player pick an upgrade with the 1/2/3 number keys.
+func (g *InGame) handleLevelUpInput() {
+	kb := g.input.Keyboard
+	if kb == nil {
+		return
+	}
+	keys := []ebiten.Key{ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3}
+	for i, k := range keys {
+		if i < len(g.world.Choices) && kb.IsJustPressed(k) {
+			g.world.ChooseUpgrade(i)
+			return
+		}
+	}
 }
 
 func (g *InGame) readMove() geom.PointF {
@@ -110,7 +127,10 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 
 	g.drawHUD(screen)
 
-	if w.State == core.StateGameOver {
+	switch w.State {
+	case core.StateLevelUp:
+		g.drawLevelUp(screen)
+	case core.StateGameOver:
 		drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.55)
 		opt := &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(520, 300)
@@ -118,6 +138,40 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(500, 380)
 		drawing.DrawText(screen, "Click to continue", 24, opt)
+	}
+}
+
+func (g *InGame) drawLevelUp(screen *ebiten.Image) {
+	drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.6)
+
+	opt := &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(540, 120)
+	drawing.DrawText(screen, "LEVEL UP!", 40, opt)
+
+	opt = &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(470, 180)
+	drawing.DrawText(screen, "Press 1 / 2 / 3 to choose an upgrade", 20, opt)
+
+	const (
+		cardW = 360
+		cardH = 90
+		gap   = 20
+	)
+	x := float64(screenW-cardW) / 2
+	y := 240.0
+	for i, c := range g.world.Choices {
+		drawing.DrawRect(screen, x, y, cardW, cardH, 0.15, 0.18, 0.28, 0.95)
+		drawing.DrawRect(screen, x, y, cardW, 3, 0.4, 0.6, 1, 1) // top accent
+
+		opt := &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(x+16, y+12)
+		drawing.DrawText(screen, fmt.Sprintf("%d. %s", i+1, c.Name), 24, opt)
+
+		opt = &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(x+16, y+50)
+		drawing.DrawText(screen, c.Desc, 18, opt)
+
+		y += cardH + gap
 	}
 }
 

@@ -329,13 +329,12 @@ func TestUpdate_GemPickupGrantsXP(t *testing.T) {
 	}
 }
 
-func TestUpdate_LevelUp(t *testing.T) {
+func TestUpdate_LevelUpPausesForChoice(t *testing.T) {
 	w := NewWorld(testSeed)
 
 	// XPToNext starts at 10. One gem with value >= 10 triggers a level-up.
 	startLevel := w.Player.Level
 	startXPToNext := w.Player.XPToNext
-	startEnergy := w.Player.Weapons[0].Energy
 
 	gem := &Gem{
 		Pos:   geom.PointF{X: 0, Y: 0}, // exactly at player
@@ -352,48 +351,74 @@ func TestUpdate_LevelUp(t *testing.T) {
 	if w.Player.XPToNext <= startXPToNext {
 		t.Errorf("XPToNext did not grow: was %.2f, now %.2f", startXPToNext, w.Player.XPToNext)
 	}
-	if w.Player.Weapons[0].Energy <= startEnergy {
-		t.Errorf("Weapon Energy did not increase after level-up: was %.2f, now %.2f",
-			startEnergy, w.Player.Weapons[0].Energy)
+	if w.State != StateLevelUp {
+		t.Errorf("State = %d after level-up, want StateLevelUp (%d)", w.State, StateLevelUp)
+	}
+	if len(w.Choices) != 3 {
+		t.Errorf("len(Choices) = %d, want 3", len(w.Choices))
+	}
+
+	// The world is paused: Update must be a no-op until a choice is made.
+	tickBefore := w.Tick
+	w.Update(geom.PointF{X: 1})
+	if w.Tick != tickBefore {
+		t.Errorf("Tick advanced from %d to %d while awaiting a choice", tickBefore, w.Tick)
+	}
+
+	// Choosing resumes play.
+	w.ChooseUpgrade(0)
+	if w.State != StatePlaying {
+		t.Errorf("State = %d after choosing, want StatePlaying (%d)", w.State, StatePlaying)
+	}
+	if len(w.Choices) != 0 {
+		t.Errorf("Choices not cleared after choosing: %d remain", len(w.Choices))
 	}
 }
 
-func TestUpdate_LevelUpHealsPlayer(t *testing.T) {
+func TestChooseUpgrade_MultipleLevelUpsQueueChoices(t *testing.T) {
 	w := NewWorld(testSeed)
 
-	// Damage the player first.
-	w.Player.HP = 50
-
+	// A gem worth two thresholds (10 + ceil(10*1.25)=13 = 23) earns two levels.
 	gem := &Gem{
 		Pos:   geom.PointF{X: 0, Y: 0},
-		Value: w.Player.XPToNext,
+		Value: 23,
 		alive: true,
 	}
 	w.Gems = append(w.Gems, gem)
 
 	w.Update(noMove())
 
-	if w.Player.HP < 60 { // healed by 10
-		t.Errorf("HP = %.2f after level-up heal, want >= 60", w.Player.HP)
+	if w.Player.Level != 3 { // 1 -> 3
+		t.Fatalf("Level = %d, want 3 after two level-ups", w.Player.Level)
+	}
+	if w.State != StateLevelUp {
+		t.Fatalf("State = %d, want StateLevelUp", w.State)
+	}
+
+	// First choice still leaves one pending: stays in StateLevelUp with new choices.
+	w.ChooseUpgrade(0)
+	if w.State != StateLevelUp {
+		t.Errorf("State = %d after first of two choices, want StateLevelUp", w.State)
+	}
+	if len(w.Choices) != 3 {
+		t.Errorf("len(Choices) = %d after re-roll, want 3", len(w.Choices))
+	}
+
+	// Second choice resumes play.
+	w.ChooseUpgrade(0)
+	if w.State != StatePlaying {
+		t.Errorf("State = %d after second choice, want StatePlaying", w.State)
 	}
 }
 
-func TestUpdate_LevelUpDoesNotExceedMaxHP(t *testing.T) {
-	w := NewWorld(testSeed)
-	// Player is at full HP; level-up heal should not exceed MaxHP.
-	w.Player.HP = w.Player.MaxHP
-
-	gem := &Gem{
-		Pos:   geom.PointF{X: 0, Y: 0},
-		Value: w.Player.XPToNext,
-		alive: true,
-	}
-	w.Gems = append(w.Gems, gem)
-
-	w.Update(noMove())
-
-	if w.Player.HP > w.Player.MaxHP {
-		t.Errorf("HP %.2f exceeds MaxHP %.2f after level-up", w.Player.HP, w.Player.MaxHP)
+func TestUpgradeCatalog_HealsAreCappedAtMaxHP(t *testing.T) {
+	for _, u := range upgradeCatalog() {
+		w := NewWorld(testSeed)
+		w.Player.HP = w.Player.MaxHP // already full
+		u.Apply(w)
+		if w.Player.HP > w.Player.MaxHP {
+			t.Errorf("upgrade %q raised HP %.2f above MaxHP %.2f", u.Name, w.Player.HP, w.Player.MaxHP)
+		}
 	}
 }
 

@@ -35,8 +35,12 @@ type World struct {
 	Tick  int
 	Kills int
 
-	spawnTimer int
-	rng        *rand.Rand
+	// Choices are the upgrade options presented while State==StateLevelUp.
+	Choices []Upgrade
+
+	pendingLevelUps int
+	spawnTimer      int
+	rng             *rand.Rand
 }
 
 // NewWorld builds a fresh run. seed makes enemy spawning deterministic for tests.
@@ -219,20 +223,43 @@ func (w *World) addXP(v float64) {
 	w.Player.XP += v
 	for w.Player.XP >= w.Player.XPToNext {
 		w.Player.XP -= w.Player.XPToNext
-		w.levelUp()
+		w.Player.Level++
+		w.Player.XPToNext = math.Ceil(w.Player.XPToNext * 1.25)
+		w.pendingLevelUps++
+	}
+	if w.pendingLevelUps > 0 && w.State == StatePlaying {
+		w.State = StateLevelUp
+		w.rollChoices()
 	}
 }
 
-func (w *World) levelUp() {
-	w.Player.Level++
-	w.Player.XPToNext = math.Ceil(w.Player.XPToNext * 1.25)
-
-	// Phase 1 placeholder reward until the Phase 2 level-up choice / Disconnect
-	// screen: route a bit more energy to the first weapon and heal a little.
-	if len(w.Player.Weapons) > 0 {
-		w.Player.Weapons[0].Energy++
+// ChooseUpgrade applies the i-th pending upgrade choice and resumes play. If
+// several level-ups were earned at once, the next choice is presented instead.
+// It is a no-op unless the world is currently awaiting a level-up choice.
+func (w *World) ChooseUpgrade(i int) {
+	if w.State != StateLevelUp || i < 0 || i >= len(w.Choices) {
+		return
 	}
-	w.Player.HP = math.Min(w.Player.MaxHP, w.Player.HP+10)
+
+	w.Choices[i].Apply(w)
+	w.pendingLevelUps--
+
+	if w.pendingLevelUps > 0 {
+		w.rollChoices()
+		return
+	}
+	w.Choices = nil
+	w.State = StatePlaying
+}
+
+func (w *World) rollChoices() {
+	all := upgradeCatalog()
+	w.rng.Shuffle(len(all), func(i, j int) { all[i], all[j] = all[j], all[i] })
+	n := 3
+	if n > len(all) {
+		n = len(all)
+	}
+	w.Choices = all[:n]
 }
 
 func (w *World) spawnEnemies() {
