@@ -7,13 +7,6 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 )
 
-// Logical playfield is unbounded; these are the render viewport dimensions used
-// to decide how far off-screen enemies should spawn.
-const (
-	ViewW = 1280
-	ViewH = 720
-)
-
 // State is the high-level state of a run.
 type State int
 

@@ -219,15 +219,6 @@ func walkTree(n *TreeNode, fn func(*TreeNode)) {
 
 // DisconnectLabel returns a short display label for a disconnect choice.
 func (t *TurretTree) DisconnectLabel(n *TreeNode) string {
-	var lostNames []string
-	walkTree(n, func(nd *TreeNode) {
-		if nd.Weapon != nil {
-			lostNames = append(lostNames, nd.Name)
-		}
-	})
-	if len(lostNames) == 0 {
-		return fmt.Sprintf("Remove %s", n.Name)
-	}
 	return fmt.Sprintf("Remove %s", n.Name)
 }
 

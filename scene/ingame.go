@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
@@ -42,14 +43,15 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 }
 
 // OnStart is called by bamenn each time the scene begins, so every run starts
-// from a fresh world.
+// from a fresh world. The seed is time-based so runs vary; use core.NewWorld
+// directly with a fixed seed for deterministic tests.
 func (g *InGame) OnStart() {
-	g.world = core.NewWorld(1)
+	g.world = core.NewWorld(time.Now().UnixNano())
 }
 
 func (g *InGame) Update() error {
 	if g.world == nil {
-		g.world = core.NewWorld(1)
+		g.world = core.NewWorld(time.Now().UnixNano())
 	}
 
 	switch g.world.State {
