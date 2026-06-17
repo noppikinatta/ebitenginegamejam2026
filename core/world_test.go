@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 )
 
@@ -437,7 +438,7 @@ func TestRollChoices_AtCapNeverAddsTiles(t *testing.T) {
 	w := NewWorld(testSeed)
 
 	// Grow the turret past the cap with junk tiles.
-	for w.turret.TileCount() < maxTurretTiles {
+	for w.turret.TileCount() < data.MaxTurretTiles {
 		if _, ok := w.turret.AddTile(Junk{DeviceName: "Toaster"}, w.rng); !ok {
 			t.Fatal("AddTile ran out of room before reaching the cap")
 		}

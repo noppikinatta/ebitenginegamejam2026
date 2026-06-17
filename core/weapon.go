@@ -3,6 +3,7 @@ package core
 import (
 	"math"
 
+	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
 
@@ -49,7 +50,7 @@ type Weapon struct {
 	Kind          WeaponKind
 	Energy        float64      // assigned by the Turret power solver; do not set directly
 	TileIdx       hexmap.Index // the turret tile this weapon sits on; set by ActiveWeapons
-	Level         int          // doctor upgrade level; each +1 multiplies Damage by 1.2
+	Level         int          // doctor upgrade level; each +1 multiplies Damage by data.WeaponLevelMult
 	cooldown      int
 	beamTicksLeft int // KindLaser: ticks remaining in current beam burst
 }
@@ -63,7 +64,8 @@ func (w *Weapon) IsBeamActive() bool { return w.beamTicksLeft > 0 }
 
 // StatsFromEnergy maps routed energy onto combat numbers. Stat curves vary by
 // weapon kind so each type has a distinct identity even at the same energy level.
-// Each weapon Level multiplies Damage by 1.2 (so Level 3 → ×1.728).
+// Balance numbers live in data.Cannon / data.Shotgun / data.Sniper / data.Laser.
+// Each weapon Level multiplies Damage by data.WeaponLevelMult (default 1.2).
 func (w *Weapon) StatsFromEnergy() WeaponStats {
 	e := w.Energy
 	if e < 0 {
@@ -72,55 +74,59 @@ func (w *Weapon) StatsFromEnergy() WeaponStats {
 	var stats WeaponStats
 	switch w.Kind {
 	case KindShotgun:
-		interval := int(28 - e*2)
-		if interval < 8 {
-			interval = 8
+		p := data.Shotgun
+		interval := int(p.BaseInterval - e*p.EnergyInterval)
+		if interval < p.MinInterval {
+			interval = p.MinInterval
 		}
 		stats = WeaponStats{
-			Damage:          3 + e*1.5,
+			Damage:          p.BaseDamage + e*p.EnergyDamage,
 			FireInterval:    interval,
-			ProjectileSpeed: 5,
-			Range:           150 + e*10,
+			ProjectileSpeed: p.ProjSpeed,
+			Range:           p.BaseRange + e*p.EnergyRange,
 		}
 	case KindSniper:
-		interval := int(120 - e*7)
-		if interval < 20 {
-			interval = 20
+		p := data.Sniper
+		interval := int(p.BaseInterval - e*p.EnergyInterval)
+		if interval < p.MinInterval {
+			interval = p.MinInterval
 		}
 		stats = WeaponStats{
-			Damage:          20 + e*8,
+			Damage:          p.BaseDamage + e*p.EnergyDamage,
 			FireInterval:    interval,
-			ProjectileSpeed: 10,
-			Range:           400 + e*40,
+			ProjectileSpeed: p.ProjSpeed,
+			Range:           p.BaseRange + e*p.EnergyRange,
 		}
 	case KindLaser:
-		interval := int(90 - e*5)
-		if interval < 15 {
-			interval = 15
+		p := data.Laser
+		interval := int(p.BaseInterval - e*p.EnergyInterval)
+		if interval < p.MinInterval {
+			interval = p.MinInterval
 		}
-		duration := int(30 + e*4)
+		duration := int(p.BeamBaseDuration + e*p.BeamEnergyDuration)
 		stats = WeaponStats{
-			Damage:       2 + e*0.8, // per tick (DPS)
+			Damage:       p.BaseDamage + e*p.EnergyDamage, // per tick (DPS)
 			FireInterval: interval,
-			Range:        300 + e*25,
-			BeamLength:   300 + e*25,
-			BeamWidth:    6 + e*0.5,
+			Range:        p.BaseRange + e*p.EnergyRange,
+			BeamLength:   p.BeamBaseLength + e*p.BeamEnergyLength,
+			BeamWidth:    p.BeamBaseWidth + e*p.BeamEnergyWidth,
 			BeamDuration: duration,
 		}
 	default: // KindCannon
-		interval := int(45 - e*4)
-		if interval < 6 {
-			interval = 6
+		p := data.Cannon
+		interval := int(p.BaseInterval - e*p.EnergyInterval)
+		if interval < p.MinInterval {
+			interval = p.MinInterval
 		}
 		stats = WeaponStats{
-			Damage:          5 + e*3,
+			Damage:          p.BaseDamage + e*p.EnergyDamage,
 			FireInterval:    interval,
-			ProjectileSpeed: 6,
-			Range:           220 + e*20,
+			ProjectileSpeed: p.ProjSpeed,
+			Range:           p.BaseRange + e*p.EnergyRange,
 		}
 	}
 	if w.Level > 0 {
-		stats.Damage *= math.Pow(1.2, float64(w.Level))
+		stats.Damage *= math.Pow(data.WeaponLevelMult, float64(w.Level))
 	}
 	return stats
 }

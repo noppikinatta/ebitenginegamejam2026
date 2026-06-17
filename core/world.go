@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
@@ -18,19 +19,10 @@ const (
 	StateGameOver       // run ended
 )
 
-// startingNippers is how many tile cuts the player can make before needing to
-// find more. Nippers are the limited resource that gates mid-combat cutting.
-const startingNippers = 3
-
-// maxTurretTiles caps turret growth so the miniature stays drawable and the
-// cursor navigable. At the cap, doctors offer nippers instead of new tiles.
-const maxTurretTiles = 40
-
-// candlestickInterval is how often (ticks) a nipper-dropping candlestick spawns.
-const candlestickInterval = 600 // ~10s at 60 TPS
-
-// candlestickHP is how much damage a candlestick soaks before breaking.
-const candlestickHP = 40
+// Balance constants are defined in the data package; import them here as
+// package-level aliases so tests that reference them by the old names still
+// compile without changes.
+const startingNippers = data.StartingNippers
 
 // World holds all gameplay state for a single run. It has no Ebiten dependency
 // so the simulation can be unit-tested in isolation.
@@ -66,17 +58,18 @@ func NewWorld(seed int64) *World {
 	turret := GenerateTurret(cfg, rng)
 	weapons := turret.ActiveWeapons()
 
+	pd := data.DefaultPlayer()
 	p := &Player{
-		Pos:         geom.PointF{X: 0, Y: 0},
-		HP:          100,
-		MaxHP:       100,
-		Speed:       3,
-		Radius:      16,
-		Level:       1,
-		XPToNext:    10,
+		Pos:         geom.PointF{},
+		HP:          pd.HP,
+		MaxHP:       pd.MaxHP,
+		Speed:       pd.Speed,
+		Radius:      pd.Radius,
+		Level:       pd.Level,
+		XPToNext:    pd.XPToNext,
 		Weapons:     weapons,
 		FacingAngle: -math.Pi / 2,
-		Nippers:     startingNippers,
+		Nippers:     data.StartingNippers,
 	}
 	return &World{
 		Player: p,
@@ -346,44 +339,38 @@ func (w *World) damagePlayer(dmg float64) {
 }
 
 func (w *World) updateGems() {
-	const pickupRange = 28.0
-	const magnetRange = 90.0
-	const magnetSpeed = 4.0
-
+	pr := data.DefaultPickupRanges()
 	for _, g := range w.Gems {
 		if !g.alive {
 			continue
 		}
 		d := g.Pos.Distance(w.Player.Pos)
 		switch {
-		case d <= pickupRange:
+		case d <= pr.PickupDist:
 			g.alive = false
 			w.addXP(g.Value)
-		case d <= magnetRange && d > 0:
+		case d <= pr.MagnetDist && d > 0:
 			dir := w.Player.Pos.Subtract(g.Pos)
-			g.Pos = g.Pos.Add(dir.Multiply(magnetSpeed / d))
+			g.Pos = g.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}
 	}
 }
 
 // updatePickups magnets and collects dropped nippers, granting one per pickup.
 func (w *World) updatePickups() {
-	const pickupRange = 28.0
-	const magnetRange = 90.0
-	const magnetSpeed = 4.0
-
+	pr := data.DefaultPickupRanges()
 	for _, p := range w.Pickups {
 		if !p.alive {
 			continue
 		}
 		d := p.Pos.Distance(w.Player.Pos)
 		switch {
-		case d <= pickupRange:
+		case d <= pr.PickupDist:
 			p.alive = false
 			w.Player.Nippers++
-		case d <= magnetRange && d > 0:
+		case d <= pr.MagnetDist && d > 0:
 			dir := w.Player.Pos.Subtract(p.Pos)
-			p.Pos = p.Pos.Add(dir.Multiply(magnetSpeed / d))
+			p.Pos = p.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}
 	}
 }
@@ -393,7 +380,7 @@ func (w *World) addXP(v float64) {
 	for w.Player.XP >= w.Player.XPToNext {
 		w.Player.XP -= w.Player.XPToNext
 		w.Player.Level++
-		w.Player.XPToNext = math.Ceil(w.Player.XPToNext * 1.25)
+		w.Player.XPToNext = math.Ceil(w.Player.XPToNext * data.XPToNextGrowth)
 		w.pendingLevelUps++
 	}
 	if w.pendingLevelUps > 0 && w.State == StatePlaying {
@@ -412,7 +399,7 @@ var doctorNames = []string{
 // the chosen doctor bolts a new tile (weapon or useless junk) onto a random
 // spot — or, occasionally, hands over spare nippers instead.
 func (w *World) rollChoices() {
-	atCap := w.turret.TileCount() >= maxTurretTiles
+	atCap := w.turret.TileCount() >= data.MaxTurretTiles
 	choices := make([]Upgrade, 0, 3)
 	for i := 0; i < 3; i++ {
 		choices = append(choices, w.rollDoctorChoice(atCap))
@@ -431,10 +418,11 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	doc := doctorNames[w.rng.Intn(len(doctorNames))]
 	r := w.rng.Float64()
 	activeWeapons := w.turret.ActiveWeapons()
+	dd := data.DefaultDoctor()
 
 	// ~25%: nippers. Also forced when atCap and no weapons exist to upgrade.
-	if r < 0.25 || (atCap && len(activeWeapons) == 0) {
-		n := 5 + w.rng.Intn(6) // 5-10
+	if r < dd.NipperChance || (atCap && len(activeWeapons) == 0) {
+		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
 		return Upgrade{
 			Name: fmt.Sprintf("Dr. %s: spare nippers (+%d)", doc, n),
 			Desc: "Plastic-model nippers to cut tiles mid-battle.",
@@ -445,10 +433,10 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	}
 
 	// atCap or ~37.5% of remaining: weapon upgrade (1-3 existing weapons +1 Level).
-	if atCap || (len(activeWeapons) > 0 && r < 0.625) {
+	if atCap || (len(activeWeapons) > 0 && r < dd.UpgradeChance) {
 		maxCount := len(activeWeapons)
-		if maxCount > 3 {
-			maxCount = 3
+		if maxCount > dd.MaxUpgrades {
+			maxCount = dd.MaxUpgrades
 		}
 		count := 1 + w.rng.Intn(maxCount)
 		perm := w.rng.Perm(len(activeWeapons))
@@ -474,8 +462,8 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		}
 	}
 
-	// Tile bundle: 1-3 tiles, each independently 50% weapon / 50% junk.
-	tileCount := 1 + w.rng.Intn(3)
+	// Tile bundle: 1-MaxBundleTiles tiles, each independently 50% weapon / 50% junk.
+	tileCount := 1 + w.rng.Intn(dd.MaxBundleTiles)
 	comps := make([]Component, tileCount)
 	bundleDesc := ""
 	for i := range comps {
@@ -509,23 +497,24 @@ func (w *World) spawnEnemies() {
 		w.spawnTimer--
 		return
 	}
-	interval := 60 - w.Tick/600
-	if interval < 18 {
-		interval = 18
+	sp := data.DefaultSpawn()
+	interval := sp.EnemyBaseInterval - w.Tick/sp.EnemyIntervalDecay
+	if interval < sp.EnemyMinInterval {
+		interval = sp.EnemyMinInterval
 	}
 	w.spawnTimer = interval
 
 	angle := w.rng.Float64() * 2 * math.Pi
-	const spawnDist = 520.0
-	pos := w.Player.Pos.Add(geom.PointFFromPolar(spawnDist, angle))
+	pos := w.Player.Pos.Add(geom.PointFFromPolar(sp.EnemyDist, angle))
 
+	spec := data.BasicEnemy(w.Tick)
 	w.Enemies = append(w.Enemies, &Enemy{
 		Pos:     pos,
-		HP:      10 + float64(w.Tick)/120.0,
-		Speed:   1.2,
-		Radius:  12,
-		Damage:  8,
-		XPValue: 3,
+		HP:      spec.HP,
+		Speed:   spec.Speed,
+		Radius:  spec.Radius,
+		Damage:  spec.Damage,
+		XPValue: spec.XPValue,
 		alive:   true,
 	})
 }
@@ -537,20 +526,22 @@ func (w *World) spawnCandlestick() {
 		w.candlestickTimer--
 		return
 	}
-	w.candlestickTimer = candlestickInterval
+	w.candlestickTimer = data.CandlestickInterval
 
+	sp := data.DefaultSpawn()
 	angle := w.rng.Float64() * 2 * math.Pi
-	dist := 220.0 + w.rng.Float64()*220.0
+	dist := sp.CandleDist + w.rng.Float64()*sp.CandleDistRange
 	pos := w.Player.Pos.Add(geom.PointFFromPolar(dist, angle))
 
+	spec := data.Candlestick()
 	w.Enemies = append(w.Enemies, &Enemy{
 		Pos:         pos,
-		HP:          candlestickHP,
-		Speed:       0, // stationary destructible
-		Radius:      13,
-		Damage:      0, // harmless to touch
-		XPValue:     0,
-		DropsNipper: true,
+		HP:          spec.HP,
+		Speed:       spec.Speed,
+		Radius:      spec.Radius,
+		Damage:      spec.Damage,
+		XPValue:     spec.XPValue,
+		DropsNipper: spec.DropsNipper,
 		alive:       true,
 	})
 }
