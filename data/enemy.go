@@ -9,7 +9,7 @@ func basicEnemyScaling() core.EnemyScaling {
 		HPBase:    10,
 		HPPerTick: 1.0 / 120.0,
 		Speed:     1.2,
-		Radius:    12,
+		Radius:    16, // matches the 32x32 enemy sprite
 		Damage:    8,
 		XPValue:   3,
 	}
@@ -21,7 +21,7 @@ func basicEnemyScaling() core.EnemyScaling {
 func candlestick() core.Enemy {
 	return core.Enemy{
 		HP:          40,
-		Radius:      13,
+		Radius:      16, // matches the 32x32 candlestick sprite
 		DropsNipper: true,
 	}
 }

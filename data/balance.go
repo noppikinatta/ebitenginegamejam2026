@@ -35,7 +35,7 @@ func NewConfig() core.Config {
 func defaultPlayer() core.Player {
 	return core.Player{
 		HP: 100, MaxHP: 100,
-		Speed: 3, Radius: 16,
+		Speed: 3, Radius: 36, // collision matches the tall tank sprite
 		Level:    1,
 		XPToNext: 10,
 	}
