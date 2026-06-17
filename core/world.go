@@ -26,6 +26,12 @@ const startingNippers = 3
 // cursor navigable. At the cap, doctors offer nippers instead of new tiles.
 const maxTurretTiles = 40
 
+// candlestickInterval is how often (ticks) a nipper-dropping candlestick spawns.
+const candlestickInterval = 600 // ~10s at 60 TPS
+
+// candlestickHP is how much damage a candlestick soaks before breaking.
+const candlestickHP = 40
+
 // World holds all gameplay state for a single run. It has no Ebiten dependency
 // so the simulation can be unit-tested in isolation.
 type World struct {
@@ -33,18 +39,20 @@ type World struct {
 	Enemies     []*Enemy
 	Projectiles []*Projectile
 	Gems        []*Gem
+	Pickups     []*Pickup // dropped nippers awaiting collection
 
-	// Choices are the purge options shown while State==StateLevelUp.
+	// Choices are the doctor offers shown while State==StateLevelUp.
 	Choices []Upgrade
 
 	State State
 	Tick  int
 	Kills int
 
-	turret          *Turret
-	pendingLevelUps int
-	spawnTimer      int
-	rng             *rand.Rand
+	turret           *Turret
+	pendingLevelUps  int
+	candlestickTimer int
+	spawnTimer       int
+	rng              *rand.Rand
 }
 
 // Turret exposes the turret grid read-only so the scene layer can draw it.
@@ -93,7 +101,9 @@ func (w *World) Update(move geom.PointF) {
 	w.updateProjectiles()
 	w.updateEnemies()
 	w.updateGems()
+	w.updatePickups()
 	w.spawnEnemies()
+	w.spawnCandlestick()
 	w.compact()
 }
 
@@ -302,7 +312,12 @@ func (w *World) updateProjectiles() {
 func (w *World) killEnemy(e *Enemy) {
 	e.alive = false
 	w.Kills++
-	w.Gems = append(w.Gems, &Gem{Pos: e.Pos, Value: e.XPValue, alive: true})
+	if e.XPValue > 0 {
+		w.Gems = append(w.Gems, &Gem{Pos: e.Pos, Value: e.XPValue, alive: true})
+	}
+	if e.DropsNipper {
+		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, alive: true})
+	}
 }
 
 func (w *World) updateEnemies() {
@@ -315,7 +330,7 @@ func (w *World) updateEnemies() {
 		if d > 0 {
 			e.Pos = e.Pos.Add(dir.Multiply(e.Speed / d))
 		}
-		if d <= e.Radius+w.Player.Radius && w.Player.invuln == 0 {
+		if e.Damage > 0 && d <= e.Radius+w.Player.Radius && w.Player.invuln == 0 {
 			w.damagePlayer(e.Damage)
 		}
 	}
@@ -347,6 +362,28 @@ func (w *World) updateGems() {
 		case d <= magnetRange && d > 0:
 			dir := w.Player.Pos.Subtract(g.Pos)
 			g.Pos = g.Pos.Add(dir.Multiply(magnetSpeed / d))
+		}
+	}
+}
+
+// updatePickups magnets and collects dropped nippers, granting one per pickup.
+func (w *World) updatePickups() {
+	const pickupRange = 28.0
+	const magnetRange = 90.0
+	const magnetSpeed = 4.0
+
+	for _, p := range w.Pickups {
+		if !p.alive {
+			continue
+		}
+		d := p.Pos.Distance(w.Player.Pos)
+		switch {
+		case d <= pickupRange:
+			p.alive = false
+			w.Player.Nippers++
+		case d <= magnetRange && d > 0:
+			dir := w.Player.Pos.Subtract(p.Pos)
+			p.Pos = p.Pos.Add(dir.Multiply(magnetSpeed / d))
 		}
 	}
 }
@@ -454,10 +491,36 @@ func (w *World) spawnEnemies() {
 	})
 }
 
+// spawnCandlestick periodically drops a stationary, harmless candlestick the
+// player can break for a nipper — at the cost of leaving a safe position.
+func (w *World) spawnCandlestick() {
+	if w.candlestickTimer > 0 {
+		w.candlestickTimer--
+		return
+	}
+	w.candlestickTimer = candlestickInterval
+
+	angle := w.rng.Float64() * 2 * math.Pi
+	dist := 220.0 + w.rng.Float64()*220.0
+	pos := w.Player.Pos.Add(geom.PointFFromPolar(dist, angle))
+
+	w.Enemies = append(w.Enemies, &Enemy{
+		Pos:         pos,
+		HP:          candlestickHP,
+		Speed:       0, // stationary destructible
+		Radius:      13,
+		Damage:      0, // harmless to touch
+		XPValue:     0,
+		DropsNipper: true,
+		alive:       true,
+	})
+}
+
 func (w *World) compact() {
 	w.Enemies = filterAlive(w.Enemies, func(e *Enemy) bool { return e.alive })
 	w.Projectiles = filterAlive(w.Projectiles, func(p *Projectile) bool { return p.alive })
 	w.Gems = filterAlive(w.Gems, func(g *Gem) bool { return g.alive })
+	w.Pickups = filterAlive(w.Pickups, func(p *Pickup) bool { return p.alive })
 }
 
 func filterAlive[T any](s []T, alive func(T) bool) []T {

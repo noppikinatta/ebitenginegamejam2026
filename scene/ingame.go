@@ -302,9 +302,17 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	for _, gem := range w.Gems {
 		drawEntity(screen, cam, gem.Pos, 8, 8, 0.2, 0.8, 0.9, 1)
 	}
+	for _, pk := range w.Pickups {
+		// Nipper drop: bright yellow-green diamond-ish square.
+		drawEntity(screen, cam, pk.Pos, 12, 12, 0.8, 1, 0.2, 1)
+	}
 	for _, e := range w.Enemies {
 		s := float64(e.Radius) * 2
-		drawEntity(screen, cam, e.Pos, s, s, 0.85, 0.25, 0.25, 1)
+		if e.DropsNipper {
+			drawEntity(screen, cam, e.Pos, s, s, 0.95, 0.8, 0.2, 1) // gold candlestick
+		} else {
+			drawEntity(screen, cam, e.Pos, s, s, 0.85, 0.25, 0.25, 1)
+		}
 	}
 	for _, p := range w.Projectiles {
 		drawEntity(screen, cam, p.Pos, 8, 8, 1, 0.9, 0.3, 1)

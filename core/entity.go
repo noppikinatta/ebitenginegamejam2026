@@ -18,15 +18,17 @@ type Player struct {
 	invuln      int     // i-frame ticks remaining after taking contact damage
 }
 
-// Enemy chases the player and deals contact damage.
+// Enemy chases the player and deals contact damage. A candlestick is a special
+// stationary enemy (Speed 0, no contact damage) that drops a nipper when broken.
 type Enemy struct {
-	Pos     geom.PointF
-	HP      float64
-	Speed   float64
-	Radius  float64
-	Damage  float64
-	XPValue float64
-	alive   bool
+	Pos         geom.PointF
+	HP          float64
+	Speed       float64
+	Radius      float64
+	Damage      float64
+	XPValue     float64
+	DropsNipper bool // candlestick: spawns a nipper pickup on death
+	alive       bool
 }
 
 // Projectile is fired by a weapon toward an enemy.
@@ -43,6 +45,12 @@ type Projectile struct {
 type Gem struct {
 	Pos   geom.PointF
 	Value float64
+	alive bool
+}
+
+// Pickup is a dropped nipper that grants one nipper when collected.
+type Pickup struct {
+	Pos   geom.PointF
 	alive bool
 }
 
