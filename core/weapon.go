@@ -1,6 +1,10 @@
 package core
 
-import "github.com/noppikinatta/ebitenginegamejam2026/hexmap"
+import (
+	"math"
+
+	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
+)
 
 // WeaponKind determines the firing pattern and stat scaling of a weapon.
 type WeaponKind int
@@ -45,6 +49,7 @@ type Weapon struct {
 	Kind          WeaponKind
 	Energy        float64      // assigned by the Turret power solver; do not set directly
 	TileIdx       hexmap.Index // the turret tile this weapon sits on; set by ActiveWeapons
+	Level         int          // doctor upgrade level; each +1 multiplies Damage by 1.2
 	cooldown      int
 	beamTicksLeft int // KindLaser: ticks remaining in current beam burst
 }
@@ -58,18 +63,20 @@ func (w *Weapon) IsBeamActive() bool { return w.beamTicksLeft > 0 }
 
 // StatsFromEnergy maps routed energy onto combat numbers. Stat curves vary by
 // weapon kind so each type has a distinct identity even at the same energy level.
+// Each weapon Level multiplies Damage by 1.2 (so Level 3 → ×1.728).
 func (w *Weapon) StatsFromEnergy() WeaponStats {
 	e := w.Energy
 	if e < 0 {
 		e = 0
 	}
+	var stats WeaponStats
 	switch w.Kind {
 	case KindShotgun:
 		interval := int(28 - e*2)
 		if interval < 8 {
 			interval = 8
 		}
-		return WeaponStats{
+		stats = WeaponStats{
 			Damage:          3 + e*1.5,
 			FireInterval:    interval,
 			ProjectileSpeed: 5,
@@ -80,7 +87,7 @@ func (w *Weapon) StatsFromEnergy() WeaponStats {
 		if interval < 20 {
 			interval = 20
 		}
-		return WeaponStats{
+		stats = WeaponStats{
 			Damage:          20 + e*8,
 			FireInterval:    interval,
 			ProjectileSpeed: 10,
@@ -92,7 +99,7 @@ func (w *Weapon) StatsFromEnergy() WeaponStats {
 			interval = 15
 		}
 		duration := int(30 + e*4)
-		return WeaponStats{
+		stats = WeaponStats{
 			Damage:       2 + e*0.8, // per tick (DPS)
 			FireInterval: interval,
 			Range:        300 + e*25,
@@ -105,13 +112,17 @@ func (w *Weapon) StatsFromEnergy() WeaponStats {
 		if interval < 6 {
 			interval = 6
 		}
-		return WeaponStats{
+		stats = WeaponStats{
 			Damage:          5 + e*3,
 			FireInterval:    interval,
 			ProjectileSpeed: 6,
 			Range:           220 + e*20,
 		}
 	}
+	if w.Level > 0 {
+		stats.Damage *= math.Pow(1.2, float64(w.Level))
+	}
+	return stats
 }
 
 // ProjectileOffsets returns angular offsets (radians) relative to the target

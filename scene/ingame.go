@@ -45,8 +45,9 @@ type InGame struct {
 	// frames instead of snapping instantly.
 	turretRenderedAngle float64
 
-	// Combat cut-mode: while Shift is held (and nippers remain) the tank stops,
-	// a cursor highlights one turret tile, WASD moves it, Space cuts it.
+	// Combat cut cursor: IJKL moves the cursor over turret tiles; Space cuts the
+	// selected tile (consumes one nipper). Always visible when nippers > 0.
+	// Tank movement (WASD) is unaffected — cutting is a parallel input channel.
 	cutCursor    hexmap.Index
 	cutCursorSet bool
 }
@@ -87,12 +88,9 @@ func (g *InGame) Update() error {
 	case core.StateLevelUp:
 		g.handleLevelUpInput()
 	default:
-		// In cut-mode the tank stops (WASD drives the cursor instead), but the
-		// simulation keeps running — enemies close in, creating the opening.
+		// WASD drives the tank; IJKL drives the cut cursor in parallel.
 		move := g.readMove()
-		if g.handleCombatCut() {
-			move = geom.PointF{}
-		}
+		g.handleCombatCut()
 		g.world.Update(move)
 	}
 
@@ -169,20 +167,19 @@ func (g *InGame) readMove() geom.PointF {
 	return m
 }
 
-// handleCombatCut runs the Shift+WASD cursor cut interaction. It returns true
-// while cut-mode is active (the caller should freeze tank movement for the
-// opening). Cut-mode requires Shift held and at least one nipper remaining.
-func (g *InGame) handleCombatCut() bool {
-	kb := g.input.Keyboard
-	if kb == nil || !ebiten.IsKeyPressed(ebiten.KeyShift) || g.world.Player.Nippers <= 0 {
+// handleCombatCut manages the IJKL cut cursor. IJKL moves the cursor one tile
+// in the pressed screen direction; Space cuts the highlighted tile (costs one
+// nipper). The tank continues moving with WASD — no mode switch required.
+func (g *InGame) handleCombatCut() {
+	if g.world.Player.Nippers <= 0 {
 		g.cutCursorSet = false
-		return false
+		return
 	}
 
 	tr := g.world.Turret()
 	if tr == nil {
 		g.cutCursorSet = false
-		return false
+		return
 	}
 
 	// Drop the cursor if it points at a tile that no longer exists / was cut.
@@ -191,27 +188,32 @@ func (g *InGame) handleCombatCut() bool {
 			g.cutCursorSet = false
 		}
 	}
-	// Initialise the cursor on the tile nearest the turret centre.
+	// Auto-initialise the cursor when we have nippers but no position yet.
 	if !g.cutCursorSet {
 		if idx, ok := g.nearestCuttableTile(); ok {
 			g.cutCursor = idx
 			g.cutCursorSet = true
 		} else {
-			return true // no cuttable tiles, but still hold the tank stationary
+			return // no cuttable tiles
 		}
 	}
 
-	// WASD moves the cursor one tile in the pressed screen direction.
-	if kb.IsJustPressed(ebiten.KeyW) || kb.IsJustPressed(ebiten.KeyArrowUp) {
+	kb := g.input.Keyboard
+	if kb == nil {
+		return
+	}
+
+	// IJKL moves the cursor one tile in the pressed screen direction.
+	if kb.IsJustPressed(ebiten.KeyI) {
 		g.moveCutCursor(0, -1)
 	}
-	if kb.IsJustPressed(ebiten.KeyS) || kb.IsJustPressed(ebiten.KeyArrowDown) {
+	if kb.IsJustPressed(ebiten.KeyK) {
 		g.moveCutCursor(0, 1)
 	}
-	if kb.IsJustPressed(ebiten.KeyA) || kb.IsJustPressed(ebiten.KeyArrowLeft) {
+	if kb.IsJustPressed(ebiten.KeyJ) {
 		g.moveCutCursor(-1, 0)
 	}
-	if kb.IsJustPressed(ebiten.KeyD) || kb.IsJustPressed(ebiten.KeyArrowRight) {
+	if kb.IsJustPressed(ebiten.KeyL) {
 		g.moveCutCursor(1, 0)
 	}
 
@@ -222,7 +224,6 @@ func (g *InGame) handleCombatCut() bool {
 			g.cutCursorSet = false
 		}
 	}
-	return true
 }
 
 // tileRotOffset returns a tile's screen-space offset from the tank centre under
@@ -464,7 +465,7 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 	}
 
 	// Cut cursor highlight: a white frame around the selected tile.
-	if g.cutCursorSet && ebiten.IsKeyPressed(ebiten.KeyShift) {
+	if g.cutCursorSet {
 		rot := g.tileRotOffset(g.cutCursor)
 		cx := psx + rot.X
 		cy := psy + rot.Y
@@ -555,11 +556,11 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 	opt.GeoM.Translate(20, 64)
 	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Pwr/Tile %.1f  Nippers %d", p.Level, p.Speed, powerPerTile, p.Nippers), 18, opt)
 
-	// Cut-mode hint.
+	// Cut cursor hint.
 	if p.Nippers > 0 {
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(20, 88)
-		drawing.DrawText(screen, "Hold Shift: aim with WASD, Space to cut a tile", 14, opt)
+		drawing.DrawText(screen, "IJKL: move cut cursor  Space: cut tile", 14, opt)
 	}
 
 	opt = &ebiten.DrawImageOptions{}

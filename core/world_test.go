@@ -402,24 +402,38 @@ func TestRollChoices_ProducesThreeOffers(t *testing.T) {
 	}
 }
 
-func TestDoctorChoices_GrowTurretOrGiveNippers(t *testing.T) {
-	// Every offer either bolts a tile on (turret grows) or hands over nippers.
+func TestDoctorChoices_HaveValidOutcome(t *testing.T) {
+	// Every offer must do one of: grow the turret (tile bundle), give nippers,
+	// or upgrade at least one existing weapon's Level.
 	w := NewWorld(testSeed)
 	w.rollChoices()
 
 	for i, c := range w.Choices {
 		beforeTiles := w.turret.TileCount()
 		beforeNippers := w.Player.Nippers
+		beforeLevel := totalWeaponLevel(w)
 		c.Apply(w)
 		grewTurret := w.turret.TileCount() > beforeTiles
 		gaveNippers := w.Player.Nippers > beforeNippers
-		if !grewTurret && !gaveNippers {
-			t.Errorf("choice %d (%q) neither grew the turret nor gave nippers", i, c.Name)
+		upgradedWeapon := totalWeaponLevel(w) > beforeLevel
+		if !grewTurret && !gaveNippers && !upgradedWeapon {
+			t.Errorf("choice %d (%q) had no effect: tiles=%d nippers=%d levels=%d",
+				i, c.Name, w.turret.TileCount()-beforeTiles,
+				w.Player.Nippers-beforeNippers, totalWeaponLevel(w)-beforeLevel)
 		}
 	}
 }
 
-func TestRollChoices_AtCapGivesNippers(t *testing.T) {
+// totalWeaponLevel sums the Level field of all active weapons in the turret.
+func totalWeaponLevel(w *World) int {
+	total := 0
+	for _, wp := range w.turret.ActiveWeapons() {
+		total += wp.Level
+	}
+	return total
+}
+
+func TestRollChoices_AtCapNeverAddsTiles(t *testing.T) {
 	w := NewWorld(testSeed)
 
 	// Grow the turret past the cap with junk tiles.
@@ -430,16 +444,12 @@ func TestRollChoices_AtCapGivesNippers(t *testing.T) {
 	}
 
 	w.rollChoices()
-	// At the cap, applying any offer must not grow the turret; it gives nippers.
+	// At the cap no offer may grow the turret; each gives nippers or upgrades weapons.
 	for i, c := range w.Choices {
 		beforeTiles := w.turret.TileCount()
-		beforeNippers := w.Player.Nippers
 		c.Apply(w)
 		if w.turret.TileCount() > beforeTiles {
-			t.Errorf("offer %d grew the turret past the cap", i)
-		}
-		if w.Player.Nippers <= beforeNippers {
-			t.Errorf("offer %d at cap did not give nippers", i)
+			t.Errorf("offer %d (%q) grew the turret past the cap", i, c.Name)
 		}
 	}
 }

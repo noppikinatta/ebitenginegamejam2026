@@ -420,46 +420,85 @@ func (w *World) rollChoices() {
 	w.Choices = choices
 }
 
-// rollDoctorChoice produces a single doctor offer. atCap forces nipper offers
-// when the turret has hit its size limit (no more room to bolt tiles on).
+// rollDoctorChoice produces a single doctor offer. There are three offer types:
+//   - Nippers (~25%): 5-10 spare nippers to fund future cuts.
+//   - Weapon upgrade (~37.5%): 1-3 existing weapons each gain +1 Level (+20% damage).
+//   - Tile bundle (~37.5%): 1-3 new tiles added; each is 50% weapon, 50% junk.
+//
+// atCap forces non-tile offers (upgrade or nippers) so the turret doesn't exceed
+// maxTurretTiles.
 func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	doc := doctorNames[w.rng.Intn(len(doctorNames))]
 	r := w.rng.Float64()
+	activeWeapons := w.turret.ActiveWeapons()
 
-	// At cap, or occasionally otherwise, a doctor hands over spare nippers.
-	if atCap || r < 0.12 {
-		n := 2 + w.rng.Intn(2) // 2 or 3
+	// ~25%: nippers. Also forced when atCap and no weapons exist to upgrade.
+	if r < 0.25 || (atCap && len(activeWeapons) == 0) {
+		n := 5 + w.rng.Intn(6) // 5-10
 		return Upgrade{
 			Name: fmt.Sprintf("Dr. %s: spare nippers (+%d)", doc, n),
-			Desc: "Plastic-model nippers to cut tiles mid-battle. They break fast.",
+			Desc: "Plastic-model nippers to cut tiles mid-battle.",
 			Apply: func(world *World) {
 				world.Player.Nippers += n
 			},
 		}
 	}
 
-	// Some doctors proudly install a useless gadget (dilutes power — the catch).
-	if r < 0.37 {
-		name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]
-		comp := Junk{DeviceName: name}
+	// atCap or ~37.5% of remaining: weapon upgrade (1-3 existing weapons +1 Level).
+	if atCap || (len(activeWeapons) > 0 && r < 0.625) {
+		maxCount := len(activeWeapons)
+		if maxCount > 3 {
+			maxCount = 3
+		}
+		count := 1 + w.rng.Intn(maxCount)
+		perm := w.rng.Perm(len(activeWeapons))
+		selected := make([]*Weapon, count)
+		for i := 0; i < count; i++ {
+			selected[i] = activeWeapons[perm[i]]
+		}
+		nameStr := ""
+		for i, wp := range selected {
+			if i > 0 {
+				nameStr += ", "
+			}
+			nameStr += wp.Name
+		}
 		return Upgrade{
-			Name: fmt.Sprintf("Dr. %s installs a %s", doc, name),
-			Desc: "A useless gadget. Adds a tile and dilutes every weapon's power.",
+			Name: fmt.Sprintf("Dr. %s upgrades: %s", doc, nameStr),
+			Desc: "Each upgraded weapon deals 20% more damage per level (multiplicative).",
 			Apply: func(world *World) {
-				world.turret.AddTile(comp, world.rng)
-				world.Player.Weapons = world.turret.ActiveWeapons()
+				for _, wp := range selected {
+					wp.Level++
+				}
 			},
 		}
 	}
 
-	// Otherwise, a new weapon tile.
-	kind := pickWeaponKind(w.rng)
-	comp := WeaponComponent{Weapon: NewWeapon(kind.String(), 0, kind)}
+	// Tile bundle: 1-3 tiles, each independently 50% weapon / 50% junk.
+	tileCount := 1 + w.rng.Intn(3)
+	comps := make([]Component, tileCount)
+	bundleDesc := ""
+	for i := range comps {
+		if i > 0 {
+			bundleDesc += " + "
+		}
+		if w.rng.Float64() < 0.5 {
+			kind := pickWeaponKind(w.rng)
+			comps[i] = WeaponComponent{Weapon: NewWeapon(kind.String(), 0, kind)}
+			bundleDesc += kind.String()
+		} else {
+			name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]
+			comps[i] = Junk{DeviceName: name}
+			bundleDesc += name
+		}
+	}
 	return Upgrade{
-		Name: fmt.Sprintf("Dr. %s bolts on a %s", doc, kind.String()),
-		Desc: "Adds a weapon tile at a random spot — but splits power further.",
+		Name: fmt.Sprintf("Dr. %s: %s", doc, bundleDesc),
+		Desc: fmt.Sprintf("Adds %d tile(s) — dilutes power for all, but may bring new weapons.", tileCount),
 		Apply: func(world *World) {
-			world.turret.AddTile(comp, world.rng)
+			for _, comp := range comps {
+				world.turret.AddTile(comp, world.rng)
+			}
 			world.Player.Weapons = world.turret.ActiveWeapons()
 		},
 	}
