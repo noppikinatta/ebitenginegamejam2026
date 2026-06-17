@@ -14,35 +14,34 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 ジャンル：ヴァンサバライク（Vampire Survivors風アクション）。自機は**戦車**。
 
+### バックストーリー
+
+敵が攻めてきて戦車で発進しようとしたが、大勢の博士がそれぞれ思い思いの武装（や役に立たない装置）を勝手に追加した結果、砲塔がものすごく巨大化してしまった。
+
 ### コアアイデア
 
-- 通常のヴァンサバライクとは逆の発想：**最初から大量の武器が砲塔にくっついている**
-- ただし配線が混乱しているため、最初は武器が扱いづらく、ジェネレータのエネルギーが分散して各武装が弱い
-- レベルアップ時に武装パーツを**切り離す（Disconnect）**ことでパワーアップする
-  - 不要なパーツを切り離す → 残った武装にエネルギーが集中 → パワーアップ
-- プレイヤーは武装の動作を観察しながら、どのパーツを切り離すか判断する
+- 通常のヴァンサバライクとは逆の発想：**最初から大量の武装が砲塔にくっついている**
+- 電力は**全タイルに均等配分**（`発電量 / 接続タイル数`）。タイルが増えるほど各武装が弱くなる
+- レベルアップでは博士が砲塔に**タイルを追加**してくる（武装 or 無意味なガジェット）。どちらも電力を薄める
+- プレイヤーは戦闘中に**タイルを切り離す（Disconnect）**ことで残存タイルに電力を再集中させる
+  - 切り離しは「プラモデル用ニッパー」を消費する（数量限定）
+- ねらい：博士が肥大化させる ⇄ プレイヤーがニッパーで絞る、という綱引きが run 全体のビルド計画になる
 
-### Disconnect の設計方針：配線トポロジー（ツリー）
+### Disconnect の設計方針：戦闘中カーソル切断
 
-切り離しの判断を「ハードな論理パズル」にも「キー暗記などの操作難度」にもせず、**配線トポロジーを使った軽量な空間パズル**にする。
+切り離しは**戦闘中（リアルタイム）**に行う。Shift を押すと戦車が停止してカーソルが砲塔に現れ、WASD でタイルを選び Space で切断する。
 
-- 砲塔は**ノードのツリー**。中央にジェネレータがあり、エネルギーが配線を通って外側の武装ノードへ流れる
-- 1回の disconnect は1ノードを切るが、**その下流（先につながっていた武装）も巻き添えで切れる**
-- そのため「弱い武器を素直に切る」だけでは済まない。残したい武器が切りたい武器の下流にぶら下がっていることがあり、**どの枝を切るかという空間判断**になる
-- 切った枝が消費していたエネルギーが残った経路に再配分され、残存武装が強化される
-
-ねらい：個々の判断は読みやすく（「ここを切るとこの先が全部死ぬ」は直感的）、ヴァンサバライクの即決テンポを壊さない。一方で run 全体ではビルド計画として深みが出る。
-
-### タイミング
-
-切り離しは**レベルアップ時（ポーズ中）**に選択する想定（リアルタイム除去はUI・入力・バランスが重くなるため当面採らない）。アクション性は戦車操作と弾幕回避で担保する。
+- 戦車が止まる＝**敵に詰められる隙**が生まれる（戦術的緊張）。停止中は砲塔も回転しないのでカーソルは安定する
+- 1回の切断は1タイルだが、**その下流（ジェネレータから繋がらなくなったタイル）も巻き添えで切れる**（カスケード）
+- 切ったタイル分の電力が残存タイルに再配分され、残った武装が強化される
+- 切断は**ニッパー**を消費。初期3個。燭台（停止する破壊可能オブジェ）を壊すとドロップ、レベルアップで低確率入手
 
 ### ゲームループ
 
-1. 戦車で敵を倒しながら経験値を集める
-2. レベルアップ時に「切り離す枝（ノード）」を選択
-3. 切り離した分のエネルギーが残存経路に再配分されて強化される
-4. より少ない武装でより強力に戦う構成を目指す
+1. 戦車で敵を倒しながら経験値とニッパーを集める
+2. レベルアップで博士3人から1人を選ぶ（タイル追加 or ニッパー入手）→ 砲塔が肥大し電力が薄まる
+3. 戦闘中に Shift+WASD+Space で不要タイルを切断 → 残存武装に電力が再集中
+4. 少ない武装でより強力に戦う構成を、ニッパーをやりくりしながら目指す
 
 ## Development Roadmap / Progress
 
@@ -52,10 +51,15 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 - [x] **フェーズ1：最小VSループ** — `core` パッケージで 戦車移動・自動武装・弾・敵・経験値ジェム・レベルアップ・スポーンを実装。単体テスト
 - [x] **フェーズ2：レベルアップ選択（簡易版）** — `core/upgrade.go` の `Upgrade` + `World.ChooseUpgrade`
 - [x] **H0：クリーンアップ** — `hexmap` テスト import 修正、固定 RNG シード可変化、デッドコード除去
-- [x] **H1：ヘックスグリッド電力ソルバー** — `core/turret.go`。`Component` インターフェース（Wire/Capacitor/ProportionalWeapon/ThresholdWeapon）、BFS距離リング電力配布アルゴリズム、PurgeTile/PurgeWeapon、13テスト
-- [x] **H2：ランダム砲塔生成** — `core/turret_gen.go`。フロンティア成長アルゴリズム、BranchProb で枝分かれ制御、6テスト
-- [x] **H3：World統合** — `core/world.go` を `Turret` ベースに全面書き換え。`core/tree.go` 削除、WeaponKind を `weapon.go` へ移動。buildDisconnectChoices でタイルパージ/武装パージ両択を生成
-- [x] **H4：クリックUI** — `scene/ingame.go` に六角ブリックレイアウト砲塔オーバーレイ。左クリック=Cut（タイルパージ+速度ボーナス）、Shift+クリック=Disarm（武装のみパージ）、ホバー時ツールチップ、数字キーフォールバック
+- [x] **H1：ヘックスグリッド電力ソルバー** — `core/turret.go`。`Component` インターフェース、PurgeTile（旧版：BFS距離リング配布、後にフラット配分へ置換）
+- [x] **H2：ランダム砲塔生成** — `core/turret_gen.go`。フロンティア成長アルゴリズム、BranchProb で枝分かれ制御
+- [x] **H3：World統合** — `core/world.go` を `Turret` ベースに全面書き換え
+- [x] **H4：クリックUI** — `scene/ingame.go` に砲塔オーバーレイ（後に再設計）
+- [x] **レーザー武装** — `KindLaser`。砲塔タイルに固定された持続ビーム（毎フレーム最近接敵を追尾、経路上の敵を貫通DPS）。`geom.PointSegmentDistance` でカプセル判定。`World.ActiveBeams()` で描画用スナップショット
+- [x] **再設計A：電力フラット化** — BFS距離リングソルバーを撤廃し `発電量/接続タイル数` の均等配分へ。`Component` を `Name()` のみに簡略化、`ProportionalWeapon`→`WeaponComponent` 改名、`Junk`（無意味ガジェット）追加。`Capacitor`/`ThresholdWeapon`/`PurgeWeapon` 削除。HUD に Pwr/Tile 表示
+- [x] **再設計B：戦闘中カーソル切断** — `Player.Nippers`、`World.CutTile`（ニッパー消費＋カスケード）。Shift で戦車停止＆カーソル表示、WASD で画面方向にタイル選択、Space で切断
+- [x] **再設計C：レベルアップ＝タイル追加** — `Turret.AddTile`（空き隣接にランダム配置）/`TileCount`。`rollChoices` を博士3人提案（武装/ジャンク/ニッパー）に置換、ソフトキャップ `maxTurretTiles`。scene はカード式UIに置換
+- [x] **再設計D：燭台ドロップ** — `Enemy.DropsNipper`/`Pickup`。`spawnCandlestick`（停止・無害・周期スポーン）、`updatePickups`（収集で+1ニッパー）
 - [ ] **H5：複数ジェネレータ対応** — 初版は中央1基のみ。後続バージョンで追加予定
 
 ### 既知の暫定対応・残課題
@@ -63,8 +67,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 - **音声はプレースホルダ**。`asset/sound/bgm.ogg` は OggS ヘッダのみのダミー、`explosion.wav` は無音。`LoadSounds()` はデコード失敗を握りつぶす（ログして継続）よう変更済みなので落ちないが、本物の音源に差し替えるまで鳴らない。`LoadSounds()` はまだどこからも呼ばれていない
 - **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
 - **言語CSVが空**。`asset/lang/english.csv` / `japanese.csv` は存在するが中身が無い。`scene/title.go` は `story-1` キーを参照（現状フォールバック表示）
-- **H4 UIの選択マッチング** — `handleLevelUpInput` でクリック時に選択肢をタイル座標文字列で検索しているが、UI の改善余地あり（H4は暫定実装）
-- **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity等）は初期値のまま。プレイテストで要調整
+- **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity/JunkDensity）、電力量、ニッパー入手率、燭台周期、`maxTurretTiles` 等は初期値のまま。プレイテストで要調整
 
 ### Build/Verify この環境での注意
 
@@ -124,11 +127,11 @@ go test ./lang/... -run TestName -v
 
 **Ebiten に依存しない**ので単体テストできるのが要点。シーン層（`scene/ingame.go`）は入力を `geom.PointF` の移動ベクトルに変換して `World.Update(move)` を毎フレーム呼び、`World` の状態を読んで描画するだけ。
 
-- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems、Choices、State、Tick、RNG、turret）を保持。`NewWorld(seed)` は RNG → `GenerateTurret` → `ActiveWeapons` で初期化
-- `entity.go` — `Player`（戦車）/ `Enemy` / `Projectile` / `Gem`。位置は `geom.PointF`、当たり判定は円（半径）
-- `weapon.go` — `WeaponKind`（Cannon/Shotgun/Sniper）+ `Weapon` と `StatsFromEnergy()`。**`energy` から戦闘数値（ダメージ/連射間隔/射程）を導出する関数がソルバー統合の唯一の接点**
-- `turret.go` — ヘックスグリッド電力ソルバー。`Component` インターフェース（Wire/Capacitor/ProportionalWeapon/ThresholdWeapon）、BFS距離リング配布、CanPurgeTile/CanPurgeWeapon、ActiveWeapons
-- `turret_gen.go` — `GenerateTurret()` フロンティア成長アルゴリズム、`DefaultTurretGenConfig`
+- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems/Pickups、Choices、State、Tick、RNG、turret、各種タイマー）を保持。`NewWorld(seed)` は RNG → `GenerateTurret` → `ActiveWeapons` で初期化。`Update` は移動・武装・ビーム・弾・敵・ジェム・ニッパー収集・スポーン・燭台スポーンを毎tick回す。`CutTile(idx)` がニッパー消費の戦闘中切断、`rollChoices`/`rollDoctorChoice` がレベルアップの博士提案
+- `entity.go` — `Player`（戦車：FacingAngle/Nippers 含む）/ `Enemy`（DropsNipper で燭台）/ `Projectile` / `Gem` / `Pickup`（ニッパー）。位置は `geom.PointF`、当たり判定は円（半径）
+- `weapon.go` — `WeaponKind`（Cannon/Shotgun/Sniper/Laser）+ `Weapon` と `StatsFromEnergy()`。**`energy` から戦闘数値（ダメージ/連射間隔/射程、レーザーはビーム長/幅/持続）を導出する関数がソルバー統合の唯一の接点**。`beamTicksLeft` でビーム照射状態を保持
+- `turret.go` — ヘックスグリッド砲塔。電力は**フラット配分**（`発電量/接続タイル数`、`ComputePower`/`PowerPerTile`）。`Component` インターフェースは `Name()` のみ（Wire/WeaponComponent/Junk）。`distancesFrom` は接続判定・カスケード用。`PurgeTile`（+`propagatePurge` カスケード）、`AddTile`（ランダム隣接配置）、`TileCount`、`ActiveWeapons`、`MuzzleOffset`
+- `turret_gen.go` — `GenerateTurret()` フロンティア成長アルゴリズム、`DefaultTurretGenConfig`、`pickComponent`（武装/Junk/Wire）、`junkDeviceNames`
 - `upgrade.go` — `type Upgrade struct { Name, Desc string; Apply func(*World) }` (軽量選択肢モデル)
 - `State`：`StatePlaying` / `StateLevelUp` / `StateGameOver`
 - シーン再入場時の世界リセットは `InGame.OnStart()`（bamenn の `OnStarter`）で行う
