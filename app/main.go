@@ -9,9 +9,9 @@ import (
 
 func main() {
 	ebiten.SetWindowSize(1280, 720)
-	ebiten.SetWindowTitle("Ebitengine Game Jam 2025")
+	ebiten.SetWindowTitle("Ebitengine Game Jam 2026")
 
-	input := ui.Input{Mouse: nyuuryoku.NewMouse()}
+	input := ui.Input{Mouse: nyuuryoku.NewMouse(), Keyboard: nyuuryoku.NewKeyboard()}
 	seq := scene.CreateSequence(&input)
 	ebiten.RunGame(seq)
 }

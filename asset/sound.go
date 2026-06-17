@@ -67,7 +67,11 @@ func LoadSounds() error {
 	for _, s := range ss {
 		err := load(s.Resource, s.Sound, s.FileType, s.Volume)
 		if err != nil {
-			return err
+			// Tolerate placeholder/missing audio so a broken single track
+			// does not take down the whole game. Replace placeholder assets
+			// (e.g. sound/bgm.ogg) with real ones to enable playback.
+			log.Printf("skip loading sound %d: %v", s.Sound, err)
+			continue
 		}
 	}
 
@@ -125,6 +129,9 @@ var soundCache map[Sound]*audio.Player
 
 func PlaySound(s Sound) {
 	p := soundCache[s]
+	if p == nil {
+		return
+	}
 	err := p.Rewind()
 	if err != nil {
 		log.Println(err)
@@ -134,5 +141,8 @@ func PlaySound(s Sound) {
 
 func StopSound(s Sound) {
 	p := soundCache[s]
+	if p == nil {
+		return
+	}
 	p.Pause()
 }

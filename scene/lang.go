@@ -5,9 +5,9 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/noppikinatta/ebitenginegamejam2025/drawing"
-	"github.com/noppikinatta/ebitenginegamejam2025/geom"
-	"github.com/noppikinatta/ebitenginegamejam2025/lang"
+	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
+	"github.com/noppikinatta/ebitenginegamejam2026/geom"
+	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 )
 
 type langSwitcher struct {
