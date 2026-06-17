@@ -25,6 +25,12 @@ const (
 
 	combatTileSize = core.TurretTileSize // px per hex tile (combat miniature; matches muzzle world offsets)
 
+	// Sprite draw sizes (px at the 1:1 camera). These are the asset footprints
+	// and are intentionally independent of the core collision radii.
+	tankDrawW     = 48.0 // tank is tall (portrait)
+	tankDrawH     = 64.0
+	enemyDrawSize = 32.0
+
 	// Level-up doctor-card layout.
 	cardW   = 360.0
 	cardH   = 300.0
@@ -309,11 +315,10 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawEntity(screen, cam, pk.Pos, 12, 12, 0.8, 1, 0.2, 1)
 	}
 	for _, e := range w.Enemies {
-		s := float64(e.Radius) * 2
 		if e.DropsNipper {
-			drawEntity(screen, cam, e.Pos, s, s, 0.95, 0.8, 0.2, 1) // gold candlestick
+			drawEntity(screen, cam, e.Pos, enemyDrawSize, enemyDrawSize, 0.95, 0.8, 0.2, 1) // gold candlestick
 		} else {
-			drawEntity(screen, cam, e.Pos, s, s, 0.85, 0.25, 0.25, 1)
+			drawEntity(screen, cam, e.Pos, enemyDrawSize, enemyDrawSize, 0.85, 0.25, 0.25, 1)
 		}
 	}
 	for _, p := range w.Projectiles {
@@ -321,9 +326,8 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	}
 	g.drawBeams(screen, cam)
 
-	// Player tank.
-	pr := w.Player.Radius * 2
-	drawEntity(screen, cam, w.Player.Pos, pr, pr, 0.3, 0.8, 0.5, 1)
+	// Player tank (tall sprite; collision radius is separate, in core).
+	drawEntity(screen, cam, w.Player.Pos, tankDrawW, tankDrawH, 0.3, 0.8, 0.5, 1)
 
 	// Turret miniature on top of the tank body, rotated to face movement direction.
 	g.drawTurretCombat(screen, cam)

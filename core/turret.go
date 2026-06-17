@@ -12,7 +12,7 @@ import (
 // TurretTileSize is the world-space spacing of turret tiles (= screen px at the
 // game's 1:1 camera). The scene combat renderer must use the same value so that
 // drawn tiles line up with the muzzle positions weapons fire from.
-const TurretTileSize = 14.0
+const TurretTileSize = 24.0
 
 // tileLocalOffset returns a tile's unrotated offset from the turret centre in
 // world units, using the vertical brick layout where local "up" (-Y) = forward.
