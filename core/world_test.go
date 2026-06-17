@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 )
 
@@ -22,7 +21,7 @@ func almostEqual(a, b, eps float64) bool {
 // ── 1. NewWorld initial state ─────────────────────────────────────────────────
 
 func TestNewWorld_InitialState(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	if w.State != StatePlaying {
 		t.Errorf("State = %v, want StatePlaying", w.State)
@@ -51,7 +50,7 @@ func TestNewWorld_InitialState(t *testing.T) {
 // ── 2. Movement ───────────────────────────────────────────────────────────────
 
 func TestUpdate_ZeroMoveDoesNotMovePlayer(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	before := w.Player.Pos
 	w.Update(noMove())
 	if w.Player.Pos != before {
@@ -60,7 +59,7 @@ func TestUpdate_ZeroMoveDoesNotMovePlayer(t *testing.T) {
 }
 
 func TestUpdate_DiagonalMoveIsNormalized(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	startPos := w.Player.Pos
 	speed := w.Player.Speed
 
@@ -78,7 +77,7 @@ func TestUpdate_DiagonalMoveIsNormalized(t *testing.T) {
 }
 
 func TestUpdate_AxisAlignedMoveIsExactlySpeed(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	startPos := w.Player.Pos
 	speed := w.Player.Speed
 
@@ -94,7 +93,7 @@ func TestUpdate_AxisAlignedMoveIsExactlySpeed(t *testing.T) {
 }
 
 func TestUpdate_TickIncrements(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	for i := 1; i <= 5; i++ {
 		w.Update(noMove())
 		if w.Tick != i {
@@ -106,14 +105,14 @@ func TestUpdate_TickIncrements(t *testing.T) {
 // ── 3. Projectile firing + enemy kill ────────────────────────────────────────
 
 func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	// Place weapon at energy=0: stats give FireInterval=45, Damage=5, Range=220.
 	weapon := w.Player.Weapons[0]
 	weapon.Energy = 0
 	weapon.cooldown = 0
 
-	stats := weapon.StatsFromEnergy()
+	stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
 
 	// Place a weak enemy just within range.
 	enemy := &Enemy{
@@ -164,7 +163,7 @@ func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 }
 
 func TestUpdate_ProjectileCreatedBeforeHit(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	weapon := w.Player.Weapons[0]
 	weapon.Energy = 0
 	weapon.cooldown = 0
@@ -198,7 +197,7 @@ func TestUpdate_ProjectileCreatedBeforeHit(t *testing.T) {
 // ── 4. Contact damage + game over ────────────────────────────────────────────
 
 func TestUpdate_ContactDamageAndInvuln(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	enemy := &Enemy{
 		Pos:    w.Player.Pos, // exactly on the player
@@ -222,7 +221,7 @@ func TestUpdate_ContactDamageAndInvuln(t *testing.T) {
 }
 
 func TestUpdate_InvulnPreventsDoubleHit(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	enemy := &Enemy{
 		Pos:    w.Player.Pos,
 		HP:     1e9,
@@ -243,7 +242,7 @@ func TestUpdate_InvulnPreventsDoubleHit(t *testing.T) {
 }
 
 func TestUpdate_GameOverWhenHPReachesZero(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	enemy := &Enemy{
 		Pos:    w.Player.Pos,
@@ -266,7 +265,7 @@ func TestUpdate_GameOverWhenHPReachesZero(t *testing.T) {
 }
 
 func TestUpdate_IsNoOpAfterGameOver(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	enemy := &Enemy{
 		Pos:    w.Player.Pos,
 		HP:     1e9,
@@ -294,7 +293,7 @@ func TestUpdate_IsNoOpAfterGameOver(t *testing.T) {
 // ── 5. XP pickup + level up ───────────────────────────────────────────────────
 
 func TestUpdate_GemPickupGrantsXP(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	gem := &Gem{
 		Pos:   geom.PointF{X: 10, Y: 0},
@@ -316,7 +315,7 @@ func TestUpdate_GemPickupGrantsXP(t *testing.T) {
 }
 
 func TestUpdate_LevelUpPausesForChoice(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	startLevel := w.Player.Level
 	startXPToNext := w.Player.XPToNext
@@ -361,7 +360,7 @@ func TestUpdate_LevelUpPausesForChoice(t *testing.T) {
 }
 
 func TestChooseUpgrade_MultipleLevelUpsQueueChoices(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	// A gem worth two thresholds (10 + ceil(10*1.25)=13 = 23) earns two levels.
 	gem := &Gem{
@@ -396,7 +395,7 @@ func TestChooseUpgrade_MultipleLevelUpsQueueChoices(t *testing.T) {
 // ── 6. Level-up: doctors add tiles (or hand out nippers) ─────────────────────
 
 func TestRollChoices_ProducesThreeOffers(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	w.rollChoices()
 	if len(w.Choices) != 3 {
 		t.Errorf("rollChoices produced %d offers, want 3", len(w.Choices))
@@ -406,7 +405,7 @@ func TestRollChoices_ProducesThreeOffers(t *testing.T) {
 func TestDoctorChoices_HaveValidOutcome(t *testing.T) {
 	// Every offer must do one of: grow the turret (tile bundle), give nippers,
 	// or upgrade at least one existing weapon's Level.
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	w.rollChoices()
 
 	for i, c := range w.Choices {
@@ -435,10 +434,10 @@ func totalWeaponLevel(w *World) int {
 }
 
 func TestRollChoices_AtCapNeverAddsTiles(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	// Grow the turret past the cap with junk tiles.
-	for w.turret.TileCount() < data.MaxTurretTiles {
+	for w.turret.TileCount() < w.cfg.MaxTurretTiles {
 		if _, ok := w.turret.AddTile(Junk{DeviceName: "Toaster"}, w.rng); !ok {
 			t.Fatal("AddTile ran out of room before reaching the cap")
 		}
@@ -460,8 +459,8 @@ func TestRollChoices_AtCapNeverAddsTiles(t *testing.T) {
 func TestDeterminism_SameSeedSameSpawnPositions(t *testing.T) {
 	const ticks = 200
 
-	worldA := NewWorld(testSeed)
-	worldB := NewWorld(testSeed)
+	worldA := NewWorld(testSeed, testConfig())
+	worldB := NewWorld(testSeed, testConfig())
 
 	for i := 0; i < ticks; i++ {
 		worldA.Update(noMove())
@@ -483,8 +482,8 @@ func TestDeterminism_SameSeedSameSpawnPositions(t *testing.T) {
 func TestDeterminism_DifferentSeedsDifferentSpawns(t *testing.T) {
 	const ticks = 200
 
-	worldA := NewWorld(testSeed)
-	worldB := NewWorld(testSeed + 1)
+	worldA := NewWorld(testSeed, testConfig())
+	worldB := NewWorld(testSeed+1, testConfig())
 
 	for i := 0; i < ticks; i++ {
 		worldA.Update(noMove())
@@ -511,7 +510,7 @@ func TestDeterminism_DifferentSeedsDifferentSpawns(t *testing.T) {
 // ── 8. FacingAngle tracks movement ───────────────────────────────────────────
 
 func TestUpdate_FacingAngleTracksMovement(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	// Move right: angle should be 0.
 	w.Update(geom.PointF{X: 1, Y: 0})
@@ -535,7 +534,7 @@ func TestUpdate_FacingAngleTracksMovement(t *testing.T) {
 // ── 9. Enemy chases player ───────────────────────────────────────────────────
 
 func TestUpdate_EnemyChasesPlayer(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	startEnemyPos := geom.PointF{X: 100, Y: 0}
 	enemy := &Enemy{
@@ -559,7 +558,7 @@ func TestUpdate_EnemyChasesPlayer(t *testing.T) {
 // ── 10. Projectile life expiry ────────────────────────────────────────────────
 
 func TestUpdate_ProjectileExpiresAfterLifeTicks(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 
 	p := &Projectile{
 		Pos:    geom.PointF{X: 0, Y: 0},

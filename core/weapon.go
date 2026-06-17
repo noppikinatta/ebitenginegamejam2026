@@ -3,7 +3,6 @@ package core
 import (
 	"math"
 
-	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
 
@@ -50,7 +49,7 @@ type Weapon struct {
 	Kind          WeaponKind
 	Energy        float64      // assigned by the Turret power solver; do not set directly
 	TileIdx       hexmap.Index // the turret tile this weapon sits on; set by ActiveWeapons
-	Level         int          // doctor upgrade level; each +1 multiplies Damage by data.WeaponLevelMult
+	Level         int          // doctor upgrade level; each +1 multiplies Damage by WeaponParams.LevelMult
 	cooldown      int
 	beamTicksLeft int // KindLaser: ticks remaining in current beam burst
 }
@@ -62,71 +61,34 @@ func NewWeapon(name string, energy float64, kind WeaponKind) *Weapon {
 // IsBeamActive reports whether this weapon is currently emitting a laser beam.
 func (w *Weapon) IsBeamActive() bool { return w.beamTicksLeft > 0 }
 
-// StatsFromEnergy maps routed energy onto combat numbers. Stat curves vary by
-// weapon kind so each type has a distinct identity even at the same energy level.
-// Balance numbers live in data.Cannon / data.Shotgun / data.Sniper / data.Laser.
-// Each weapon Level multiplies Damage by data.WeaponLevelMult (default 1.2).
-func (w *Weapon) StatsFromEnergy() WeaponStats {
+// StatsFromEnergy maps routed energy onto combat numbers using the weapon's
+// balance params (supplied by the caller from the injected Config, keyed by
+// Kind). The energy→stats curve is the only coupling point between the power
+// solver and combat behaviour. Each weapon Level multiplies Damage by
+// p.LevelMult.
+func (w *Weapon) StatsFromEnergy(p WeaponParams) WeaponStats {
 	e := w.Energy
 	if e < 0 {
 		e = 0
 	}
-	var stats WeaponStats
-	switch w.Kind {
-	case KindShotgun:
-		p := data.Shotgun
-		interval := int(p.BaseInterval - e*p.EnergyInterval)
-		if interval < p.MinInterval {
-			interval = p.MinInterval
-		}
-		stats = WeaponStats{
-			Damage:          p.BaseDamage + e*p.EnergyDamage,
-			FireInterval:    interval,
-			ProjectileSpeed: p.ProjSpeed,
-			Range:           p.BaseRange + e*p.EnergyRange,
-		}
-	case KindSniper:
-		p := data.Sniper
-		interval := int(p.BaseInterval - e*p.EnergyInterval)
-		if interval < p.MinInterval {
-			interval = p.MinInterval
-		}
-		stats = WeaponStats{
-			Damage:          p.BaseDamage + e*p.EnergyDamage,
-			FireInterval:    interval,
-			ProjectileSpeed: p.ProjSpeed,
-			Range:           p.BaseRange + e*p.EnergyRange,
-		}
-	case KindLaser:
-		p := data.Laser
-		interval := int(p.BaseInterval - e*p.EnergyInterval)
-		if interval < p.MinInterval {
-			interval = p.MinInterval
-		}
-		duration := int(p.BeamBaseDuration + e*p.BeamEnergyDuration)
-		stats = WeaponStats{
-			Damage:       p.BaseDamage + e*p.EnergyDamage, // per tick (DPS)
-			FireInterval: interval,
-			Range:        p.BaseRange + e*p.EnergyRange,
-			BeamLength:   p.BeamBaseLength + e*p.BeamEnergyLength,
-			BeamWidth:    p.BeamBaseWidth + e*p.BeamEnergyWidth,
-			BeamDuration: duration,
-		}
-	default: // KindCannon
-		p := data.Cannon
-		interval := int(p.BaseInterval - e*p.EnergyInterval)
-		if interval < p.MinInterval {
-			interval = p.MinInterval
-		}
-		stats = WeaponStats{
-			Damage:          p.BaseDamage + e*p.EnergyDamage,
-			FireInterval:    interval,
-			ProjectileSpeed: p.ProjSpeed,
-			Range:           p.BaseRange + e*p.EnergyRange,
-		}
+	interval := int(p.BaseInterval - e*p.EnergyInterval)
+	if interval < p.MinInterval {
+		interval = p.MinInterval
+	}
+	stats := WeaponStats{
+		Damage:       p.BaseDamage + e*p.EnergyDamage,
+		FireInterval: interval,
+		Range:        p.BaseRange + e*p.EnergyRange,
+	}
+	if w.Kind == KindLaser {
+		stats.BeamLength = p.BeamBaseLength + e*p.BeamEnergyLength
+		stats.BeamWidth = p.BeamBaseWidth + e*p.BeamEnergyWidth
+		stats.BeamDuration = int(p.BeamBaseDuration + e*p.BeamEnergyDuration)
+	} else {
+		stats.ProjectileSpeed = p.ProjSpeed
 	}
 	if w.Level > 0 {
-		stats.Damage *= math.Pow(data.WeaponLevelMult, float64(w.Level))
+		stats.Damage *= math.Pow(p.LevelMult, float64(w.Level))
 	}
 	return stats
 }

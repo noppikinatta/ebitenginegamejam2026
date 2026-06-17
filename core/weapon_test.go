@@ -58,8 +58,8 @@ func TestStatsFromEnergy_TableDriven(t *testing.T) {
 	// Also verify that damage and range strictly increase with energy.
 	energyLevels := []float64{0, 1, 2, 5, 10, 20}
 	for i := 1; i < len(energyLevels); i++ {
-		lo := NewWeapon("w", energyLevels[i-1], KindCannon).StatsFromEnergy()
-		hi := NewWeapon("w", energyLevels[i], KindCannon).StatsFromEnergy()
+		lo := NewWeapon("w", energyLevels[i-1], KindCannon).StatsFromEnergy(testParams(KindCannon))
+		hi := NewWeapon("w", energyLevels[i], KindCannon).StatsFromEnergy(testParams(KindCannon))
 		if hi.Damage <= lo.Damage {
 			t.Errorf("Damage should increase: energy %.0f => %.2f, energy %.0f => %.2f",
 				energyLevels[i-1], lo.Damage, energyLevels[i], hi.Damage)
@@ -73,7 +73,7 @@ func TestStatsFromEnergy_TableDriven(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			w := NewWeapon("Cannon", tc.energy, KindCannon)
-			stats := w.StatsFromEnergy()
+			stats := w.StatsFromEnergy(testParams(KindCannon))
 
 			if stats.Damage < tc.wantDamageMin {
 				t.Errorf("Damage = %.2f, want >= %.2f", stats.Damage, tc.wantDamageMin)
@@ -95,8 +95,8 @@ func TestStatsFromEnergy_NegativeEnergyTreatedAsZero(t *testing.T) {
 	wNeg := NewWeapon("Cannon", -5, KindCannon)
 	wZero := NewWeapon("Cannon", 0, KindCannon)
 
-	sNeg := wNeg.StatsFromEnergy()
-	sZero := wZero.StatsFromEnergy()
+	sNeg := wNeg.StatsFromEnergy(testParams(KindCannon))
+	sZero := wZero.StatsFromEnergy(testParams(KindCannon))
 
 	if sNeg.Damage != sZero.Damage {
 		t.Errorf("negative energy: Damage %.2f != zero energy Damage %.2f", sNeg.Damage, sZero.Damage)
@@ -112,14 +112,14 @@ func TestStatsFromEnergy_NegativeEnergyTreatedAsZero(t *testing.T) {
 func TestStatsFromEnergy_FireIntervalFloorAt6(t *testing.T) {
 	// energy=10 would give interval = 45 - 10*4 = 5, which should be clamped to 6.
 	w := NewWeapon("Cannon", 10, KindCannon)
-	stats := w.StatsFromEnergy()
+	stats := w.StatsFromEnergy(testParams(KindCannon))
 	if stats.FireInterval != 6 {
 		t.Errorf("FireInterval = %d, want 6 (floor clamp)", stats.FireInterval)
 	}
 
 	// energy=9 gives 45 - 36 = 9, which is above the floor.
 	w9 := NewWeapon("Cannon", 9, KindCannon)
-	stats9 := w9.StatsFromEnergy()
+	stats9 := w9.StatsFromEnergy(testParams(KindCannon))
 	if stats9.FireInterval != 9 {
 		t.Errorf("FireInterval = %d, want 9", stats9.FireInterval)
 	}
