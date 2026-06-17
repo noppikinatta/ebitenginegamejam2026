@@ -10,6 +10,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
+	"github.com/noppikinatta/ebitenginegamejam2026/asset"
 	"github.com/noppikinatta/ebitenginegamejam2026/core"
 	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
@@ -308,26 +309,27 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	g.drawGrid(screen, cam)
 
 	for _, gem := range w.Gems {
-		drawEntity(screen, cam, gem.Pos, 8, 8, 0.2, 0.8, 0.9, 1)
+		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1)
 	}
 	for _, pk := range w.Pickups {
-		// Nipper drop: bright yellow-green diamond-ish square.
-		drawEntity(screen, cam, pk.Pos, 12, 12, 0.8, 1, 0.2, 1)
+		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 12, 12, 0, 1, 1, 1, 1)
 	}
 	for _, e := range w.Enemies {
+		key := asset.ImgEnemy
 		if e.DropsNipper {
-			drawEntity(screen, cam, e.Pos, enemyDrawSize, enemyDrawSize, 0.95, 0.8, 0.2, 1) // gold candlestick
-		} else {
-			drawEntity(screen, cam, e.Pos, enemyDrawSize, enemyDrawSize, 0.85, 0.25, 0.25, 1)
+			key = asset.ImgCandlestick
 		}
+		drawSprite(screen, cam, key, e.Pos, enemyDrawSize, enemyDrawSize, 0, 1, 1, 1, 1)
 	}
 	for _, p := range w.Projectiles {
-		drawEntity(screen, cam, p.Pos, 8, 8, 1, 0.9, 0.3, 1)
+		drawSprite(screen, cam, asset.ImgProjectile, p.Pos, 8, 8, 0, 1, 1, 1, 1)
 	}
 	g.drawBeams(screen, cam)
 
-	// Player tank (tall sprite; collision radius is separate, in core).
-	drawEntity(screen, cam, w.Player.Pos, tankDrawW, tankDrawH, 0.3, 0.8, 0.5, 1)
+	// Player tank (tall sprite, authored pointing up; rotate to face movement
+	// using the same smoothed angle as the turret so body and turret ease
+	// together). Collision radius is separate, in core.
+	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1)
 
 	// Turret miniature on top of the tank body, rotated to face movement direction.
 	g.drawTurretCombat(screen, cam)
@@ -465,8 +467,8 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 		cx := psx + rot.X
 		cy := psy + rot.Y
 
-		r, gr, b := tileColorRGB(tr, idx, tile, power[idx])
-		drawing.DrawRect(screen, cx-combatTileSize/2, cy-combatTileSize/2, combatTileSize-2, combatTileSize-2, r, gr, b, 1)
+		key, dim := tileSprite(tr, idx, tile, power[idx])
+		drawing.DrawSprite(screen, drawing.Image(key), cx, cy, combatTileSize, combatTileSize, theta, dim, dim, dim, 1)
 	}
 
 	// Cut cursor highlight: a white frame around the selected tile.
@@ -489,25 +491,40 @@ func drawCursorFrame(screen *ebiten.Image, cx, cy, size float64) {
 	drawing.DrawRect(screen, cx+h-t, cy-h, t, size, 1, 1, 1, 1) // right
 }
 
-// tileColorRGB returns the display colour for a tile given its power level.
-func tileColorRGB(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64) (r, gr, b float32) {
-	isGen := tr.IsGenerator(idx)
-	switch tile.Component.(type) {
+// tileSprite returns the image key for a tile plus a brightness multiplier
+// (dim) so unpowered weapons/wires render darker — power can't be encoded in a
+// single sprite, so it is applied as a colour-scale tint.
+func tileSprite(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64) (key string, dim float32) {
+	if tr.IsGenerator(idx) {
+		return asset.ImgTileGenerator, 1
+	}
+	switch c := tile.Component.(type) {
 	case core.WeaponComponent:
-		if power > 0 {
-			return 1, 0.6, 0.1 // orange: active weapon
+		if power <= 0 {
+			return weaponTileKey(c.Weapon.Kind), 0.5 // dim: unpowered weapon
 		}
-		return 0.5, 0.25, 0.05 // dim orange: unpowered weapon
+		return weaponTileKey(c.Weapon.Kind), 1
 	case core.Junk:
-		return 0.6, 0.4, 0.7 // purple: useless junk device
-	default: // Wire or generator
-		if isGen {
-			return 1, 1, 0.2 // yellow: generator
+		return asset.ImgTileJunk, 1
+	default: // Wire
+		if power <= 0 {
+			return asset.ImgTileWire, 0.45 // dim: unpowered wire
 		}
-		if power > 0 {
-			return 0.25, 0.45, 0.85 // blue: powered wire
-		}
-		return 0.12, 0.18, 0.35 // dark: unpowered wire
+		return asset.ImgTileWire, 1
+	}
+}
+
+// weaponTileKey maps a weapon kind to its turret-tile image key.
+func weaponTileKey(k core.WeaponKind) string {
+	switch k {
+	case core.KindShotgun:
+		return asset.ImgTileWeaponShotgun
+	case core.KindSniper:
+		return asset.ImgTileWeaponSniper
+	case core.KindLaser:
+		return asset.ImgTileWeaponLaser
+	default:
+		return asset.ImgTileWeaponCannon
 	}
 }
 
@@ -577,9 +594,11 @@ func (g *InGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return screenW, screenH
 }
 
-// drawEntity draws a world-space rectangle centred on pos, transformed by cam.
-func drawEntity(screen *ebiten.Image, cam, pos geom.PointF, w, h float64, r, gr, b, a float32) {
-	drawing.DrawRect(screen, pos.X-cam.X-w/2, pos.Y-cam.Y-h/2, w, h, r, gr, b, a)
+// drawSprite draws the image keyed by key centred on world position pos
+// (transformed by cam), scaled to w×h, rotated by angle, and tinted by
+// (r,gr,b,a). It is the sprite-based replacement for the old drawEntity.
+func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.PointF, w, h, angle float64, r, gr, b, a float32) {
+	drawing.DrawSprite(screen, drawing.Image(key), pos.X-cam.X, pos.Y-cam.Y, w, h, angle, r, gr, b, a)
 }
 
 func scale(r, g, b, a float32) ebiten.ColorScale {
