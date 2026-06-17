@@ -11,14 +11,14 @@ type Config struct {
 	CandlestickInterval int     // ticks between candlestick spawns
 	XPToNextGrowth      float64 // XPToNext multiplier applied each level-up
 
-	Player       Player                       // starting-stat template (Pos/Weapons/Facing/Nippers set by NewWorld)
-	Pickup       PickupRanges                 // gem/nipper magnet+collect behaviour
-	Spawn        SpawnSpec                    // enemy/candlestick placement and timing
-	Doctor       DoctorSpec                   // level-up offer balance
-	EnemyScaling EnemyScaling                 // basic enemy stats and HP scaling
-	Candlestick  Enemy                        // candlestick template (Pos/alive set on spawn)
-	TurretGen    TurretGenConfig              // random starting-turret generation params
-	Weapons      map[WeaponKind]WeaponParams  // per-kind weapon stat curves
+	Player       Player                      // starting-stat template (Pos/Weapons/Facing/Nippers set by NewWorld)
+	Pickup       PickupRanges                // gem/nipper magnet+collect behaviour
+	Spawn        SpawnSpec                   // enemy/candlestick placement and timing
+	Doctor       DoctorSpec                  // level-up offer balance
+	EnemyScaling EnemyScaling                // basic enemy stats and HP scaling
+	Candlestick  Enemy                       // candlestick template (Pos/alive set on spawn)
+	TurretGen    TurretGenConfig             // random starting-turret generation params
+	Weapons      map[WeaponKind]WeaponParams // per-kind weapon stat curves
 }
 
 // WeaponParams contains the balance numbers for one weapon kind.

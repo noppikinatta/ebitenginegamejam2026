@@ -301,6 +301,62 @@ func (t *Turret) propagatePurge() {
 	}
 }
 
+// CutPreview returns the set of tiles that PurgeTile(idx) would remove: idx
+// itself plus every tile that would become unreachable from the generator as a
+// result (the cascade). It does NOT mutate the turret, so the scene can show a
+// cut preview on hover. Returns nil if idx cannot be cut (missing, already
+// purged, or a generator).
+func (t *Turret) CutPreview(idx hexmap.Index) map[hexmap.Index]bool {
+	tile, ok := t.tiles[idx]
+	if !ok || tile.purged || t.IsGenerator(idx) {
+		return nil
+	}
+	reachable := t.reachableExcluding(idx)
+	result := map[hexmap.Index]bool{idx: true}
+	for i, tl := range t.tiles {
+		if tl.purged || tl.Component == nil || t.IsGenerator(i) || i == idx {
+			continue
+		}
+		if !reachable[i] {
+			result[i] = true
+		}
+	}
+	return result
+}
+
+// reachableExcluding returns the set of active tiles reachable from the first
+// generator through active tiles, treating excluded as if it were purged.
+func (t *Turret) reachableExcluding(excluded hexmap.Index) map[hexmap.Index]bool {
+	visited := map[hexmap.Index]bool{}
+	if len(t.generators) == 0 {
+		return visited
+	}
+	origin := t.generators[0]
+	if origin == excluded {
+		return visited
+	}
+	visited[origin] = true
+	queue := []hexmap.Index{origin}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		var nbs []hexmap.Index
+		nbs = cur.AppendAround(nbs)
+		for _, nb := range nbs {
+			if visited[nb] || nb == excluded {
+				continue
+			}
+			nbTile := t.tiles[nb]
+			if nbTile == nil || nbTile.purged || nbTile.Component == nil {
+				continue
+			}
+			visited[nb] = true
+			queue = append(queue, nb)
+		}
+	}
+	return visited
+}
+
 // ActiveWeapons returns all weapon instances on active, powered tiles, with each
 // weapon's Energy set to its tile's flat power share. Call this each tick (or
 // after purging/adding tiles) to get the current armed weapon list.

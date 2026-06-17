@@ -444,22 +444,30 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), cx, cy, tankDrawW*zoom, tankDrawH*zoom, 0, 1, 1, 1, 1)
 	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0)
 
-	// Highlight the tile under the cursor.
+	// Highlight the tile under the cursor, plus a cut preview: the collateral
+	// tiles that would cascade-cut are framed in a dimmer white.
 	if idx, ok := g.pauseTileAtCursor(); ok {
+		for pidx := range g.world.Turret().CutPreview(idx) {
+			if pidx == idx {
+				continue // the target itself gets the bright frame below
+			}
+			c := tileScreenCenter(pidx, cx, cy, pauseTileSize)
+			drawTileFrame(screen, c.X, c.Y, pauseTileSize, 0.7, 0.7, 0.7, 0.9) // dim: collateral
+		}
 		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
-		drawCursorFrame(screen, c.X, c.Y, pauseTileSize)
+		drawTileFrame(screen, c.X, c.Y, pauseTileSize, 1, 1, 1, 1) // bright: target
 	}
 }
 
-// drawCursorFrame draws a white outline (four thin bars) around a tile centred
-// at (cx, cy) so the selected cut target stands out against tile colours.
-func drawCursorFrame(screen *ebiten.Image, cx, cy, size float64) {
+// drawTileFrame draws an outline (four thin bars) around a tile centred at
+// (cx, cy) in colour (r,g,b,a), so cut targets stand out against tile colours.
+func drawTileFrame(screen *ebiten.Image, cx, cy, size float64, r, g, b, a float32) {
 	const t = 2.0
 	h := size / 2
-	drawing.DrawRect(screen, cx-h, cy-h, size, t, 1, 1, 1, 1)   // top
-	drawing.DrawRect(screen, cx-h, cy+h-t, size, t, 1, 1, 1, 1) // bottom
-	drawing.DrawRect(screen, cx-h, cy-h, t, size, 1, 1, 1, 1)   // left
-	drawing.DrawRect(screen, cx+h-t, cy-h, t, size, 1, 1, 1, 1) // right
+	drawing.DrawRect(screen, cx-h, cy-h, size, t, r, g, b, a)   // top
+	drawing.DrawRect(screen, cx-h, cy+h-t, size, t, r, g, b, a) // bottom
+	drawing.DrawRect(screen, cx-h, cy-h, t, size, r, g, b, a)   // left
+	drawing.DrawRect(screen, cx+h-t, cy-h, t, size, r, g, b, a) // right
 }
 
 // tileBase returns the under-layer image key for a tile plus a brightness

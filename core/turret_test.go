@@ -280,6 +280,74 @@ func TestPurgeTile_RejectsGenerator(t *testing.T) {
 	}
 }
 
+// TestCutPreview_MatchesCascade: previewing a mid-chain cut reports the tile
+// plus its now-orphaned downstream tiles, without mutating the turret.
+func TestCutPreview_MatchesCascade(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	mid := hexmap.IdxXY(1, 0)
+	weapon := hexmap.IdxXY(2, 0)
+	tail := hexmap.IdxXY(3, 0)
+
+	tr := NewTurret(map[hexmap.Index]*Tile{
+		gen:    wireT(),
+		mid:    wireT(),
+		weapon: weaponT(),
+		tail:   wireT(),
+	}, []hexmap.Index{gen}, 100)
+
+	preview := tr.CutPreview(mid)
+	want := map[hexmap.Index]bool{mid: true, weapon: true, tail: true}
+	if len(preview) != len(want) {
+		t.Fatalf("preview size = %d, want %d (%v)", len(preview), len(want), preview)
+	}
+	for idx := range want {
+		if !preview[idx] {
+			t.Errorf("preview missing %v", idx)
+		}
+	}
+	// Preview must not mutate: no tile should be purged yet.
+	for idx, tile := range tr.Tiles() {
+		if tile.IsPurged() {
+			t.Errorf("CutPreview purged %v (should not mutate)", idx)
+		}
+	}
+}
+
+// TestCutPreview_AlternatePathNotIncluded: a tile with another route to the
+// generator is not in the preview (matches the no-cascade purge behaviour).
+func TestCutPreview_AlternatePathNotIncluded(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	p1 := hexmap.IdxXY(1, 0)
+	p2 := hexmap.IdxXY(0, 1)
+	child := hexmap.IdxXY(1, 1)
+
+	tr := NewTurret(map[hexmap.Index]*Tile{
+		gen:   wireT(),
+		p1:    wireT(),
+		p2:    wireT(),
+		child: weaponT(),
+	}, []hexmap.Index{gen}, 100)
+
+	preview := tr.CutPreview(p1)
+	if len(preview) != 1 || !preview[p1] {
+		t.Errorf("preview = %v, want only {%v} (child has an alternate path via p2)", preview, p1)
+	}
+}
+
+// TestCutPreview_RejectsGenerator: the generator cannot be cut, so preview is nil.
+func TestCutPreview_RejectsGenerator(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	weapon := hexmap.IdxXY(1, 0)
+	tr := NewTurret(map[hexmap.Index]*Tile{
+		gen:    wireT(),
+		weapon: weaponT(),
+	}, []hexmap.Index{gen}, 100)
+
+	if preview := tr.CutPreview(gen); preview != nil {
+		t.Errorf("CutPreview(generator) = %v, want nil", preview)
+	}
+}
+
 // TestActiveWeapons_SetsEnergy: ActiveWeapons returns weapons with Energy set to
 // their flat power share.
 func TestActiveWeapons_SetsEnergy(t *testing.T) {
