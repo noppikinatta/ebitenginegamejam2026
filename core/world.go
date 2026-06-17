@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
@@ -18,11 +17,6 @@ const (
 	StateLevelUp        // awaiting the player's purge choice
 	StateGameOver       // run ended
 )
-
-// Balance constants are defined in the data package; import them here as
-// package-level aliases so tests that reference them by the old names still
-// compile without changes.
-const startingNippers = data.StartingNippers
 
 // World holds all gameplay state for a single run. It has no Ebiten dependency
 // so the simulation can be unit-tested in isolation.
@@ -45,37 +39,32 @@ type World struct {
 	candlestickTimer int
 	spawnTimer       int
 	rng              *rand.Rand
+	cfg              Config
 }
 
 // Turret exposes the turret grid read-only so the scene layer can draw it.
 func (w *World) Turret() *Turret { return w.turret }
 
 // NewWorld builds a fresh run. seed makes enemy spawning and turret generation
-// deterministic for tests; pass time.Now().UnixNano() for real gameplay.
-func NewWorld(seed int64) *World {
+// deterministic for tests; pass time.Now().UnixNano() for real gameplay. cfg
+// supplies every balance number (see Config); the data package provides the
+// canonical values via data.NewConfig().
+func NewWorld(seed int64, cfg Config) *World {
 	rng := rand.New(rand.NewSource(seed))
-	cfg := DefaultTurretGenConfig(rng)
-	turret := GenerateTurret(cfg, rng)
+	turret := GenerateTurret(cfg.TurretGen, rng)
 	weapons := turret.ActiveWeapons()
 
-	pd := data.DefaultPlayer()
-	p := &Player{
-		Pos:         geom.PointF{},
-		HP:          pd.HP,
-		MaxHP:       pd.MaxHP,
-		Speed:       pd.Speed,
-		Radius:      pd.Radius,
-		Level:       pd.Level,
-		XPToNext:    pd.XPToNext,
-		Weapons:     weapons,
-		FacingAngle: -math.Pi / 2,
-		Nippers:     data.StartingNippers,
-	}
+	p := cfg.Player // copy the starting-stat template
+	p.Pos = geom.PointF{}
+	p.Weapons = weapons
+	p.FacingAngle = -math.Pi / 2
+	p.Nippers = cfg.StartingNippers
 	return &World{
-		Player: p,
+		Player: &p,
 		State:  StatePlaying,
 		turret: turret,
 		rng:    rng,
+		cfg:    cfg,
 	}
 }
 
@@ -156,7 +145,7 @@ func (w *World) updateWeapons() {
 			continue
 		}
 
-		stats := weapon.StatsFromEnergy()
+		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
 		target := w.nearestEnemy(w.Player.Pos, stats.Range)
 		if target == nil {
 			continue
@@ -202,7 +191,7 @@ func (w *World) updateBeams() {
 		}
 		weapon.beamTicksLeft--
 
-		stats := weapon.StatsFromEnergy()
+		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
 		target := w.nearestEnemy(muzzle, stats.Range)
 		if target == nil {
@@ -239,7 +228,7 @@ func (w *World) ActiveBeams() []BeamView {
 		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
 			continue
 		}
-		stats := weapon.StatsFromEnergy()
+		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
 		target := w.nearestEnemy(muzzle, stats.Range)
 		if target == nil {
@@ -339,7 +328,7 @@ func (w *World) damagePlayer(dmg float64) {
 }
 
 func (w *World) updateGems() {
-	pr := data.DefaultPickupRanges()
+	pr := w.cfg.Pickup
 	for _, g := range w.Gems {
 		if !g.alive {
 			continue
@@ -358,7 +347,7 @@ func (w *World) updateGems() {
 
 // updatePickups magnets and collects dropped nippers, granting one per pickup.
 func (w *World) updatePickups() {
-	pr := data.DefaultPickupRanges()
+	pr := w.cfg.Pickup
 	for _, p := range w.Pickups {
 		if !p.alive {
 			continue
@@ -380,7 +369,7 @@ func (w *World) addXP(v float64) {
 	for w.Player.XP >= w.Player.XPToNext {
 		w.Player.XP -= w.Player.XPToNext
 		w.Player.Level++
-		w.Player.XPToNext = math.Ceil(w.Player.XPToNext * data.XPToNextGrowth)
+		w.Player.XPToNext = math.Ceil(w.Player.XPToNext * w.cfg.XPToNextGrowth)
 		w.pendingLevelUps++
 	}
 	if w.pendingLevelUps > 0 && w.State == StatePlaying {
@@ -399,7 +388,7 @@ var doctorNames = []string{
 // the chosen doctor bolts a new tile (weapon or useless junk) onto a random
 // spot — or, occasionally, hands over spare nippers instead.
 func (w *World) rollChoices() {
-	atCap := w.turret.TileCount() >= data.MaxTurretTiles
+	atCap := w.turret.TileCount() >= w.cfg.MaxTurretTiles
 	choices := make([]Upgrade, 0, 3)
 	for i := 0; i < 3; i++ {
 		choices = append(choices, w.rollDoctorChoice(atCap))
@@ -418,7 +407,7 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	doc := doctorNames[w.rng.Intn(len(doctorNames))]
 	r := w.rng.Float64()
 	activeWeapons := w.turret.ActiveWeapons()
-	dd := data.DefaultDoctor()
+	dd := w.cfg.Doctor
 
 	// ~25%: nippers. Also forced when atCap and no weapons exist to upgrade.
 	if r < dd.NipperChance || (atCap && len(activeWeapons) == 0) {
@@ -497,7 +486,7 @@ func (w *World) spawnEnemies() {
 		w.spawnTimer--
 		return
 	}
-	sp := data.DefaultSpawn()
+	sp := w.cfg.Spawn
 	interval := sp.EnemyBaseInterval - w.Tick/sp.EnemyIntervalDecay
 	if interval < sp.EnemyMinInterval {
 		interval = sp.EnemyMinInterval
@@ -507,14 +496,15 @@ func (w *World) spawnEnemies() {
 	angle := w.rng.Float64() * 2 * math.Pi
 	pos := w.Player.Pos.Add(geom.PointFFromPolar(sp.EnemyDist, angle))
 
-	spec := data.BasicEnemy(w.Tick)
+	// HP scales linearly with time so enemies get tankier as the run goes on.
+	sc := w.cfg.EnemyScaling
 	w.Enemies = append(w.Enemies, &Enemy{
 		Pos:     pos,
-		HP:      spec.HP,
-		Speed:   spec.Speed,
-		Radius:  spec.Radius,
-		Damage:  spec.Damage,
-		XPValue: spec.XPValue,
+		HP:      sc.HPBase + float64(w.Tick)*sc.HPPerTick,
+		Speed:   sc.Speed,
+		Radius:  sc.Radius,
+		Damage:  sc.Damage,
+		XPValue: sc.XPValue,
 		alive:   true,
 	})
 }
@@ -526,24 +516,17 @@ func (w *World) spawnCandlestick() {
 		w.candlestickTimer--
 		return
 	}
-	w.candlestickTimer = data.CandlestickInterval
+	w.candlestickTimer = w.cfg.CandlestickInterval
 
-	sp := data.DefaultSpawn()
+	sp := w.cfg.Spawn
 	angle := w.rng.Float64() * 2 * math.Pi
 	dist := sp.CandleDist + w.rng.Float64()*sp.CandleDistRange
 	pos := w.Player.Pos.Add(geom.PointFFromPolar(dist, angle))
 
-	spec := data.Candlestick()
-	w.Enemies = append(w.Enemies, &Enemy{
-		Pos:         pos,
-		HP:          spec.HP,
-		Speed:       spec.Speed,
-		Radius:      spec.Radius,
-		Damage:      spec.Damage,
-		XPValue:     spec.XPValue,
-		DropsNipper: spec.DropsNipper,
-		alive:       true,
-	})
+	e := w.cfg.Candlestick // copy the candlestick template
+	e.Pos = pos
+	e.alive = true
+	w.Enemies = append(w.Enemies, &e)
 }
 
 func (w *World) compact() {

@@ -27,7 +27,7 @@ func newCutTestWorld(nippers int) (w *World, a, b hexmap.Index) {
 }
 
 func TestNewWorld_StartsWithNippers(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	if w.Player.Nippers != startingNippers {
 		t.Errorf("starting nippers = %d, want %d", w.Player.Nippers, startingNippers)
 	}

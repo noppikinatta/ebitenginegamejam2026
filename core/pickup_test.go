@@ -35,7 +35,7 @@ func TestKillEnemy_NormalEnemyDropsGemNotNipper(t *testing.T) {
 }
 
 func TestUpdatePickups_CollectGrantsNipper(t *testing.T) {
-	w := &World{Player: &Player{Pos: geom.PointF{}, Nippers: 0}}
+	w := &World{Player: &Player{Pos: geom.PointF{}, Nippers: 0}, cfg: testConfig()}
 	w.Pickups = []*Pickup{{Pos: geom.PointF{}, alive: true}}
 
 	w.updatePickups()
@@ -49,7 +49,7 @@ func TestUpdatePickups_CollectGrantsNipper(t *testing.T) {
 }
 
 func TestSpawnCandlestick_AppearsAndIsHarmless(t *testing.T) {
-	w := NewWorld(testSeed)
+	w := NewWorld(testSeed, testConfig())
 	w.Update(geom.PointF{}) // first tick: candlestickTimer starts at 0, so it spawns
 
 	var found *Enemy

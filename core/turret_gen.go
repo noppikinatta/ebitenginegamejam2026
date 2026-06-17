@@ -3,7 +3,6 @@ package core
 import (
 	"math/rand"
 
-	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
 
@@ -34,21 +33,6 @@ type TurretGenConfig struct {
 	// Generators lists the generator positions and their output power.
 	// For the initial single-generator version, this should have exactly one entry.
 	Generators []GeneratorConfig
-}
-
-// DefaultTurretGenConfig returns a starting config tuned for the initial game.
-// Balance numbers come from data.DefaultTurretGen(); edit there to tune.
-func DefaultTurretGenConfig(rng *rand.Rand) TurretGenConfig {
-	spec := data.DefaultTurretGen()
-	return TurretGenConfig{
-		MaxTiles:      spec.MaxTiles,
-		BranchProb:    spec.BranchProb,
-		WeaponDensity: spec.WeaponDensity,
-		JunkDensity:   spec.JunkDensity,
-		Generators: []GeneratorConfig{
-			{Index: hexmap.IdxXY(0, 0), Power: spec.GenPower},
-		},
-	}
 }
 
 // GenerateTurret builds a randomized branch-like Turret using a frontier-growth

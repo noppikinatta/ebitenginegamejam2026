@@ -11,6 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
 	"github.com/noppikinatta/ebitenginegamejam2026/core"
+	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
@@ -68,7 +69,7 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 // from a fresh world. The seed is time-based so runs vary; use core.NewWorld
 // directly with a fixed seed for deterministic tests.
 func (g *InGame) OnStart() {
-	g.world = core.NewWorld(time.Now().UnixNano())
+	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
 	g.turretRenderedAngle = g.world.Player.FacingAngle
@@ -76,7 +77,7 @@ func (g *InGame) OnStart() {
 
 func (g *InGame) Update() error {
 	if g.world == nil {
-		g.world = core.NewWorld(time.Now().UnixNano())
+		g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 		g.turretRenderedAngle = g.world.Player.FacingAngle
 	}
 
