@@ -14,6 +14,7 @@ type Player struct {
 	XP          float64
 	XPToNext    float64
 	FacingAngle float64 // radians; direction the tank/turret faces. -pi/2 = straight up = forward (default)
+	Nippers     int     // plastic-model nippers: consumed to cut a turret tile mid-combat
 	invuln      int     // i-frame ticks remaining after taking contact damage
 }
 

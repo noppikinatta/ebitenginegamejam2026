@@ -21,6 +21,10 @@ const (
 // speedBonusPerTilePurge is the px/tick speed gained per tile-purge.
 const speedBonusPerTilePurge = 0.3
 
+// startingNippers is how many tile cuts the player can make before needing to
+// find more. Nippers are the limited resource that gates mid-combat cutting.
+const startingNippers = 3
+
 // World holds all gameplay state for a single run. It has no Ebiten dependency
 // so the simulation can be unit-tested in isolation.
 type World struct {
@@ -63,6 +67,7 @@ func NewWorld(seed int64) *World {
 		XPToNext:    10,
 		Weapons:     weapons,
 		FacingAngle: -math.Pi / 2,
+		Nippers:     startingNippers,
 	}
 	return &World{
 		Player: p,
@@ -106,6 +111,23 @@ func (w *World) ChooseUpgrade(i int) {
 	}
 	w.Choices = nil
 	w.State = StatePlaying
+}
+
+// CutTile cuts the turret tile at idx during combat, spending one nipper.
+// The tile (and any tiles it orphans) is purged and the active weapon list is
+// rebuilt so the remaining tiles reconcentrate power. Returns false (no nipper
+// spent) if the player has no nippers, the tile is the generator, or the tile
+// is absent/already purged.
+func (w *World) CutTile(idx hexmap.Index) bool {
+	if w.State != StatePlaying || w.Player.Nippers <= 0 {
+		return false
+	}
+	if !w.turret.PurgeTile(idx) {
+		return false
+	}
+	w.Player.Nippers--
+	w.Player.Weapons = w.turret.ActiveWeapons()
+	return true
 }
 
 // ---- internal update steps ----

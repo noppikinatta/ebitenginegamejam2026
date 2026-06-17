@@ -49,6 +49,11 @@ type InGame struct {
 	// It eases toward world.Player.FacingAngle so the turret rotates over a few
 	// frames instead of snapping instantly.
 	turretRenderedAngle float64
+
+	// Combat cut-mode: while Shift is held (and nippers remain) the tank stops,
+	// a cursor highlights one turret tile, WASD moves it, Space cuts it.
+	cutCursor    hexmap.Index
+	cutCursorSet bool
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -87,7 +92,13 @@ func (g *InGame) Update() error {
 	case core.StateLevelUp:
 		g.handleLevelUpInput()
 	default:
-		g.world.Update(g.readMove())
+		// In cut-mode the tank stops (WASD drives the cursor instead), but the
+		// simulation keeps running — enemies close in, creating the opening.
+		move := g.readMove()
+		if g.handleCombatCut() {
+			move = geom.PointF{}
+		}
+		g.world.Update(move)
 	}
 
 	// Ease the rendered turret angle toward the tank's facing every frame.
@@ -168,6 +179,127 @@ func (g *InGame) readMove() geom.PointF {
 		m.X += 1
 	}
 	return m
+}
+
+// handleCombatCut runs the Shift+WASD cursor cut interaction. It returns true
+// while cut-mode is active (the caller should freeze tank movement for the
+// opening). Cut-mode requires Shift held and at least one nipper remaining.
+func (g *InGame) handleCombatCut() bool {
+	kb := g.input.Keyboard
+	if kb == nil || !ebiten.IsKeyPressed(ebiten.KeyShift) || g.world.Player.Nippers <= 0 {
+		g.cutCursorSet = false
+		return false
+	}
+
+	tr := g.world.Turret()
+	if tr == nil {
+		g.cutCursorSet = false
+		return false
+	}
+
+	// Drop the cursor if it points at a tile that no longer exists / was cut.
+	if g.cutCursorSet {
+		if tile, ok := tr.Tiles()[g.cutCursor]; !ok || tile.IsPurged() || tr.IsGenerator(g.cutCursor) {
+			g.cutCursorSet = false
+		}
+	}
+	// Initialise the cursor on the tile nearest the turret centre.
+	if !g.cutCursorSet {
+		if idx, ok := g.nearestCuttableTile(); ok {
+			g.cutCursor = idx
+			g.cutCursorSet = true
+		} else {
+			return true // no cuttable tiles, but still hold the tank stationary
+		}
+	}
+
+	// WASD moves the cursor one tile in the pressed screen direction.
+	if kb.IsJustPressed(ebiten.KeyW) || kb.IsJustPressed(ebiten.KeyArrowUp) {
+		g.moveCutCursor(0, -1)
+	}
+	if kb.IsJustPressed(ebiten.KeyS) || kb.IsJustPressed(ebiten.KeyArrowDown) {
+		g.moveCutCursor(0, 1)
+	}
+	if kb.IsJustPressed(ebiten.KeyA) || kb.IsJustPressed(ebiten.KeyArrowLeft) {
+		g.moveCutCursor(-1, 0)
+	}
+	if kb.IsJustPressed(ebiten.KeyD) || kb.IsJustPressed(ebiten.KeyArrowRight) {
+		g.moveCutCursor(1, 0)
+	}
+
+	// Space cuts the selected tile.
+	if kb.IsJustPressed(ebiten.KeySpace) {
+		if g.world.CutTile(g.cutCursor) {
+			// The cut tile (and cascade) is gone; re-seat the cursor.
+			g.cutCursorSet = false
+		}
+	}
+	return true
+}
+
+// tileRotOffset returns a tile's screen-space offset from the tank centre under
+// the current rendered turret rotation (the same transform drawTurretCombat uses).
+func (g *InGame) tileRotOffset(idx hexmap.Index) geom.PointF {
+	theta := g.turretRenderedAngle + math.Pi/2
+	dx, dy := hexLocalOffset(idx, combatTileSize)
+	off := geom.PointF{X: dx, Y: dy}
+	return geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
+}
+
+// nearestCuttableTile returns the active, non-generator tile closest to the
+// turret centre — a stable starting point for the cut cursor.
+func (g *InGame) nearestCuttableTile() (hexmap.Index, bool) {
+	tr := g.world.Turret()
+	var best hexmap.Index
+	bestD := math.Inf(1)
+	found := false
+	for idx, tile := range tr.Tiles() {
+		if tile.IsPurged() || tr.IsGenerator(idx) {
+			continue
+		}
+		dx, dy := hexLocalOffset(idx, combatTileSize)
+		if d := math.Hypot(dx, dy); d < bestD {
+			bestD = d
+			best = idx
+			found = true
+		}
+	}
+	return best, found
+}
+
+// moveCutCursor moves the cursor to the active tile best matching the given
+// unit screen direction (dirX, dirY) from the current cursor position. Tiles
+// behind the direction are ignored; off-axis tiles are penalised so the cursor
+// follows the most aligned, nearest tile.
+func (g *InGame) moveCutCursor(dirX, dirY float64) {
+	tr := g.world.Turret()
+	cur := g.tileRotOffset(g.cutCursor)
+	dir := geom.PointF{X: dirX, Y: dirY}
+
+	var best hexmap.Index
+	bestScore := math.Inf(1)
+	found := false
+	for idx, tile := range tr.Tiles() {
+		if tile.IsPurged() || tr.IsGenerator(idx) || idx == g.cutCursor {
+			continue
+		}
+		off := g.tileRotOffset(idx).Subtract(cur)
+		proj := off.InnerProduct(dir)
+		if proj <= 0 {
+			continue // not in the pressed direction
+		}
+		dist := off.Abs()
+		cos := proj / dist // dir is unit length
+		score := dist / (cos * cos)
+		if score < bestScore {
+			bestScore = score
+			best = idx
+			found = true
+		}
+	}
+	if found {
+		g.cutCursor = best
+	}
 }
 
 func (g *InGame) Draw(screen *ebiten.Image) {
@@ -313,6 +445,25 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 		r, gr, b := tileColorRGB(tr, idx, tile, power[idx])
 		drawing.DrawRect(screen, cx-combatTileSize/2, cy-combatTileSize/2, combatTileSize-2, combatTileSize-2, r, gr, b, 1)
 	}
+
+	// Cut cursor highlight: a white frame around the selected tile.
+	if g.cutCursorSet && ebiten.IsKeyPressed(ebiten.KeyShift) {
+		rot := g.tileRotOffset(g.cutCursor)
+		cx := psx + rot.X
+		cy := psy + rot.Y
+		drawCursorFrame(screen, cx, cy, combatTileSize)
+	}
+}
+
+// drawCursorFrame draws a white outline (four thin bars) around a tile centred
+// at (cx, cy) so the selected cut target stands out against tile colours.
+func drawCursorFrame(screen *ebiten.Image, cx, cy, size float64) {
+	const t = 2.0
+	h := size / 2
+	drawing.DrawRect(screen, cx-h, cy-h, size, t, 1, 1, 1, 1)   // top
+	drawing.DrawRect(screen, cx-h, cy+h-t, size, t, 1, 1, 1, 1) // bottom
+	drawing.DrawRect(screen, cx-h, cy-h, t, size, 1, 1, 1, 1)   // left
+	drawing.DrawRect(screen, cx+h-t, cy-h, t, size, 1, 1, 1, 1) // right
 }
 
 // tileColorRGB returns the display colour for a tile given its power level.
@@ -524,7 +675,14 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 	}
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(20, 64)
-	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Pwr/Tile %.1f", p.Level, p.Speed, powerPerTile), 18, opt)
+	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Pwr/Tile %.1f  Nippers %d", p.Level, p.Speed, powerPerTile, p.Nippers), 18, opt)
+
+	// Cut-mode hint.
+	if p.Nippers > 0 {
+		opt = &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(20, 88)
+		drawing.DrawText(screen, "Hold Shift: aim with WASD, Space to cut a tile", 14, opt)
+	}
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW-220, 20)
