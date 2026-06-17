@@ -134,6 +134,11 @@ func (t *Turret) connectedConsumers() (reachable map[hexmap.Index]int, n int) {
 	return reachable, n
 }
 
+// GenPower returns the generator's total power output. It is the per-tile share
+// when only a single consumer tile remains, so it serves as the natural ceiling
+// for a power-per-tile gauge.
+func (t *Turret) GenPower() float64 { return t.genPower }
+
 // PowerPerTile returns the power each connected non-generator tile receives:
 // the generator's output divided evenly among all connected consumer tiles.
 // Returns 0 when there are no consumer tiles.

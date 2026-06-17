@@ -58,6 +58,11 @@ type InGame struct {
 	// is shown zoomed and upright, and clicking a tile cuts it (Disconnect)
 	// without resuming, so several tiles can be cut in a row.
 	paused bool
+
+	// powerGaugeFill is the smoothed [0,1] fill of the left-edge power gauge. It
+	// eases toward PowerPerTile/GenPower each frame so the bar visibly rises when
+	// a tile is cut (power re-concentrates) and falls when a doctor adds a tile.
+	powerGaugeFill float64
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -81,6 +86,30 @@ func (g *InGame) OnStart() {
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
 	g.turretRenderedAngle = g.world.Player.FacingAngle
+	// Snap the power gauge to its current value so it doesn't sweep up from empty.
+	g.powerGaugeFill = g.powerGaugeTarget()
+}
+
+// powerGaugeTarget returns the [0,1] fill the left-edge power gauge should ease
+// toward: the current per-tile power as a fraction of the generator's output
+// (full bar = power concentrated into a single remaining tile).
+func (g *InGame) powerGaugeTarget() float64 {
+	tr := g.world.Turret()
+	if tr == nil {
+		return 0
+	}
+	gen := tr.GenPower()
+	if gen <= 0 {
+		return 0
+	}
+	r := tr.PowerPerTile() / gen
+	if r < 0 {
+		return 0
+	}
+	if r > 1 {
+		return 1
+	}
+	return r
 }
 
 func (g *InGame) Update() error {
@@ -111,6 +140,8 @@ func (g *InGame) Update() error {
 
 	// Ease the rendered turret angle toward the tank's facing every frame.
 	g.turretRenderedAngle = lerpAngle(g.turretRenderedAngle, g.world.Player.FacingAngle, 0.18)
+	// Ease the power gauge toward its target so cutting a tile visibly raises it.
+	g.powerGaugeFill += (g.powerGaugeTarget() - g.powerGaugeFill) * 0.18
 	return nil
 }
 
@@ -287,6 +318,58 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		opt.GeoM.Translate(500, 380)
 		drawing.DrawText(screen, "Click to continue", 24, opt)
 	}
+
+	// Power-per-tile gauge on the left edge, drawn last so it stays visible above
+	// the pause and level-up overlays (the moments power changes most).
+	if w.State != core.StateGameOver {
+		g.drawPowerGauge(screen)
+	}
+}
+
+// Left-edge power gauge geometry.
+const (
+	powerGaugeX      = 24.0
+	powerGaugeW      = 22.0
+	powerGaugeTop    = 132.0
+	powerGaugeBottom = screenH - 40.0
+)
+
+// drawPowerGauge draws a vertical bar on the left edge whose height encodes the
+// per-tile power share. It fills from the bottom up and brightens as power rises,
+// so disconnecting tiles (which re-concentrates power) makes the bar climb.
+func (g *InGame) drawPowerGauge(screen *ebiten.Image) {
+	trackH := powerGaugeBottom - powerGaugeTop
+
+	// Track (dim background) and a 1px frame so the empty bar still reads.
+	drawing.DrawRect(screen, powerGaugeX, powerGaugeTop, powerGaugeW, trackH, 0.10, 0.12, 0.16, 0.9)
+
+	fill := g.powerGaugeFill
+	if fill < 0 {
+		fill = 0
+	}
+	if fill > 1 {
+		fill = 1
+	}
+	fillH := trackH * fill
+	if fillH > 0 {
+		// Interpolate dim-blue (low) -> bright-cyan (high) so a charged turret reads hot.
+		r := float32(0.15 + 0.25*fill)
+		gr := float32(0.40 + 0.55*fill)
+		b := float32(0.75 + 0.25*fill)
+		drawing.DrawRect(screen, powerGaugeX, powerGaugeBottom-fillH, powerGaugeW, fillH, r, gr, b, 1)
+	}
+
+	// Label above the bar plus the numeric per-tile power for an exact read.
+	powerPerTile := 0.0
+	if tr := g.world.Turret(); tr != nil {
+		powerPerTile = tr.PowerPerTile()
+	}
+	opt := &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(powerGaugeX-4, powerGaugeTop-26)
+	drawing.DrawText(screen, "PWR", 14, opt)
+	opt = &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(powerGaugeX-4, powerGaugeBottom+4)
+	drawing.DrawText(screen, fmt.Sprintf("%.0f", powerPerTile), 14, opt)
 }
 
 func (g *InGame) drawLevelUp(screen *ebiten.Image) {
