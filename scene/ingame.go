@@ -459,16 +459,37 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 		return psy+roti.Y < psy+rotj.Y
 	})
 
-	for _, idx := range indices {
-		tile := tiles[idx]
+	// Precompute each tile's rotated screen centre so both draw passes share it.
+	centers := make([]geom.PointF, len(indices))
+	for i, idx := range indices {
 		dx, dy := hexLocalOffset(idx, combatTileSize)
 		off := geom.PointF{X: dx, Y: dy}
 		rot := geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
-		cx := psx + rot.X
-		cy := psy + rot.Y
+		centers[i] = geom.PointF{X: psx + rot.X, Y: psy + rot.Y}
+	}
 
-		key, dim := tileSprite(tr, idx, tile, power[idx])
-		drawing.DrawSprite(screen, drawing.Image(key), cx, cy, combatTileSize, combatTileSize, theta, dim, dim, dim, 1)
+	// Pass 1: tile bases. Weapons sit on a wire socket; their barrel is layered
+	// on top in pass 2 so a front tile's base never covers a back tile's barrel.
+	for i, idx := range indices {
+		c := centers[i]
+		key, dim := tileBase(tr, idx, tiles[idx], power[idx])
+		drawing.DrawSprite(screen, drawing.Image(key), c.X, c.Y, combatTileSize, combatTileSize, theta, dim, dim, dim, 1)
+	}
+
+	// Pass 2: weapon barrels (turret), drawn a bit smaller so the socket shows.
+	const barrelScale = 0.85
+	for i, idx := range indices {
+		wc, ok := tiles[idx].Component.(core.WeaponComponent)
+		if !ok {
+			continue
+		}
+		c := centers[i]
+		dim := float32(1)
+		if power[idx] <= 0 {
+			dim = 0.5
+		}
+		s := combatTileSize * barrelScale
+		drawing.DrawSprite(screen, drawing.Image(weaponTileKey(wc.Weapon.Kind)), c.X, c.Y, s, s, theta, dim, dim, dim, 1)
 	}
 
 	// Cut cursor highlight: a white frame around the selected tile.
@@ -491,21 +512,22 @@ func drawCursorFrame(screen *ebiten.Image, cx, cy, size float64) {
 	drawing.DrawRect(screen, cx+h-t, cy-h, t, size, 1, 1, 1, 1) // right
 }
 
-// tileSprite returns the image key for a tile plus a brightness multiplier
-// (dim) so unpowered weapons/wires render darker — power can't be encoded in a
-// single sprite, so it is applied as a colour-scale tint.
-func tileSprite(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64) (key string, dim float32) {
+// tileBase returns the under-layer image key for a tile plus a brightness
+// multiplier (dim) so unpowered tiles render darker — power can't be encoded in
+// a single sprite, so it is applied as a colour-scale tint. Weapon tiles use the
+// wire socket as their base; the barrel is layered on top separately.
+func tileBase(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64) (key string, dim float32) {
 	if tr.IsGenerator(idx) {
 		return asset.ImgTileGenerator, 1
 	}
-	switch c := tile.Component.(type) {
-	case core.WeaponComponent:
-		if power <= 0 {
-			return weaponTileKey(c.Weapon.Kind), 0.5 // dim: unpowered weapon
-		}
-		return weaponTileKey(c.Weapon.Kind), 1
+	switch tile.Component.(type) {
 	case core.Junk:
 		return asset.ImgTileJunk, 1
+	case core.WeaponComponent:
+		if power <= 0 {
+			return asset.ImgTileWire, 0.45 // dim: unpowered weapon socket
+		}
+		return asset.ImgTileWire, 1
 	default: // Wire
 		if power <= 0 {
 			return asset.ImgTileWire, 0.45 // dim: unpowered wire
