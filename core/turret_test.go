@@ -2,6 +2,7 @@ package core
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
@@ -339,6 +340,62 @@ func TestActiveWeapons_ExcludesJunk(t *testing.T) {
 
 	if w := tr.ActiveWeapons(); len(w) != 0 {
 		t.Errorf("expected 0 weapons (only junk/wire), got %d", len(w))
+	}
+}
+
+// ---- AddTile / TileCount tests ----
+
+func TestTileCount_ExcludesPurged(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	a := hexmap.IdxXY(1, 0)
+	b := hexmap.IdxXY(2, 0)
+	tr := NewTurret(map[hexmap.Index]*Tile{
+		gen: wireT(),
+		a:   weaponT(),
+		b:   weaponT(),
+	}, []hexmap.Index{gen}, 100)
+
+	if n := tr.TileCount(); n != 3 {
+		t.Errorf("TileCount = %d, want 3", n)
+	}
+	tr.PurgeTile(b)
+	if n := tr.TileCount(); n != 2 {
+		t.Errorf("TileCount after purge = %d, want 2", n)
+	}
+}
+
+func TestAddTile_PlacesAdjacentToActiveTile(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	tr := NewTurret(map[hexmap.Index]*Tile{gen: wireT()}, []hexmap.Index{gen}, 100)
+	rng := rand.New(rand.NewSource(1))
+
+	idx, ok := tr.AddTile(WeaponComponent{Weapon: NewWeapon("x", 0, KindCannon)}, rng)
+	if !ok {
+		t.Fatal("AddTile returned false on an open grid")
+	}
+	// The new tile must be adjacent to an existing tile (the generator).
+	if idx.Distance(gen) != 1 {
+		t.Errorf("new tile at %v is not adjacent to generator", idx)
+	}
+	if tr.TileCount() != 2 {
+		t.Errorf("TileCount = %d after AddTile, want 2", tr.TileCount())
+	}
+	// The added weapon should now be active and powered.
+	if len(tr.ActiveWeapons()) != 1 {
+		t.Errorf("added weapon not active: got %d weapons", len(tr.ActiveWeapons()))
+	}
+}
+
+func TestAddTile_Deterministic(t *testing.T) {
+	build := func() hexmap.Index {
+		gen := hexmap.IdxXY(0, 0)
+		tr := NewTurret(map[hexmap.Index]*Tile{gen: wireT()}, []hexmap.Index{gen}, 100)
+		rng := rand.New(rand.NewSource(42))
+		idx, _ := tr.AddTile(Junk{DeviceName: "Duck"}, rng)
+		return idx
+	}
+	if build() != build() {
+		t.Error("AddTile is not deterministic for the same seed")
 	}
 }
 

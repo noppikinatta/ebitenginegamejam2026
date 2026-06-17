@@ -392,82 +392,55 @@ func TestChooseUpgrade_MultipleLevelUpsQueueChoices(t *testing.T) {
 	}
 }
 
-// ── 6. Purge: removes weapons and redistributes power ────────────────────────
+// ── 6. Level-up: doctors add tiles (or hand out nippers) ─────────────────────
 
-func TestPurge_ReducesWeaponCount(t *testing.T) {
-	// Weapon-purge choices ("Disarm …") always reduce weapon count by 1.
+func TestRollChoices_ProducesThreeOffers(t *testing.T) {
 	w := NewWorld(testSeed)
-	startWeapons := len(w.Player.Weapons)
-
-	choices := w.buildDisconnectChoices()
-	if len(choices) == 0 {
-		t.Skip("seed produced no purgeable tiles")
-	}
-
-	// Find a weapon-only purge (Disarm prefix) — it always removes exactly 1 weapon.
-	for i, c := range choices {
-		if len(c.Name) >= 6 && c.Name[:6] == "Disarm" {
-			choices[i].Apply(w)
-			if len(w.Player.Weapons) >= startWeapons {
-				t.Errorf("Disarm choice did not reduce weapon count: was %d, now %d", startWeapons, len(w.Player.Weapons))
-			}
-			return
-		}
-	}
-	t.Skip("no Disarm (weapon-only purge) choice available for this seed")
-}
-
-func TestPurge_RemainingWeaponsArePowered(t *testing.T) {
-	w := NewWorld(testSeed)
-
-	choices := w.buildDisconnectChoices()
-	if len(choices) == 0 {
-		t.Skip("seed produced no purgeable tiles")
-	}
-	choices[0].Apply(w)
-
-	for _, wp := range w.Player.Weapons {
-		if wp.Energy <= 0 {
-			t.Errorf("weapon %q has zero/negative energy after purge: %.2f", wp.Name, wp.Energy)
-		}
+	w.rollChoices()
+	if len(w.Choices) != 3 {
+		t.Errorf("rollChoices produced %d offers, want 3", len(w.Choices))
 	}
 }
 
-func TestPurge_NoChoicesWhenLastWeapon(t *testing.T) {
-	// Build a minimal turret with exactly one weapon tile and verify that
-	// buildDisconnectChoices produces no choices (can't remove the last weapon).
-	// Use a hand-crafted world with a trivial turret.
+func TestDoctorChoices_GrowTurretOrGiveNippers(t *testing.T) {
+	// Every offer either bolts a tile on (turret grows) or hands over nippers.
 	w := NewWorld(testSeed)
+	w.rollChoices()
 
-	// Purge tiles one by one until only 1 weapon remains, then check choices.
-	const maxPurges = 50
-	for i := 0; i < maxPurges; i++ {
-		if len(w.Player.Weapons) <= 1 {
-			break
-		}
-		choices := w.buildDisconnectChoices()
-		if len(choices) == 0 {
-			break
-		}
-		choices[0].Apply(w)
-		w.Player.Weapons = w.turret.ActiveWeapons()
-	}
-
-	if len(w.Player.Weapons) > 1 {
-		t.Skip("could not reduce to 1 weapon in the purge loop — turret structure may vary")
-	}
-
-	choices := w.buildDisconnectChoices()
-	for _, c := range choices {
-		// Simulate applying to ensure no choice would leave 0 weapons.
-		beforeCount := len(w.Player.Weapons)
+	for i, c := range w.Choices {
+		beforeTiles := w.turret.TileCount()
+		beforeNippers := w.Player.Nippers
 		c.Apply(w)
-		after := len(w.turret.ActiveWeapons())
-		// Restore by re-generating (can't undo purge; just check the guard held).
-		if after < 1 {
-			t.Errorf("choice %q left %d weapons; guard failed (before=%d)", c.Name, after, beforeCount)
+		grewTurret := w.turret.TileCount() > beforeTiles
+		gaveNippers := w.Player.Nippers > beforeNippers
+		if !grewTurret && !gaveNippers {
+			t.Errorf("choice %d (%q) neither grew the turret nor gave nippers", i, c.Name)
 		}
-		break // only need to test the first; restore state would require resetting
+	}
+}
+
+func TestRollChoices_AtCapGivesNippers(t *testing.T) {
+	w := NewWorld(testSeed)
+
+	// Grow the turret past the cap with junk tiles.
+	for w.turret.TileCount() < maxTurretTiles {
+		if _, ok := w.turret.AddTile(Junk{DeviceName: "Toaster"}, w.rng); !ok {
+			t.Fatal("AddTile ran out of room before reaching the cap")
+		}
+	}
+
+	w.rollChoices()
+	// At the cap, applying any offer must not grow the turret; it gives nippers.
+	for i, c := range w.Choices {
+		beforeTiles := w.turret.TileCount()
+		beforeNippers := w.Player.Nippers
+		c.Apply(w)
+		if w.turret.TileCount() > beforeTiles {
+			t.Errorf("offer %d grew the turret past the cap", i)
+		}
+		if w.Player.Nippers <= beforeNippers {
+			t.Errorf("offer %d at cap did not give nippers", i)
+		}
 	}
 }
 

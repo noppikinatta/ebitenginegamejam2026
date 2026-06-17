@@ -18,12 +18,13 @@ const (
 	StateGameOver       // run ended
 )
 
-// speedBonusPerTilePurge is the px/tick speed gained per tile-purge.
-const speedBonusPerTilePurge = 0.3
-
 // startingNippers is how many tile cuts the player can make before needing to
 // find more. Nippers are the limited resource that gates mid-combat cutting.
 const startingNippers = 3
+
+// maxTurretTiles caps turret growth so the miniature stays drawable and the
+// cursor navigable. At the cap, doctors offer nippers instead of new tiles.
+const maxTurretTiles = 40
 
 // World holds all gameplay state for a single run. It has no Ebiten dependency
 // so the simulation can be unit-tested in isolation.
@@ -364,89 +365,67 @@ func (w *World) addXP(v float64) {
 	}
 }
 
-// rollChoices builds the list of available purge choices. If nothing can be
-// purged (last weapon), applies a fallback heal instead of showing the menu.
+// doctorNames are the eccentric doctors who keep bolting things onto the tank.
+var doctorNames = []string{
+	"Volt", "Sprocket", "Fizz", "Cogsworth", "Ohm",
+	"Wattson", "Pixel", "Gizmo", "Tinker", "Bolt",
+}
+
+// rollChoices builds three "doctor" offers. Each level-up grows the turret:
+// the chosen doctor bolts a new tile (weapon or useless junk) onto a random
+// spot — or, occasionally, hands over spare nippers instead.
 func (w *World) rollChoices() {
-	choices := w.buildDisconnectChoices()
-	if len(choices) == 0 {
-		// Nothing to purge: heal the player as a consolation reward.
-		heal := w.Player.MaxHP * 0.1
-		w.Player.HP = math.Min(w.Player.HP+heal, w.Player.MaxHP)
-		w.pendingLevelUps--
-		if w.pendingLevelUps > 0 {
-			w.rollChoices()
-		} else {
-			w.State = StatePlaying
-		}
-		return
+	atCap := w.turret.TileCount() >= maxTurretTiles
+	choices := make([]Upgrade, 0, 3)
+	for i := 0; i < 3; i++ {
+		choices = append(choices, w.rollDoctorChoice(atCap))
 	}
 	w.Choices = choices
 }
 
-// buildDisconnectChoices returns the set of tile-purge and weapon-purge choices
-// available on the current turret. At least one weapon must survive each choice.
-func (w *World) buildDisconnectChoices() []Upgrade {
-	var choices []Upgrade
-	for idx := range w.turret.Tiles() {
-		if w.turret.IsGenerator(idx) {
-			continue
-		}
-		idx := idx // capture for closure
+// rollDoctorChoice produces a single doctor offer. atCap forces nipper offers
+// when the turret has hit its size limit (no more room to bolt tiles on).
+func (w *World) rollDoctorChoice(atCap bool) Upgrade {
+	doc := doctorNames[w.rng.Intn(len(doctorNames))]
+	r := w.rng.Float64()
 
-		if w.turret.CanPurgeTile(idx, 1) {
-			name, desc := tileLabel(w.turret, idx)
-			choices = append(choices, Upgrade{
-				Name: name,
-				Desc: desc,
-				Apply: func(world *World) {
-					world.turret.PurgeTile(idx)
-					world.Player.Speed += speedBonusPerTilePurge
-					world.Player.Weapons = world.turret.ActiveWeapons()
-				},
-			})
-		}
-	}
-	return choices
-}
-
-// tileLabel returns the display name and description for a tile-purge choice.
-func tileLabel(t *Turret, idx hexmap.Index) (name, desc string) {
-	tile := t.Tiles()[idx]
-	compName := componentName(tile)
-
-	// Count downstream tiles that would be cut along with this one.
-	var downstream int
-	for checkIdx, checkTile := range t.Tiles() {
-		if checkTile.purged || t.IsGenerator(checkIdx) {
-			continue
-		}
-		if idx == checkIdx {
-			continue
-		}
-		// Temporarily purge to test reachability after cut.
-		tile.purged = true
-		dist := t.distancesFrom(t.generators[0])
-		tile.purged = false
-		if _, reachable := dist[checkIdx]; !reachable {
-			downstream++
+	// At cap, or occasionally otherwise, a doctor hands over spare nippers.
+	if atCap || r < 0.12 {
+		n := 2 + w.rng.Intn(2) // 2 or 3
+		return Upgrade{
+			Name: fmt.Sprintf("Dr. %s: spare nippers (+%d)", doc, n),
+			Desc: "Plastic-model nippers to cut tiles mid-battle. They break fast.",
+			Apply: func(world *World) {
+				world.Player.Nippers += n
+			},
 		}
 	}
 
-	if downstream > 0 {
-		name = fmt.Sprintf("Cut %s %s", compName, idx)
-		desc = fmt.Sprintf("Remove tile + %d downstream — gain +%.1f speed", downstream, speedBonusPerTilePurge)
-	} else {
-		name = fmt.Sprintf("Cut %s %s", compName, idx)
-		desc = fmt.Sprintf("Remove tile — gain +%.1f speed", speedBonusPerTilePurge)
+	// Some doctors proudly install a useless gadget (dilutes power — the catch).
+	if r < 0.37 {
+		name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]
+		comp := Junk{DeviceName: name}
+		return Upgrade{
+			Name: fmt.Sprintf("Dr. %s installs a %s", doc, name),
+			Desc: "A useless gadget. Adds a tile and dilutes every weapon's power.",
+			Apply: func(world *World) {
+				world.turret.AddTile(comp, world.rng)
+				world.Player.Weapons = world.turret.ActiveWeapons()
+			},
+		}
 	}
-	return
-}
 
-func componentName(tile *Tile) string {
-	if tile == nil || tile.Component == nil {
-		return "?"
+	// Otherwise, a new weapon tile.
+	kind := pickWeaponKind(w.rng)
+	comp := WeaponComponent{Weapon: NewWeapon(kind.String(), 0, kind)}
+	return Upgrade{
+		Name: fmt.Sprintf("Dr. %s bolts on a %s", doc, kind.String()),
+		Desc: "Adds a weapon tile at a random spot — but splits power further.",
+		Apply: func(world *World) {
+			world.turret.AddTile(comp, world.rng)
+			world.Player.Weapons = world.turret.ActiveWeapons()
+		},
 	}
-	return tile.Component.Name()
 }
 
 func (w *World) spawnEnemies() {

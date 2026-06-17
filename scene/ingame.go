@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -21,15 +22,13 @@ const (
 	screenH = 720
 	gridGap = 64
 
-	// Turret overlay layout constants.
-	tileSize       = 48.0                // px per hex tile square (level-up overlay)
 	combatTileSize = core.TurretTileSize // px per hex tile (combat miniature; matches muzzle world offsets)
-	turretAreaW    = 500.0               // width of the turret overlay panel
-	turretAreaH    = 400.0               // height of the turret overlay panel
-	turretAreaX    = (screenW - turretAreaW) / 2.0
-	turretAreaY    = (screenH-turretAreaH)/2.0 + 20
-	turretCenterX  = turretAreaX + turretAreaW/2.0
-	turretCenterY  = turretAreaY + turretAreaH/2.0
+
+	// Level-up doctor-card layout.
+	cardW   = 360.0
+	cardH   = 300.0
+	cardGap = 28.0
+	cardY   = 210.0
 )
 
 // InGame is the main gameplay scene: a Vampire-Survivors-like run driven by the
@@ -40,10 +39,6 @@ type InGame struct {
 	nextScene  ebiten.Game
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
-
-	// hovered is the hex index the mouse is currently over during level-up.
-	hovered    *hexmap.Index
-	hoveredSet bool
 
 	// turretRenderedAngle is the smoothed turret facing used for combat drawing.
 	// It eases toward world.Player.FacingAngle so the turret rotates over a few
@@ -113,51 +108,44 @@ func lerpAngle(a, b, t float64) float64 {
 	return a + diff*t
 }
 
-// handleLevelUpInput handles click / Shift+click on the turret overlay.
-// Left-click on a tile → tile-purge (Cut); Shift+left-click → weapon-purge (Disarm).
+// handleLevelUpInput handles the doctor-card selection: click a card or press
+// the matching number key (1-3) to apply that level-up offer.
 func (g *InGame) handleLevelUpInput() {
-	mx, my := ebiten.CursorPosition()
-	g.hoveredSet = false
-
-	// Update hover state.
-	if idx, ok := g.screenToHex(float64(mx), float64(my)); ok {
-		g.hovered = &idx
-		g.hoveredSet = true
-	} else {
-		g.hovered = nil
+	n := len(g.world.Choices)
+	if n == 0 {
+		return
 	}
 
 	if g.input.Mouse != nil && g.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {
-		if g.hoveredSet && g.hovered != nil {
-			idx := *g.hovered
-			shiftHeld := ebiten.IsKeyPressed(ebiten.KeyShift)
-			prefix := "Cut "
-			if shiftHeld {
-				prefix = "Disarm "
+		mx, my := ebiten.CursorPosition()
+		for i := 0; i < n; i++ {
+			x := cardX(i, n)
+			if float64(mx) >= x && float64(mx) < x+cardW &&
+				float64(my) >= cardY && float64(my) < cardY+cardH {
+				g.world.ChooseUpgrade(i)
+				return
 			}
-			idxStr := idx.String()
-			for i, c := range g.world.Choices {
-				hasPrefix := len(c.Name) >= len(prefix) && c.Name[:len(prefix)] == prefix
-				hasIdx := containsStr(c.Name, idxStr)
-				if hasPrefix && hasIdx {
-					g.world.ChooseUpgrade(i)
-					return
-				}
+		}
+	}
+
+	kb := g.input.Keyboard
+	if kb != nil {
+		keys := []ebiten.Key{ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3}
+		for i := 0; i < n && i < len(keys); i++ {
+			if kb.IsJustPressed(keys[i]) {
+				g.world.ChooseUpgrade(i)
+				return
 			}
 		}
 	}
 }
 
-func containsStr(s, sub string) bool {
-	if len(sub) == 0 {
-		return true
-	}
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
+// cardX returns the left x of the i-th level-up card when laying out n cards
+// centred horizontally on screen.
+func cardX(i, n int) float64 {
+	total := float64(n)*cardW + float64(n-1)*cardGap
+	startX := (screenW - total) / 2
+	return startX + float64(i)*(cardW+cardGap)
 }
 
 func (g *InGame) readMove() geom.PointF {
@@ -347,50 +335,71 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 }
 
 func (g *InGame) drawLevelUp(screen *ebiten.Image) {
-	drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.65)
-
-	// Panel background.
-	drawing.DrawRect(screen, turretAreaX-12, turretAreaY-60, turretAreaW+24, turretAreaH+80, 0.05, 0.07, 0.14, 0.97)
+	drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.7)
 
 	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(turretAreaX, turretAreaY-54)
-	drawing.DrawText(screen, fmt.Sprintf("DISCONNECT  Lv %d", g.world.Player.Level), 28, opt)
+	opt.GeoM.Translate(screenW/2-180, 120)
+	drawing.DrawText(screen, fmt.Sprintf("LEVEL UP — Lv %d", g.world.Player.Level), 30, opt)
 
 	opt = &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(turretAreaX, turretAreaY-24)
-	drawing.DrawText(screen, "Click tile to Cut  |  Shift+Click to Disarm weapon only  |  1-9 keys also work", 13, opt)
+	opt.GeoM.Translate(screenW/2-270, 166)
+	drawing.DrawText(screen, "Three doctors approach. Choose one (click a card or press 1/2/3).", 16, opt)
 
-	// Draw turret hex grid.
-	g.drawTurretGrid(screen)
+	n := len(g.world.Choices)
+	mx, my := ebiten.CursorPosition()
+	for i, c := range g.world.Choices {
+		x := cardX(i, n)
+		hovered := float64(mx) >= x && float64(mx) < x+cardW &&
+			float64(my) >= cardY && float64(my) < cardY+cardH
 
-	// Draw the currently hovered tile's choice description at the bottom.
-	if g.hoveredSet && g.hovered != nil {
-		idx := *g.hovered
-		idxStr := idx.String()
-		for _, c := range g.world.Choices {
-			if containsStr(c.Name, idxStr) {
-				opt = &ebiten.DrawImageOptions{}
-				opt.GeoM.Translate(turretAreaX, turretAreaY+turretAreaH+4)
-				drawing.DrawText(screen, c.Name, 16, opt)
-				opt = &ebiten.DrawImageOptions{}
-				opt.GeoM.Translate(turretAreaX, turretAreaY+turretAreaH+24)
-				drawing.DrawText(screen, c.Desc, 13, opt)
-				break
-			}
+		bg := float32(0.10)
+		if hovered {
+			bg = 0.18
 		}
-	} else {
-		// Show numbered list as fallback when nothing is hovered.
-		y := turretAreaY + turretAreaH + 4
-		for i, c := range g.world.Choices {
-			if i >= 6 {
-				break
-			}
-			opt = &ebiten.DrawImageOptions{}
-			opt.GeoM.Translate(turretAreaX, y)
-			drawing.DrawText(screen, fmt.Sprintf("%d. %s", i+1, c.Name), 13, opt)
-			y += 16
+		drawing.DrawRect(screen, x, cardY, cardW, cardH, bg, bg+0.02, bg+0.06, 0.98)
+		drawing.DrawRect(screen, x, cardY, cardW, 4, 0.3, 0.7, 1, 1) // top accent
+
+		opt = &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(x+14, cardY+16)
+		drawing.DrawText(screen, fmt.Sprintf("%d", i+1), 22, opt)
+
+		drawWrapped(screen, c.Name, x+14, cardY+56, cardW-28, 18)
+		drawWrapped(screen, c.Desc, x+14, cardY+150, cardW-28, 14)
+	}
+}
+
+// drawWrapped draws txt word-wrapped within maxWidth starting at (x, y), using
+// the given font size. Lines advance by ~1.35x the font size.
+func drawWrapped(screen *ebiten.Image, txt string, x, y, maxWidth, fontSize float64) {
+	words := strings.Fields(txt)
+	if len(words) == 0 {
+		return
+	}
+	lineH := fontSize * 1.35
+	line := ""
+	flush := func() {
+		if line == "" {
+			return
+		}
+		opt := &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(x, y)
+		drawing.DrawText(screen, line, fontSize, opt)
+		y += lineH
+		line = ""
+	}
+	for _, word := range words {
+		candidate := word
+		if line != "" {
+			candidate = line + " " + word
+		}
+		if drawing.MeasureText(candidate, fontSize).X > maxWidth && line != "" {
+			flush()
+			line = word
+		} else {
+			line = candidate
 		}
 	}
+	flush()
 }
 
 // drawTurretCombat draws the turret hex grid miniature centred on the player tank,
@@ -488,85 +497,6 @@ func tileColorRGB(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power floa
 	}
 }
 
-// drawTurretGrid draws all tiles on the turret as coloured squares in hex brick layout.
-// Tiles are sorted before drawing to ensure a deterministic draw order every frame,
-// which prevents flicker caused by random map iteration order in Go.
-func (g *InGame) drawTurretGrid(screen *ebiten.Image) {
-	tr := g.world.Turret()
-	if tr == nil {
-		return
-	}
-
-	// Compute powered tiles for colour coding.
-	power := tr.ComputePower()
-
-	// Collect and sort indices: left-to-right (px), then top-to-bottom (py).
-	// This eliminates flicker from random map iteration order.
-	tiles := tr.Tiles()
-	indices := make([]hexmap.Index, 0, len(tiles))
-	for idx := range tiles {
-		indices = append(indices, idx)
-	}
-	sort.Slice(indices, func(i, j int) bool {
-		pxi, pyi := g.hexToScreen(indices[i])
-		pxj, pyj := g.hexToScreen(indices[j])
-		if pxi != pxj {
-			return pxi < pxj
-		}
-		return pyi < pyj
-	})
-
-	for _, idx := range indices {
-		tile := tiles[idx]
-		px, py := g.hexToScreen(idx)
-		const pad = 2.0
-		x := px - tileSize/2 + pad
-		y := py - tileSize/2 + pad
-		w := tileSize - pad*2
-		h := tileSize - pad*2
-
-		if tile.IsPurged() {
-			// Purged tiles are removed from the turret entirely; don't draw them.
-			continue
-		}
-
-		r, gr, b := tileColorRGB(tr, idx, tile, power[idx])
-
-		// Highlight hovered tile.
-		if g.hoveredSet && g.hovered != nil && *g.hovered == idx {
-			r = clamp32(r+0.3, 0, 1)
-			gr = clamp32(gr+0.3, 0, 1)
-			b = clamp32(b+0.3, 0, 1)
-		}
-
-		drawing.DrawRect(screen, x, y, w, h, r, gr, b, 1)
-
-		// Draw left accent bar if the tile has a choice.
-		if g.tileHasChoice(idx) {
-			drawing.DrawRect(screen, x, y, 3, h, 1, 1, 1, 0.6)
-		}
-
-		// Label inside the tile.
-		isGen := tr.IsGenerator(idx)
-		lbl := tileShortLabel(tile, isGen)
-		if lbl != "" {
-			opt := &ebiten.DrawImageOptions{}
-			opt.GeoM.Translate(px-tileSize/2+5, py-7)
-			drawing.DrawText(screen, lbl, 11, opt)
-		}
-	}
-}
-
-func (g *InGame) tileHasChoice(idx hexmap.Index) bool {
-	idxStr := idx.String()
-	for _, c := range g.world.Choices {
-		if containsStr(c.Name, idxStr) {
-			return true
-		}
-	}
-	return false
-}
-
 // hexLocalOffset returns the tile centre offset (px) from the turret centre,
 // for a tile at hex index idx, using the given tile size. Vertical brick layout.
 func hexLocalOffset(idx hexmap.Index, size float64) (dx, dy float64) {
@@ -575,66 +505,6 @@ func hexLocalOffset(idx hexmap.Index, size float64) (dx, dy float64) {
 	dx = q * size * 0.866
 	dy = (r + q*0.5) * size
 	return
-}
-
-// hexToScreen converts a hex index to screen pixel position (centre of the tile).
-// Vertical brick layout: tank "up" is screen up, so columns run vertically.
-// Column q is offset horizontally by 0.866*tileSize; within each column, row r
-// shifts down by half a tile for odd q values (brick stagger).
-//
-// Formula (pointy-top hex rendered as vertical bricks):
-//
-//	px = center + q * tileSize * 0.866
-//	py = center + (r + q*0.5) * tileSize
-func (g *InGame) hexToScreen(idx hexmap.Index) (px, py float64) {
-	dx, dy := hexLocalOffset(idx, tileSize)
-	return turretCenterX + dx, turretCenterY + dy
-}
-
-// screenToHex converts a screen pixel position to the nearest hex index,
-// returning ok=false if the position is outside any tile bounding box.
-func (g *InGame) screenToHex(sx, sy float64) (hexmap.Index, bool) {
-	if g.world == nil || g.world.Turret() == nil {
-		return hexmap.Index{}, false
-	}
-	for idx := range g.world.Turret().Tiles() {
-		px, py := g.hexToScreen(idx)
-		if sx >= px-tileSize/2 && sx < px+tileSize/2 &&
-			sy >= py-tileSize/2 && sy < py+tileSize/2 {
-			return idx, true
-		}
-	}
-	return hexmap.Index{}, false
-}
-
-func tileShortLabel(tile *core.Tile, isGen bool) string {
-	if isGen {
-		return "GEN"
-	}
-	if tile == nil || tile.Component == nil {
-		return ""
-	}
-	switch c := tile.Component.(type) {
-	case core.WeaponComponent:
-		n := c.Weapon.Name
-		if len(n) > 4 {
-			n = n[:4]
-		}
-		return n
-	case core.Junk:
-		return "JUNK"
-	}
-	return "W" // wire
-}
-
-func clamp32(v, lo, hi float32) float32 {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
 }
 
 func (g *InGame) drawGrid(screen *ebiten.Image, cam geom.PointF) {

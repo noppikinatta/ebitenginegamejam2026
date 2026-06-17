@@ -2,6 +2,8 @@ package core
 
 import (
 	"math"
+	"math/rand"
+	"sort"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
@@ -207,6 +209,56 @@ func (t *Turret) distancesFrom(origin hexmap.Index) map[hexmap.Index]int {
 	return dist
 }
 
+// TileCount returns the number of active (non-purged) tiles, including the
+// generator. Used to gate turret growth.
+func (t *Turret) TileCount() int {
+	n := 0
+	for _, tile := range t.tiles {
+		if !tile.purged {
+			n++
+		}
+	}
+	return n
+}
+
+// AddTile places comp on a random empty cell adjacent to an existing active
+// tile, growing the turret outward. Purged cells are reusable. Returns the
+// chosen index and true, or false if there is no adjacent room.
+func (t *Turret) AddTile(comp Component, rng *rand.Rand) (hexmap.Index, bool) {
+	seen := map[hexmap.Index]bool{}
+	var candidates []hexmap.Index
+	for idx, tile := range t.tiles {
+		if tile.purged || tile.Component == nil {
+			continue
+		}
+		var nbs []hexmap.Index
+		nbs = idx.AppendAround(nbs)
+		for _, nb := range nbs {
+			if existing, ok := t.tiles[nb]; ok && !existing.purged {
+				continue // occupied by an active tile
+			}
+			if seen[nb] {
+				continue
+			}
+			seen[nb] = true
+			candidates = append(candidates, nb)
+		}
+	}
+	if len(candidates) == 0 {
+		return hexmap.Index{}, false
+	}
+	// Sort for determinism before the random pick.
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].X() != candidates[j].X() {
+			return candidates[i].X() < candidates[j].X()
+		}
+		return candidates[i].Y() < candidates[j].Y()
+	})
+	chosen := candidates[rng.Intn(len(candidates))]
+	t.tiles[chosen] = &Tile{Component: comp}
+	return chosen, true
+}
+
 // IsGenerator reports whether idx is a generator position.
 func (t *Turret) IsGenerator(idx hexmap.Index) bool {
 	for _, g := range t.generators {
@@ -215,22 +267,6 @@ func (t *Turret) IsGenerator(idx hexmap.Index) bool {
 		}
 	}
 	return false
-}
-
-// CanPurgeTile returns true if purging the tile at idx (marking it gone and
-// cascade-cutting its now-orphaned downstream) would still leave at least
-// minWeapons active weapons. Returns false for generator, absent, or already
-// purged tiles.
-func (t *Turret) CanPurgeTile(idx hexmap.Index, minWeapons int) bool {
-	tile, ok := t.tiles[idx]
-	if !ok || tile.purged || t.IsGenerator(idx) {
-		return false
-	}
-	orig := tile.purged
-	tile.purged = true
-	n := len(t.ActiveWeapons())
-	tile.purged = orig
-	return n >= minWeapons
 }
 
 // PurgeTile removes the tile at idx entirely. The tile stops conducting power;
