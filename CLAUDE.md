@@ -27,11 +27,12 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
   - 切り離しは「プラモデル用ニッパー」を消費する（数量限定）
 - ねらい：博士が肥大化させる ⇄ プレイヤーがニッパーで絞る、という綱引きが run 全体のビルド計画になる
 
-### Disconnect の設計方針：戦闘中カーソル切断
+### Disconnect の設計方針：ポーズ画面でクリック切断
 
-切り離しは**戦闘中（リアルタイム）**に行う。Shift を押すと戦車が停止してカーソルが砲塔に現れ、WASD でタイルを選び Space で切断する。
+切り離しは**ポーズ中**に行う。**Space でポーズを切り替え**るとシミュレーション全体（敵・弾・移動）が停止し、戦車＋砲塔が画面中央に**ズームアップ・上向き固定**で描画される。**タイルをクリックして切断**する。
 
-- 戦車が止まる＝**敵に詰められる隙**が生まれる（戦術的緊張）。停止中は砲塔も回転しないのでカーソルは安定する
+- ポーズで敵も止まるため、落ち着いてタイルを選んで切断できる（リアルタイムのカーソル操作が難しすぎたための再設計）
+- **切断してもポーズは解除されない**ので、連続して複数タイルを切れる。カット操作は**マウスのみ**（キーボード不要）
 - 1回の切断は1タイルだが、**その下流（ジェネレータから繋がらなくなったタイル）も巻き添えで切れる**（カスケード）
 - 切ったタイル分の電力が残存タイルに再配分され、残った武装が強化される
 - 切断は**ニッパー**を消費。初期3個。燭台（停止する破壊可能オブジェ）を壊すとドロップ、レベルアップで低確率入手
@@ -40,7 +41,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 1. 戦車で敵を倒しながら経験値とニッパーを集める
 2. レベルアップで博士3人から1人を選ぶ（タイル追加 or ニッパー入手）→ 砲塔が肥大し電力が薄まる
-3. 戦闘中に Shift+WASD+Space で不要タイルを切断 → 残存武装に電力が再集中
+3. Space でポーズし、ズームした砲塔の不要タイルをクリックで切断（連続可）→ 残存武装に電力が再集中
 4. 少ない武装でより強力に戦う構成を、ニッパーをやりくりしながら目指す
 
 ## Development Roadmap / Progress
@@ -57,7 +58,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 - [x] **H4：クリックUI** — `scene/ingame.go` に砲塔オーバーレイ（後に再設計）
 - [x] **レーザー武装** — `KindLaser`。砲塔タイルに固定された持続ビーム（毎フレーム最近接敵を追尾、経路上の敵を貫通DPS）。`geom.PointSegmentDistance` でカプセル判定。`World.ActiveBeams()` で描画用スナップショット
 - [x] **再設計A：電力フラット化** — BFS距離リングソルバーを撤廃し `発電量/接続タイル数` の均等配分へ。`Component` を `Name()` のみに簡略化、`ProportionalWeapon`→`WeaponComponent` 改名、`Junk`（無意味ガジェット）追加。`Capacitor`/`ThresholdWeapon`/`PurgeWeapon` 削除。HUD に Pwr/Tile 表示
-- [x] **再設計B：戦闘中カーソル切断** — `Player.Nippers`、`World.CutTile`（ニッパー消費＋カスケード）。Shift で戦車停止＆カーソル表示、WASD で画面方向にタイル選択、Space で切断
+- [x] **再設計B：ポーズ画面でクリック切断** — `Player.Nippers`、`World.CutTile`（ニッパー消費＋カスケード）。当初は Shift+WASD+Space の戦闘中カーソル切断だったが難しすぎたため再設計：**Space でポーズ**（`InGame.paused`、シミュレーション停止）→ 砲塔をズーム・上向き描画 → **タイルをクリックで切断**。切断してもポーズ継続で連続カット可、マウスのみ。砲塔描画は `InGame.drawTurretTiles(cx,cy,size,theta)` に共通化し戦闘ミニチュアと共用
 - [x] **再設計C：レベルアップ＝タイル追加** — `Turret.AddTile`（空き隣接にランダム配置）/`TileCount`。`rollChoices` を博士3人提案（武装/ジャンク/ニッパー）に置換、ソフトキャップ `maxTurretTiles`。scene はカード式UIに置換
 - [x] **再設計D：燭台ドロップ** — `Enemy.DropsNipper`/`Pickup`。`spawnCandlestick`（停止・無害・周期スポーン）、`updatePickups`（収集で+1ニッパー）
 - [ ] **H5：複数ジェネレータ対応** — 初版は中央1基のみ。後続バージョンで追加予定
@@ -127,7 +128,7 @@ go test ./lang/... -run TestName -v
 
 **Ebiten に依存しない**ので単体テストできるのが要点。シーン層（`scene/ingame.go`）は入力を `geom.PointF` の移動ベクトルに変換して `World.Update(move)` を毎フレーム呼び、`World` の状態を読んで描画するだけ。
 
-- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems/Pickups、Choices、State、Tick、RNG、turret、各種タイマー）を保持。`NewWorld(seed)` は RNG → `GenerateTurret` → `ActiveWeapons` で初期化。`Update` は移動・武装・ビーム・弾・敵・ジェム・ニッパー収集・スポーン・燭台スポーンを毎tick回す。`CutTile(idx)` がニッパー消費の戦闘中切断、`rollChoices`/`rollDoctorChoice` がレベルアップの博士提案
+- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems/Pickups、Choices、State、Tick、RNG、turret、各種タイマー）を保持。`NewWorld(seed, cfg)` は RNG → `GenerateTurret` → `ActiveWeapons` で初期化（`cfg` はバランス値；後述の data 注入）。`Update` は移動・武装・ビーム・弾・敵・ジェム・ニッパー収集・スポーン・燭台スポーンを毎tick回す。`CutTile(idx)` がニッパー消費のタイル切断（シーン側のポーズ中にクリックで呼ぶ）、`rollChoices`/`rollDoctorChoice` がレベルアップの博士提案
 - `entity.go` — `Player`（戦車：FacingAngle/Nippers 含む）/ `Enemy`（DropsNipper で燭台）/ `Projectile` / `Gem` / `Pickup`（ニッパー）。位置は `geom.PointF`、当たり判定は円（半径）
 - `weapon.go` — `WeaponKind`（Cannon/Shotgun/Sniper/Laser）+ `Weapon` と `StatsFromEnergy()`。**`energy` から戦闘数値（ダメージ/連射間隔/射程、レーザーはビーム長/幅/持続）を導出する関数がソルバー統合の唯一の接点**。`beamTicksLeft` でビーム照射状態を保持
 - `turret.go` — ヘックスグリッド砲塔。電力は**フラット配分**（`発電量/接続タイル数`、`ComputePower`/`PowerPerTile`）。`Component` インターフェースは `Name()` のみ（Wire/WeaponComponent/Junk）。`distancesFrom` は接続判定・カスケード用。`PurgeTile`（+`propagatePurge` カスケード）、`AddTile`（ランダム隣接配置）、`TileCount`、`ActiveWeapons`、`MuzzleOffset`
