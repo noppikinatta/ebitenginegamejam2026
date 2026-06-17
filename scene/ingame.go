@@ -25,6 +25,7 @@ const (
 	gridGap = 64
 
 	combatTileSize = core.TurretTileSize // px per hex tile (combat miniature; matches muzzle world offsets)
+	pauseTileSize  = 56.0                // px per hex tile in the zoomed pause/cut view (upright)
 
 	// Sprite draw sizes (px at the 1:1 camera). These are the asset footprints
 	// and are intentionally independent of the core collision radii.
@@ -53,11 +54,10 @@ type InGame struct {
 	// frames instead of snapping instantly.
 	turretRenderedAngle float64
 
-	// Combat cut cursor: IJKL moves the cursor over turret tiles; Space cuts the
-	// selected tile (consumes one nipper). Always visible when nippers > 0.
-	// Tank movement (WASD) is unaffected — cutting is a parallel input channel.
-	cutCursor    hexmap.Index
-	cutCursorSet bool
+	// paused freezes the simulation (Space toggles it). While paused the turret
+	// is shown zoomed and upright, and clicking a tile cuts it (Disconnect)
+	// without resuming, so several tiles can be cut in a row.
+	paused bool
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -77,6 +77,7 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 // directly with a fixed seed for deterministic tests.
 func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
+	g.paused = false
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
 	g.turretRenderedAngle = g.world.Player.FacingAngle
@@ -96,10 +97,16 @@ func (g *InGame) Update() error {
 	case core.StateLevelUp:
 		g.handleLevelUpInput()
 	default:
-		// WASD drives the tank; IJKL drives the cut cursor in parallel.
-		move := g.readMove()
-		g.handleCombatCut()
-		g.world.Update(move)
+		// Space toggles pause. While paused the world is frozen and the turret
+		// is shown zoomed for click-to-cut; otherwise WASD drives the tank.
+		if kb := g.input.Keyboard; kb != nil && kb.IsJustPressed(ebiten.KeySpace) {
+			g.paused = !g.paused
+		}
+		if g.paused {
+			g.handlePauseCut()
+		} else {
+			g.world.Update(g.readMove())
+		}
 	}
 
 	// Ease the rendered turret angle toward the tank's facing every frame.
@@ -175,87 +182,43 @@ func (g *InGame) readMove() geom.PointF {
 	return m
 }
 
-// handleCombatCut manages the IJKL cut cursor. IJKL moves the cursor one tile
-// in the pressed screen direction; Space cuts the highlighted tile (costs one
-// nipper). The tank continues moving with WASD — no mode switch required.
-func (g *InGame) handleCombatCut() {
-	if g.world.Player.Nippers <= 0 {
-		g.cutCursorSet = false
+// handlePauseCut cuts the turret tile under the mouse on a left click while
+// paused. Cutting spends a nipper and cascades; pause is NOT released, so the
+// player can cut several tiles in a row. Mouse only — no keyboard.
+func (g *InGame) handlePauseCut() {
+	m := g.input.Mouse
+	if m == nil || !m.IsJustPressed(ebiten.MouseButtonLeft) {
 		return
 	}
+	if idx, ok := g.pauseTileAtCursor(); ok {
+		g.world.CutTile(idx) // CutTile checks nippers and rejects the generator
+	}
+}
 
+// pauseCenter is the screen position the zoomed pause turret is centred on.
+func pauseCenter() (cx, cy float64) {
+	return screenW / 2, screenH/2 + 40
+}
+
+// pauseTileAtCursor returns the cuttable (active, non-generator) tile whose
+// zoomed centre is nearest the mouse, within half a tile.
+func (g *InGame) pauseTileAtCursor() (hexmap.Index, bool) {
 	tr := g.world.Turret()
 	if tr == nil {
-		g.cutCursorSet = false
-		return
+		return hexmap.Index{}, false
 	}
+	cx, cy := pauseCenter()
+	mx, my := ebiten.CursorPosition()
 
-	// Drop the cursor if it points at a tile that no longer exists / was cut.
-	if g.cutCursorSet {
-		if tile, ok := tr.Tiles()[g.cutCursor]; !ok || tile.IsPurged() || tr.IsGenerator(g.cutCursor) {
-			g.cutCursorSet = false
-		}
-	}
-	// Auto-initialise the cursor when we have nippers but no position yet.
-	if !g.cutCursorSet {
-		if idx, ok := g.nearestCuttableTile(); ok {
-			g.cutCursor = idx
-			g.cutCursorSet = true
-		} else {
-			return // no cuttable tiles
-		}
-	}
-
-	kb := g.input.Keyboard
-	if kb == nil {
-		return
-	}
-
-	// IJKL moves the cursor one tile in the pressed screen direction.
-	if kb.IsJustPressed(ebiten.KeyI) {
-		g.moveCutCursor(0, -1)
-	}
-	if kb.IsJustPressed(ebiten.KeyK) {
-		g.moveCutCursor(0, 1)
-	}
-	if kb.IsJustPressed(ebiten.KeyJ) {
-		g.moveCutCursor(-1, 0)
-	}
-	if kb.IsJustPressed(ebiten.KeyL) {
-		g.moveCutCursor(1, 0)
-	}
-
-	// Space cuts the selected tile.
-	if kb.IsJustPressed(ebiten.KeySpace) {
-		if g.world.CutTile(g.cutCursor) {
-			// The cut tile (and cascade) is gone; re-seat the cursor.
-			g.cutCursorSet = false
-		}
-	}
-}
-
-// tileRotOffset returns a tile's screen-space offset from the tank centre under
-// the current rendered turret rotation (the same transform drawTurretCombat uses).
-func (g *InGame) tileRotOffset(idx hexmap.Index) geom.PointF {
-	theta := g.turretRenderedAngle + math.Pi/2
-	dx, dy := hexLocalOffset(idx, combatTileSize)
-	off := geom.PointF{X: dx, Y: dy}
-	return geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
-}
-
-// nearestCuttableTile returns the active, non-generator tile closest to the
-// turret centre — a stable starting point for the cut cursor.
-func (g *InGame) nearestCuttableTile() (hexmap.Index, bool) {
-	tr := g.world.Turret()
 	var best hexmap.Index
-	bestD := math.Inf(1)
+	bestD := pauseTileSize / 2
 	found := false
 	for idx, tile := range tr.Tiles() {
 		if tile.IsPurged() || tr.IsGenerator(idx) {
 			continue
 		}
-		dx, dy := hexLocalOffset(idx, combatTileSize)
-		if d := math.Hypot(dx, dy); d < bestD {
+		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
+		if d := math.Hypot(float64(mx)-c.X, float64(my)-c.Y); d <= bestD {
 			bestD = d
 			best = idx
 			found = true
@@ -264,39 +227,11 @@ func (g *InGame) nearestCuttableTile() (hexmap.Index, bool) {
 	return best, found
 }
 
-// moveCutCursor moves the cursor to the active tile best matching the given
-// unit screen direction (dirX, dirY) from the current cursor position. Tiles
-// behind the direction are ignored; off-axis tiles are penalised so the cursor
-// follows the most aligned, nearest tile.
-func (g *InGame) moveCutCursor(dirX, dirY float64) {
-	tr := g.world.Turret()
-	cur := g.tileRotOffset(g.cutCursor)
-	dir := geom.PointF{X: dirX, Y: dirY}
-
-	var best hexmap.Index
-	bestScore := math.Inf(1)
-	found := false
-	for idx, tile := range tr.Tiles() {
-		if tile.IsPurged() || tr.IsGenerator(idx) || idx == g.cutCursor {
-			continue
-		}
-		off := g.tileRotOffset(idx).Subtract(cur)
-		proj := off.InnerProduct(dir)
-		if proj <= 0 {
-			continue // not in the pressed direction
-		}
-		dist := off.Abs()
-		cos := proj / dist // dir is unit length
-		score := dist / (cos * cos)
-		if score < bestScore {
-			bestScore = score
-			best = idx
-			found = true
-		}
-	}
-	if found {
-		g.cutCursor = best
-	}
+// tileScreenCenter returns a tile's upright (unrotated) screen centre for a
+// turret drawn centred at (cx, cy) with the given tile size.
+func tileScreenCenter(idx hexmap.Index, cx, cy, size float64) geom.PointF {
+	dx, dy := hexLocalOffset(idx, size)
+	return geom.PointF{X: cx + dx, Y: cy + dy}
 }
 
 func (g *InGame) Draw(screen *ebiten.Image) {
@@ -335,6 +270,10 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	g.drawTurretCombat(screen, cam)
 
 	g.drawHUD(screen)
+
+	if g.paused && w.State == core.StatePlaying {
+		g.drawPause(screen)
+	}
 
 	switch w.State {
 	case core.StateLevelUp:
@@ -418,86 +357,97 @@ func drawWrapped(screen *ebiten.Image, txt string, x, y, maxWidth, fontSize floa
 	flush()
 }
 
-// drawTurretCombat draws the turret hex grid miniature centred on the player tank,
-// rotated to match the player's FacingAngle. Called every frame during play.
+// drawTurretCombat draws the turret hex grid miniature centred on the player
+// tank, rotated to match the player's FacingAngle. Called every frame during play.
 func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
+	psx := g.world.Player.Pos.X - cam.X
+	psy := g.world.Player.Pos.Y - cam.Y
+	// Rotate so that -pi/2 (default facing = up) maps to 0 rotation on screen.
+	// Use the smoothed angle so the turret eases into new headings.
+	theta := g.turretRenderedAngle + math.Pi/2
+	g.drawTurretTiles(screen, psx, psy, combatTileSize, theta)
+}
+
+// drawTurretTiles renders the turret centred at screen (cx, cy) with the given
+// tile size and rotation. Weapons are drawn in two layers: a wire socket base,
+// then the barrel on top. Used by both the combat miniature (small, rotated)
+// and the paused cut view (large, upright). theta=0 draws the turret upright.
+func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float64) {
 	tr := g.world.Turret()
 	if tr == nil {
 		return
 	}
-
-	psx := g.world.Player.Pos.X - cam.X
-	psy := g.world.Player.Pos.Y - cam.Y
-
-	// Rotate so that -pi/2 (default facing = up) maps to 0 rotation on screen.
-	// Use the smoothed angle so the turret eases into new headings.
-	theta := g.turretRenderedAngle + math.Pi/2
-
 	power := tr.ComputePower()
-
-	// Collect and sort tiles for deterministic draw order.
 	tiles := tr.Tiles()
-	indices := make([]hexmap.Index, 0, len(tiles))
-	for idx := range tiles {
-		if tiles[idx].IsPurged() {
+
+	// Collect active tiles with their screen centres, sorted for painter order.
+	type placed struct {
+		idx hexmap.Index
+		c   geom.PointF
+	}
+	ps := make([]placed, 0, len(tiles))
+	for idx, t := range tiles {
+		if t.IsPurged() {
 			continue
 		}
-		indices = append(indices, idx)
-	}
-	sort.Slice(indices, func(i, j int) bool {
-		dxi, dyi := hexLocalOffset(indices[i], combatTileSize)
-		offi := geom.PointF{X: dxi, Y: dyi}
-		roti := geom.PointFFromPolar(offi.Abs(), offi.Angle()+theta)
-		dxj, dyj := hexLocalOffset(indices[j], combatTileSize)
-		offj := geom.PointF{X: dxj, Y: dyj}
-		rotj := geom.PointFFromPolar(offj.Abs(), offj.Angle()+theta)
-		cxi := psx + roti.X
-		cxj := psx + rotj.X
-		if cxi != cxj {
-			return cxi < cxj
-		}
-		return psy+roti.Y < psy+rotj.Y
-	})
-
-	// Precompute each tile's rotated screen centre so both draw passes share it.
-	centers := make([]geom.PointF, len(indices))
-	for i, idx := range indices {
-		dx, dy := hexLocalOffset(idx, combatTileSize)
+		dx, dy := hexLocalOffset(idx, size)
 		off := geom.PointF{X: dx, Y: dy}
 		rot := geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
-		centers[i] = geom.PointF{X: psx + rot.X, Y: psy + rot.Y}
+		ps = append(ps, placed{idx: idx, c: geom.PointF{X: cx + rot.X, Y: cy + rot.Y}})
+	}
+	sort.Slice(ps, func(i, j int) bool {
+		if ps[i].c.X != ps[j].c.X {
+			return ps[i].c.X < ps[j].c.X
+		}
+		return ps[i].c.Y < ps[j].c.Y
+	})
+
+	// Pass 1: tile bases (weapons reuse the wire socket as their base).
+	for _, p := range ps {
+		key, dim := tileBase(tr, p.idx, tiles[p.idx], power[p.idx])
+		drawing.DrawSprite(screen, drawing.Image(key), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
 	}
 
-	// Pass 1: tile bases. Weapons sit on a wire socket; their barrel is layered
-	// on top in pass 2 so a front tile's base never covers a back tile's barrel.
-	for i, idx := range indices {
-		c := centers[i]
-		key, dim := tileBase(tr, idx, tiles[idx], power[idx])
-		drawing.DrawSprite(screen, drawing.Image(key), c.X, c.Y, combatTileSize, combatTileSize, theta, dim, dim, dim, 1)
-	}
-
-	// Pass 2: weapon barrels (turret), drawn a bit smaller so the socket shows.
-	const barrelScale = 0.85
-	for i, idx := range indices {
-		wc, ok := tiles[idx].Component.(core.WeaponComponent)
+	// Pass 2: weapon barrels, a bit smaller so the socket shows, and drawn after
+	// all bases so a front tile's base never covers a back tile's barrel.
+	barrel := size * 0.85
+	for _, p := range ps {
+		wc, ok := tiles[p.idx].Component.(core.WeaponComponent)
 		if !ok {
 			continue
 		}
-		c := centers[i]
 		dim := float32(1)
-		if power[idx] <= 0 {
+		if power[p.idx] <= 0 {
 			dim = 0.5
 		}
-		s := combatTileSize * barrelScale
-		drawing.DrawSprite(screen, drawing.Image(weaponTileKey(wc.Weapon.Kind)), c.X, c.Y, s, s, theta, dim, dim, dim, 1)
+		drawing.DrawSprite(screen, drawing.Image(weaponTileKey(wc.Weapon.Kind)), p.c.X, p.c.Y, barrel, barrel, theta, dim, dim, dim, 1)
 	}
+}
 
-	// Cut cursor highlight: a white frame around the selected tile.
-	if g.cutCursorSet {
-		rot := g.tileRotOffset(g.cutCursor)
-		cx := psx + rot.X
-		cy := psy + rot.Y
-		drawCursorFrame(screen, cx, cy, combatTileSize)
+// drawPause renders the zoomed, upright cut view over a dimmed world: the tank
+// and turret blown up so individual tiles can be clicked to cut. The tile under
+// the mouse is highlighted.
+func (g *InGame) drawPause(screen *ebiten.Image) {
+	drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.7)
+
+	opt := &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(screenW/2-280, 56)
+	drawing.DrawText(screen, fmt.Sprintf("PAUSED — click a tile to cut  (Nippers %d)", g.world.Player.Nippers), 24, opt)
+	opt = &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(screenW/2-280, 96)
+	drawing.DrawText(screen, "Cutting disconnects the tile and everything downstream. Space resumes.", 16, opt)
+
+	cx, cy := pauseCenter()
+	zoom := pauseTileSize / combatTileSize
+
+	// Tank upright, behind the turret.
+	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), cx, cy, tankDrawW*zoom, tankDrawH*zoom, 0, 1, 1, 1, 1)
+	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0)
+
+	// Highlight the tile under the cursor.
+	if idx, ok := g.pauseTileAtCursor(); ok {
+		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
+		drawCursorFrame(screen, c.X, c.Y, pauseTileSize)
 	}
 }
 
@@ -600,12 +550,10 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 	opt.GeoM.Translate(20, 64)
 	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Pwr/Tile %.1f  Nippers %d", p.Level, p.Speed, powerPerTile, p.Nippers), 18, opt)
 
-	// Cut cursor hint.
-	if p.Nippers > 0 {
-		opt = &ebiten.DrawImageOptions{}
-		opt.GeoM.Translate(20, 88)
-		drawing.DrawText(screen, "IJKL: move cut cursor  Space: cut tile", 14, opt)
-	}
+	// Cut hint.
+	opt = &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(20, 88)
+	drawing.DrawText(screen, "Space: pause & cut turret tiles", 14, opt)
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW-220, 20)
