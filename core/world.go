@@ -372,7 +372,7 @@ func (w *World) buildDisconnectChoices() []Upgrade {
 		idx := idx // capture for closure
 
 		if w.turret.CanPurgeTile(idx, 1) {
-			name, desc := tileLabel(w.turret, idx, false)
+			name, desc := tileLabel(w.turret, idx)
 			choices = append(choices, Upgrade{
 				Name: name,
 				Desc: desc,
@@ -383,52 +383,34 @@ func (w *World) buildDisconnectChoices() []Upgrade {
 				},
 			})
 		}
-
-		if w.turret.CanPurgeWeapon(idx, 1) {
-			name, desc := tileLabel(w.turret, idx, true)
-			choices = append(choices, Upgrade{
-				Name: name,
-				Desc: desc,
-				Apply: func(world *World) {
-					world.turret.PurgeWeapon(idx)
-					world.Player.Weapons = world.turret.ActiveWeapons()
-				},
-			})
-		}
 	}
 	return choices
 }
 
-// tileLabel returns the display name and description for a purge choice.
-// weaponOnly=true means it's a weapon-only purge (tile keeps conducting).
-func tileLabel(t *Turret, idx hexmap.Index, weaponOnly bool) (name, desc string) {
+// tileLabel returns the display name and description for a tile-purge choice.
+func tileLabel(t *Turret, idx hexmap.Index) (name, desc string) {
 	tile := t.Tiles()[idx]
 	compName := componentName(tile)
 
-	// Count downstream tiles that would be cut (for tile-purge).
+	// Count downstream tiles that would be cut along with this one.
 	var downstream int
-	if !weaponOnly {
-		for checkIdx, checkTile := range t.Tiles() {
-			if checkTile.purged || t.IsGenerator(checkIdx) {
-				continue
-			}
-			if idx == checkIdx {
-				continue
-			}
-			// Temporarily purge to test reachability after cut.
-			tile.purged = true
-			dist := t.distancesFrom(t.generators[0])
-			tile.purged = false
-			if _, reachable := dist[checkIdx]; !reachable {
-				downstream++
-			}
+	for checkIdx, checkTile := range t.Tiles() {
+		if checkTile.purged || t.IsGenerator(checkIdx) {
+			continue
+		}
+		if idx == checkIdx {
+			continue
+		}
+		// Temporarily purge to test reachability after cut.
+		tile.purged = true
+		dist := t.distancesFrom(t.generators[0])
+		tile.purged = false
+		if _, reachable := dist[checkIdx]; !reachable {
+			downstream++
 		}
 	}
 
-	if weaponOnly {
-		name = fmt.Sprintf("Disarm %s %s", compName, idx)
-		desc = fmt.Sprintf("Remove weapon — tile remains a conductor, power flows through")
-	} else if downstream > 0 {
+	if downstream > 0 {
 		name = fmt.Sprintf("Cut %s %s", compName, idx)
 		desc = fmt.Sprintf("Remove tile + %d downstream — gain +%.1f speed", downstream, speedBonusPerTilePurge)
 	} else {
@@ -439,20 +421,10 @@ func tileLabel(t *Turret, idx hexmap.Index, weaponOnly bool) (name, desc string)
 }
 
 func componentName(tile *Tile) string {
-	if tile == nil {
+	if tile == nil || tile.Component == nil {
 		return "?"
 	}
-	switch c := tile.Component.(type) {
-	case ProportionalWeapon:
-		return c.Weapon.Name
-	case ThresholdWeapon:
-		return c.Weapon.Name
-	case Capacitor:
-		return "Capacitor"
-	case Wire:
-		return "Wire"
-	}
-	return "?"
+	return tile.Component.Name()
 }
 
 func (w *World) spawnEnemies() {

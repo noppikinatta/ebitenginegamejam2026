@@ -23,15 +23,12 @@ type TurretGenConfig struct {
 	BranchProb float64
 
 	// WeaponDensity is the probability [0,1] that an eligible leaf or mid-arm
-	// tile becomes a weapon (ProportionalWeapon) rather than a plain Wire.
+	// tile becomes a weapon (WeaponComponent) rather than a plain Wire.
 	WeaponDensity float64
 
-	// CapacitorDensity is the probability [0,1] that a non-weapon, non-generator
-	// tile becomes a Capacitor instead of a Wire.
-	CapacitorDensity float64
-
-	// CapacitorMultiplier is the power multiplier applied by each Capacitor tile.
-	CapacitorMultiplier float64
+	// JunkDensity is the probability [0,1] that a non-weapon, non-generator tile
+	// becomes a useless Junk device (which dilutes power) instead of a Wire.
+	JunkDensity float64
 
 	// Generators lists the generator positions and their output power.
 	// For the initial single-generator version, this should have exactly one entry.
@@ -41,11 +38,10 @@ type TurretGenConfig struct {
 // DefaultTurretGenConfig returns a starting config tuned for the initial game.
 func DefaultTurretGenConfig(rng *rand.Rand) TurretGenConfig {
 	return TurretGenConfig{
-		MaxTiles:            22,
-		BranchProb:          0.35,
-		WeaponDensity:       0.45,
-		CapacitorDensity:    0.10,
-		CapacitorMultiplier: 1.5,
+		MaxTiles:      22,
+		BranchProb:    0.35,
+		WeaponDensity: 0.45,
+		JunkDensity:   0.15,
 		Generators: []GeneratorConfig{
 			{Index: hexmap.IdxXY(0, 0), Power: 100},
 		},
@@ -140,17 +136,29 @@ func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 	return NewTurret(tiles, genPositions, genPower)
 }
 
+// junkDeviceNames are the absurd useless gadgets various doctors bolted on.
+var junkDeviceNames = []string{
+	"Espresso Machine",
+	"Balloon Launcher",
+	"Rubber Duck",
+	"Disco Ball",
+	"Toaster",
+	"Lava Lamp",
+	"Wind Chime",
+	"Snow Globe",
+}
+
 // pickComponent returns a tile whose Component is chosen probabilistically.
 func pickComponent(cfg TurretGenConfig, rng *rand.Rand) *Tile {
 	r := rng.Float64()
 	if r < cfg.WeaponDensity {
 		kind := pickWeaponKind(rng)
 		w := NewWeapon(kind.String(), 0, kind)
-		return &Tile{Component: ProportionalWeapon{Weapon: w}}
+		return &Tile{Component: WeaponComponent{Weapon: w}}
 	}
 	r -= cfg.WeaponDensity
-	if r < cfg.CapacitorDensity {
-		return &Tile{Component: Capacitor{Multiplier: cfg.CapacitorMultiplier}}
+	if r < cfg.JunkDensity {
+		return &Tile{Component: Junk{DeviceName: junkDeviceNames[rng.Intn(len(junkDeviceNames))]}}
 	}
 	return &Tile{Component: Wire{}}
 }

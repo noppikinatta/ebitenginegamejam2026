@@ -319,13 +319,13 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 func tileColorRGB(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64) (r, gr, b float32) {
 	isGen := tr.IsGenerator(idx)
 	switch tile.Component.(type) {
-	case core.ProportionalWeapon, core.ThresholdWeapon:
+	case core.WeaponComponent:
 		if power > 0 {
 			return 1, 0.6, 0.1 // orange: active weapon
 		}
 		return 0.5, 0.25, 0.05 // dim orange: unpowered weapon
-	case core.Capacitor:
-		return 0.3, 0.9, 0.6 // teal: capacitor
+	case core.Junk:
+		return 0.6, 0.4, 0.7 // purple: useless junk device
 	default: // Wire or generator
 		if isGen {
 			return 1, 1, 0.2 // yellow: generator
@@ -460,24 +460,18 @@ func tileShortLabel(tile *core.Tile, isGen bool) string {
 	if isGen {
 		return "GEN"
 	}
-	if tile == nil {
+	if tile == nil || tile.Component == nil {
 		return ""
 	}
 	switch c := tile.Component.(type) {
-	case core.ProportionalWeapon:
+	case core.WeaponComponent:
 		n := c.Weapon.Name
 		if len(n) > 4 {
 			n = n[:4]
 		}
 		return n
-	case core.ThresholdWeapon:
-		n := c.Weapon.Name
-		if len(n) > 4 {
-			n = n[:4]
-		}
-		return n
-	case core.Capacitor:
-		return "CAP"
+	case core.Junk:
+		return "JUNK"
 	}
 	return "W" // wire
 }
@@ -524,9 +518,13 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 		drawing.DrawRect(screen, 20, 50, 300*float64(p.XP/p.XPToNext), 8, 0.4, 0.6, 1, 1)
 	}
 
+	powerPerTile := 0.0
+	if tr := g.world.Turret(); tr != nil {
+		powerPerTile = tr.PowerPerTile()
+	}
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(20, 64)
-	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f", p.Level, p.Speed), 18, opt)
+	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Pwr/Tile %.1f", p.Level, p.Speed, powerPerTile), 18, opt)
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW-220, 20)

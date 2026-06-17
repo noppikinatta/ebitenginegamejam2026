@@ -11,20 +11,10 @@ import (
 
 func makeTile(c Component) *Tile { return &Tile{Component: c} }
 func wireT() *Tile               { return makeTile(Wire{}) }
-func capT(m float64) *Tile       { return makeTile(Capacitor{Multiplier: m}) }
-func propT(energy float64) *Tile {
-	return makeTile(ProportionalWeapon{Weapon: NewWeapon("test", energy, KindCannon)})
+func weaponT() *Tile {
+	return makeTile(WeaponComponent{Weapon: NewWeapon("test", 0, KindCannon)})
 }
-func threshT(min float64) *Tile {
-	return makeTile(ThresholdWeapon{Weapon: NewWeapon("test", 0, KindCannon), MinPower: min})
-}
-
-// buildTurret is a convenience: tiles is a map of index→*Tile; generator is at
-// hexmap.IdxXY(0,0) and emits genPower.
-func buildTurret(tiles map[hexmap.Index]*Tile, genPower float64) *Turret {
-	gen := hexmap.IdxXY(0, 0)
-	return NewTurret(tiles, []hexmap.Index{gen}, genPower)
-}
+func junkT() *Tile { return makeTile(Junk{DeviceName: "Rubber Duck"}) }
 
 const eps = 1e-9
 
@@ -32,142 +22,111 @@ func approx(a, b float64) bool {
 	return math.Abs(a-b) < eps
 }
 
-// ---- Component unit tests ----
+// ---- flat power solver tests ----
 
-func TestWire_PassesAll(t *testing.T) {
-	self, through := Wire{}.Distribute(10, 2)
-	if !approx(self, 0) || !approx(through, 10) {
-		t.Errorf("Wire: got self=%v through=%v, want 0, 10", self, through)
-	}
-}
-
-func TestCapacitor_Amplifies(t *testing.T) {
-	self, through := Capacitor{Multiplier: 2}.Distribute(5, 1)
-	if !approx(self, 0) || !approx(through, 10) {
-		t.Errorf("Capacitor: got self=%v through=%v, want 0, 10", self, through)
-	}
-}
-
-func TestProportionalWeapon_KeepsOneShare(t *testing.T) {
-	pw := ProportionalWeapon{Weapon: NewWeapon("w", 0, KindCannon)}
-	cases := []struct {
-		received    float64
-		downstream  int
-		wantSelf    float64
-		wantThrough float64
-	}{
-		{12, 0, 12, 0}, // no downstream: keeps everything
-		{12, 2, 4, 8},  // 3 shares total: keeps 1, forwards 2
-		{12, 5, 2, 10}, // 6 shares: keeps 1, forwards 5
-	}
-	for _, tc := range cases {
-		self, through := pw.Distribute(tc.received, tc.downstream)
-		if !approx(self, tc.wantSelf) || !approx(through, tc.wantThrough) {
-			t.Errorf("received=%v downstream=%d: got self=%v through=%v, want %v/%v",
-				tc.received, tc.downstream, self, through, tc.wantSelf, tc.wantThrough)
-		}
-	}
-}
-
-func TestThresholdWeapon_ActivatesAboveMin(t *testing.T) {
-	tw := ThresholdWeapon{Weapon: NewWeapon("w", 0, KindCannon), MinPower: 5}
-
-	// Below threshold: no self-consumption, no throughput.
-	self, through := tw.Distribute(4.9, 0)
-	if !approx(self, 0) || !approx(through, 0) {
-		t.Errorf("below threshold: got self=%v through=%v, want 0,0", self, through)
-	}
-
-	// Exactly at threshold: consumes MinPower, forwards remainder.
-	self, through = tw.Distribute(5, 1)
-	if !approx(self, 5) || !approx(through, 0) {
-		t.Errorf("at threshold: got self=%v through=%v, want 5,0", self, through)
-	}
-
-	// Above threshold: consumes MinPower, forwards surplus.
-	self, through = tw.Distribute(8, 1)
-	if !approx(self, 5) || !approx(through, 3) {
-		t.Errorf("above threshold: got self=%v through=%v, want 5,3", self, through)
-	}
-}
-
-// ---- Turret / power solver tests ----
-
-// TestComputePower_GeneratorOnly: a turret with only the generator tile should
-// deliver genPower to itself and nothing to any downstream.
+// TestComputePower_GeneratorOnly: a turret with only the generator has no
+// consumer tiles, so ComputePower delivers nothing.
 func TestComputePower_GeneratorOnly(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	tiles := map[hexmap.Index]*Tile{gen: wireT()}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
-	power := tr.ComputePower()
-	if !approx(power[gen], 0) {
-		// Generator tile is a Wire: selfConsumption=0, throughput=100.
-		// No downstream active tiles, so throughput is absorbed at edge.
-		t.Errorf("generator wire self=%v, want 0", power[gen])
+	if pt := tr.PowerPerTile(); !approx(pt, 0) {
+		t.Errorf("PowerPerTile with no consumers = %v, want 0", pt)
 	}
 }
 
-// TestComputePower_LinearChain: generator → wire → proportionalWeapon
-// Power should flow: 100 → wire passes 100 → weapon keeps 1/(0+1)=100.
-func TestComputePower_LinearChain(t *testing.T) {
+// TestComputePower_FlatDistribution: power is split evenly among all connected
+// non-generator tiles regardless of topology. gen → wire → weapon = 2 consumers.
+func TestComputePower_FlatDistribution(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
-	mid := hexmap.IdxXY(1, 0)    // Direction03 neighbor
-	weapon := hexmap.IdxXY(2, 0) // one further
+	mid := hexmap.IdxXY(1, 0)
+	weapon := hexmap.IdxXY(2, 0)
 
-	w := NewWeapon("cannon", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:    wireT(),
 		mid:    wireT(),
-		weapon: makeTile(ProportionalWeapon{Weapon: w}),
+		weapon: weaponT(),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
-	power := tr.ComputePower()
 
-	// wire at gen: self=0, throughput=100 to mid.
-	// wire at mid: self=0, throughput=100 to weapon.
-	// prop weapon at leaf (no downstream): self=100, throughput=0.
-	if !approx(power[weapon], 100) {
-		t.Errorf("weapon power=%v, want 100", power[weapon])
+	// 2 consumer tiles (mid wire + weapon) → 50 each.
+	if pt := tr.PowerPerTile(); !approx(pt, 50) {
+		t.Errorf("PowerPerTile = %v, want 50", pt)
+	}
+	power := tr.ComputePower()
+	if !approx(power[weapon], 50) {
+		t.Errorf("weapon power = %v, want 50", power[weapon])
+	}
+	if !approx(power[mid], 50) {
+		t.Errorf("mid wire power = %v, want 50", power[mid])
+	}
+	if !approx(power[gen], 0) {
+		t.Errorf("generator power = %v, want 0", power[gen])
 	}
 }
 
-// TestComputePower_TwoEqualBranches: generator → two weapon tiles equally.
-func TestComputePower_TwoEqualBranches(t *testing.T) {
+// TestComputePower_TopologyIndependent: a linear chain and a fork with the same
+// number of consumer tiles deliver the same per-tile power (topology no longer
+// matters, unlike the old distance-ring solver).
+func TestComputePower_TopologyIndependent(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
-	left := hexmap.IdxXY(1, 0)  // Direction03
-	right := hexmap.IdxXY(0, 1) // Direction05
+	left := hexmap.IdxXY(1, 0)
+	right := hexmap.IdxXY(0, 1)
 
-	wL := NewWeapon("L", 0, KindCannon)
-	wR := NewWeapon("R", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:   wireT(),
-		left:  makeTile(ProportionalWeapon{Weapon: wL}),
-		right: makeTile(ProportionalWeapon{Weapon: wR}),
+		left:  weaponT(),
+		right: weaponT(),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 	power := tr.ComputePower()
 
-	// wire at gen: forwards 100 equally to left and right → 50 each.
-	// each PropWeapon is a leaf: keeps all 50.
+	// 2 consumers → 50 each.
 	if !approx(power[left], 50) || !approx(power[right], 50) {
-		t.Errorf("branch power: left=%v right=%v, want 50,50", power[left], power[right])
+		t.Errorf("fork power: left=%v right=%v, want 50,50", power[left], power[right])
 	}
 }
 
-// TestComputePower_PurgedTileBlocksDownstream: if the mid tile is purged,
-// the downstream weapon receives no power.
+// TestComputePower_JunkDilutes: adding a useless junk tile reduces every other
+// tile's power share.
+func TestComputePower_JunkDilutes(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	weapon := hexmap.IdxXY(1, 0)
+	junk := hexmap.IdxXY(2, 0)
+
+	// Without junk: 1 consumer → 100.
+	noJunk := NewTurret(map[hexmap.Index]*Tile{
+		gen:    wireT(),
+		weapon: weaponT(),
+	}, []hexmap.Index{gen}, 100)
+	if !approx(noJunk.ComputePower()[weapon], 100) {
+		t.Fatalf("single weapon should get full 100, got %v", noJunk.ComputePower()[weapon])
+	}
+
+	// With junk: 2 consumers → 50 each. The junk dilutes the weapon.
+	withJunk := NewTurret(map[hexmap.Index]*Tile{
+		gen:    wireT(),
+		weapon: weaponT(),
+		junk:   junkT(),
+	}, []hexmap.Index{gen}, 100)
+	if !approx(withJunk.ComputePower()[weapon], 50) {
+		t.Errorf("weapon power with junk = %v, want 50 (diluted)", withJunk.ComputePower()[weapon])
+	}
+}
+
+// TestComputePower_DisconnectedTileGetsNothing: a tile not reachable from the
+// generator (purged mid-chain) receives no power and is not a consumer.
 func TestComputePower_PurgedTileBlocksDownstream(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	mid := hexmap.IdxXY(1, 0)
 	weapon := hexmap.IdxXY(2, 0)
 
-	w := NewWeapon("w", 0, KindCannon)
 	midTile := wireT()
 	midTile.purged = true
 	tiles := map[hexmap.Index]*Tile{
 		gen:    wireT(),
 		mid:    midTile,
-		weapon: makeTile(ProportionalWeapon{Weapon: w}),
+		weapon: weaponT(),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 	power := tr.ComputePower()
@@ -177,124 +136,53 @@ func TestComputePower_PurgedTileBlocksDownstream(t *testing.T) {
 	}
 }
 
-// TestComputePower_Capacitor: generator → capacitor(x2) → weapon.
-// Weapon should receive 200 (100 * 2).
-func TestComputePower_Capacitor(t *testing.T) {
-	gen := hexmap.IdxXY(0, 0)
-	cap1 := hexmap.IdxXY(1, 0)
-	weapon := hexmap.IdxXY(2, 0)
-
-	w := NewWeapon("w", 0, KindCannon)
-	tiles := map[hexmap.Index]*Tile{
-		gen:    wireT(),
-		cap1:   capT(2.0),
-		weapon: makeTile(ProportionalWeapon{Weapon: w}),
-	}
-	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
-	power := tr.ComputePower()
-
-	if !approx(power[weapon], 200) {
-		t.Errorf("weapon after capacitor: power=%v, want 200", power[weapon])
-	}
-}
-
-// TestComputePower_ThresholdNotMet: weapon requires 50 but only 40 supplied.
-func TestComputePower_ThresholdNotMet(t *testing.T) {
+// TestPurgeReconcentratesPower: cutting a tile increases the remaining tiles'
+// power share — the core risk/reward of the disconnect mechanic.
+func TestPurgeReconcentratesPower(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	weapon := hexmap.IdxXY(1, 0)
+	junk := hexmap.IdxXY(0, 1)
 
-	w := NewWeapon("w", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:    wireT(),
-		weapon: makeTile(ThresholdWeapon{Weapon: w, MinPower: 50}),
-	}
-	tr := NewTurret(tiles, []hexmap.Index{gen}, 40)
-	power := tr.ComputePower()
-
-	// ThresholdWeapon below min: self=0, through=0.
-	// WeaponPower should not include this tile (or show 0).
-	wp := tr.WeaponPower()
-	if v, ok := wp[weapon]; ok && !approx(v, 0) {
-		t.Errorf("below-threshold weapon in WeaponPower=%v, want absent/0", v)
-	}
-	_ = power // power entry may be 0 via self-consumption
-}
-
-// TestComputePower_ThresholdMet: weapon requires 50, receives 80; surplus goes downstream.
-func TestComputePower_ThresholdMet(t *testing.T) {
-	gen := hexmap.IdxXY(0, 0)
-	weapon := hexmap.IdxXY(1, 0)
-	wire2 := hexmap.IdxXY(2, 0)
-
-	w := NewWeapon("w", 0, KindCannon)
-	tiles := map[hexmap.Index]*Tile{
-		gen:    wireT(),
-		weapon: makeTile(ThresholdWeapon{Weapon: w, MinPower: 50}),
-		wire2:  wireT(),
-	}
-	tr := NewTurret(tiles, []hexmap.Index{gen}, 80)
-	power := tr.ComputePower()
-
-	// ThresholdWeapon: self=50, through=30 to wire2.
-	if !approx(power[weapon], 50) {
-		t.Errorf("threshold weapon self power=%v, want 50", power[weapon])
-	}
-	// wire2 receives 30, self=0.
-	_ = power[wire2]
-}
-
-// TestComputePower_DAGMerge: two parents at distance 1 both feed a single child
-// at distance 2. The child should receive the sum of both contributions.
-//
-//	gen(0,0) → p1(1,0) \
-//	                     → child(1,1)
-//	gen(0,0) → p2(0,1) /
-//
-// (1,1) is adjacent to both (1,0) via Direction05 and (0,1) via Direction03,
-// and is at hex-distance 2 from gen.
-func TestComputePower_DAGMerge(t *testing.T) {
-	gen := hexmap.IdxXY(0, 0)
-	p1 := hexmap.IdxXY(1, 0) // Direction03 from gen
-	p2 := hexmap.IdxXY(0, 1) // Direction05 from gen
-	child := hexmap.IdxXY(1, 1)
-	w := NewWeapon("w", 0, KindCannon)
-	tiles := map[hexmap.Index]*Tile{
-		gen:   wireT(),
-		p1:    wireT(),
-		p2:    wireT(),
-		child: makeTile(ProportionalWeapon{Weapon: w}),
+		weapon: weaponT(),
+		junk:   junkT(),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
-	power := tr.ComputePower()
 
-	// gen(wire): through=100, split equally to p1 and p2 → 50 each.
-	// p1(wire): through=50, downstream: child only → forwards 50 to child.
-	// p2(wire): through=50, downstream: child only → forwards 50 to child.
-	// child receives 50+50=100. PropWeapon with no downstream → self=100.
-	if !approx(power[child], 100) {
-		t.Errorf("DAG merge child power=%v, want 100", power[child])
+	before := tr.ComputePower()[weapon]
+	if !approx(before, 50) {
+		t.Fatalf("pre-cut weapon power = %v, want 50", before)
+	}
+
+	if !tr.PurgeTile(junk) {
+		t.Fatal("PurgeTile(junk) returned false unexpectedly")
+	}
+
+	after := tr.ComputePower()[weapon]
+	if !approx(after, 100) {
+		t.Errorf("post-cut weapon power = %v, want 100 (reconcentrated)", after)
 	}
 }
 
-// TestPurgeTile_BlocksDownstream: PurgeTile sets purged=true; ComputePower
-// no longer routes through it.
+// TestPurgeTile_BlocksDownstream: PurgeTile sets purged=true; ComputePower no
+// longer routes through it.
 func TestPurgeTile_BlocksDownstream(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	mid := hexmap.IdxXY(1, 0)
 	weapon := hexmap.IdxXY(2, 0)
 
-	w := NewWeapon("w", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:    wireT(),
 		mid:    wireT(),
-		weapon: makeTile(ProportionalWeapon{Weapon: w}),
+		weapon: weaponT(),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 
-	// Verify power flows before purge.
+	// Verify power flows before purge (2 consumers → 50 each).
 	before := tr.ComputePower()
-	if !approx(before[weapon], 100) {
-		t.Fatalf("pre-purge weapon power=%v, want 100", before[weapon])
+	if !approx(before[weapon], 50) {
+		t.Fatalf("pre-purge weapon power=%v, want 50", before[weapon])
 	}
 
 	ok := tr.PurgeTile(mid)
@@ -316,11 +204,10 @@ func TestPurgeTile_CascadesToOrphans(t *testing.T) {
 	weapon := hexmap.IdxXY(2, 0)
 	tail := hexmap.IdxXY(3, 0)
 
-	w := NewWeapon("w", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:    wireT(),
 		mid:    wireT(),
-		weapon: makeTile(ProportionalWeapon{Weapon: w}),
+		weapon: weaponT(),
 		tail:   wireT(),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
@@ -352,12 +239,11 @@ func TestPurgeTile_DoesNotCascadeAcrossAlternatePath(t *testing.T) {
 	p2 := hexmap.IdxXY(0, 1)
 	child := hexmap.IdxXY(1, 1)
 
-	w := NewWeapon("w", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:   wireT(),
 		p1:    wireT(),
 		p2:    wireT(),
-		child: makeTile(ProportionalWeapon{Weapon: w}),
+		child: weaponT(),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 
@@ -376,56 +262,34 @@ func TestPurgeTile_DoesNotCascadeAcrossAlternatePath(t *testing.T) {
 	}
 }
 
-// TestPurgeWeapon_TileRemainsActive: PurgeWeapon replaces the component with Wire
-// so downstream tiles still receive power.
-func TestPurgeWeapon_TileRemainsActive(t *testing.T) {
+// TestPurgeTile_RejectsGenerator: the generator tile cannot be purged.
+func TestPurgeTile_RejectsGenerator(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
-	midWeapon := hexmap.IdxXY(1, 0)
-	downstream := hexmap.IdxXY(2, 0)
+	weapon := hexmap.IdxXY(1, 0)
+	tr := NewTurret(map[hexmap.Index]*Tile{
+		gen:    wireT(),
+		weapon: weaponT(),
+	}, []hexmap.Index{gen}, 100)
 
-	wMid := NewWeapon("mid", 0, KindCannon)
-	wDown := NewWeapon("down", 0, KindCannon)
-	tiles := map[hexmap.Index]*Tile{
-		gen:        wireT(),
-		midWeapon:  makeTile(ProportionalWeapon{Weapon: wMid}),
-		downstream: makeTile(ProportionalWeapon{Weapon: wDown}),
+	if tr.PurgeTile(gen) {
+		t.Errorf("PurgeTile(generator) should return false")
 	}
-	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
-
-	// Before purge: mid (ProportionalWeapon with 1 downstream) keeps 50, sends 50 down.
-	before := tr.ComputePower()
-	if !approx(before[midWeapon], 50) || !approx(before[downstream], 50) {
-		t.Fatalf("pre-purge mid=%v down=%v, want 50,50", before[midWeapon], before[downstream])
-	}
-
-	ok := tr.PurgeWeapon(midWeapon)
-	if !ok {
-		t.Fatal("PurgeWeapon returned false unexpectedly")
-	}
-
-	after := tr.ComputePower()
-	// mid is now Wire: self=0, all 100 forwarded to downstream.
-	if !approx(after[midWeapon], 0) {
-		t.Errorf("post-weapon-purge mid self=%v, want 0", after[midWeapon])
-	}
-	if !approx(after[downstream], 100) {
-		t.Errorf("post-weapon-purge downstream power=%v, want 100", after[downstream])
+	if tr.Tiles()[gen].IsPurged() {
+		t.Errorf("generator must not be purged")
 	}
 }
 
-// TestActiveWeapons_SetsEnergy: ActiveWeapons returns weapons with Energy set
-// to their computed power.
+// TestActiveWeapons_SetsEnergy: ActiveWeapons returns weapons with Energy set to
+// their flat power share.
 func TestActiveWeapons_SetsEnergy(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	left := hexmap.IdxXY(1, 0)
 	right := hexmap.IdxXY(0, 1)
 
-	wL := NewWeapon("L", 0, KindCannon)
-	wR := NewWeapon("R", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:   wireT(),
-		left:  makeTile(ProportionalWeapon{Weapon: wL}),
-		right: makeTile(ProportionalWeapon{Weapon: wR}),
+		left:  makeTile(WeaponComponent{Weapon: NewWeapon("L", 0, KindCannon)}),
+		right: makeTile(WeaponComponent{Weapon: NewWeapon("R", 0, KindCannon)}),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 	weapons := tr.ActiveWeapons()
@@ -449,7 +313,7 @@ func TestActiveWeapons_SetsTileIdx(t *testing.T) {
 	w := NewWeapon("w", 0, KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:  wireT(),
-		wpos: makeTile(ProportionalWeapon{Weapon: w}),
+		wpos: makeTile(WeaponComponent{Weapon: w}),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 	weapons := tr.ActiveWeapons()
@@ -461,6 +325,24 @@ func TestActiveWeapons_SetsTileIdx(t *testing.T) {
 		t.Errorf("weapon TileIdx = %v, want %v", weapons[0].TileIdx, wpos)
 	}
 }
+
+// TestActiveWeapons_ExcludesJunk: junk and wire tiles never appear as weapons.
+func TestActiveWeapons_ExcludesJunk(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	junk := hexmap.IdxXY(1, 0)
+	wire := hexmap.IdxXY(0, 1)
+	tr := NewTurret(map[hexmap.Index]*Tile{
+		gen:  wireT(),
+		junk: junkT(),
+		wire: wireT(),
+	}, []hexmap.Index{gen}, 100)
+
+	if w := tr.ActiveWeapons(); len(w) != 0 {
+		t.Errorf("expected 0 weapons (only junk/wire), got %d", len(w))
+	}
+}
+
+// ---- MuzzleOffset tests ----
 
 // TestMuzzleOffset_FacingUpIsIdentity: with the default facing (-pi/2 = up),
 // the muzzle offset equals the unrotated local tile offset.
@@ -494,24 +376,5 @@ func TestMuzzleOffset_RotationPreservesMagnitude(t *testing.T) {
 	}
 	if approx(up.X, right.X) && approx(up.Y, right.Y) {
 		t.Errorf("muzzle did not move when facing changed: %v", up)
-	}
-}
-
-// TestActiveWeapons_ExcludesInactiveThreshold: a threshold weapon below its
-// minimum should not appear in ActiveWeapons.
-func TestActiveWeapons_ExcludesInactiveThreshold(t *testing.T) {
-	gen := hexmap.IdxXY(0, 0)
-	weapon := hexmap.IdxXY(1, 0)
-
-	w := NewWeapon("w", 0, KindCannon)
-	tiles := map[hexmap.Index]*Tile{
-		gen:    wireT(),
-		weapon: makeTile(ThresholdWeapon{Weapon: w, MinPower: 200}),
-	}
-	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
-	weapons := tr.ActiveWeapons()
-
-	if len(weapons) != 0 {
-		t.Errorf("expected 0 active weapons below threshold, got %d", len(weapons))
 	}
 }
