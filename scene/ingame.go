@@ -30,9 +30,8 @@ const (
 
 	// Sprite draw sizes (px at the 1:1 camera). These are the asset footprints
 	// and are intentionally independent of the core collision radii.
-	tankDrawW     = 48.0 // tank is tall (portrait)
-	tankDrawH     = 64.0
-	enemyDrawSize = 32.0
+	tankDrawW = 48.0 // tank is tall (portrait)
+	tankDrawH = 64.0
 
 	// Level-up doctor-card layout.
 	cardW   = 360.0
@@ -122,7 +121,7 @@ func (g *InGame) Update() error {
 	}
 
 	switch g.world.State {
-	case core.StateGameOver:
+	case core.StateGameOver, core.StateCleared:
 		if g.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {
 			g.sequence.SwitchWithTransition(g.nextScene, g.transition)
 		}
@@ -284,11 +283,8 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 12, 12, 0, 1, 1, 1, 1)
 	}
 	for _, e := range w.Enemies {
-		key := asset.ImgEnemy
-		if e.DropsNipper {
-			key = asset.ImgCandlestick
-		}
-		drawSprite(screen, cam, key, e.Pos, enemyDrawSize, enemyDrawSize, 0, 1, 1, 1, 1)
+		sz := e.Radius * 2 // sprite footprint follows the collision radius
+		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1)
 	}
 	for _, p := range w.Projectiles {
 		drawSprite(screen, cam, asset.ImgProjectile, p.Pos, 8, 8, 0, 1, 1, 1, 1)
@@ -306,6 +302,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	g.drawExplosions(screen, cam)
 
 	g.drawHUD(screen)
+	g.drawBossBar(screen)
 
 	if g.paused && w.State == core.StatePlaying {
 		g.drawPause(screen)
@@ -322,11 +319,19 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(500, 380)
 		drawing.DrawText(screen, "Click to continue", 24, opt)
+	case core.StateCleared:
+		drawing.DrawRect(screen, 0, 0, screenW, screenH, 0.02, 0.10, 0.06, 0.6)
+		opt := &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(430, 290)
+		drawing.DrawText(screen, "MISSION COMPLETE", 48, opt)
+		opt = &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(430, 360)
+		drawing.DrawText(screen, "The Disconnector is destroyed. Click to continue.", 22, opt)
 	}
 
 	// Power-per-tile gauge on the left edge, drawn last so it stays visible above
 	// the pause and level-up overlays (the moments power changes most).
-	if w.State != core.StateGameOver {
+	if w.State != core.StateGameOver && w.State != core.StateCleared {
 		g.drawPowerGauge(screen)
 	}
 }
@@ -667,7 +672,8 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW-220, 20)
-	drawing.DrawText(screen, fmt.Sprintf("Time %d  Kills %d", g.world.Tick/60, g.world.Kills), 18, opt)
+	secs := g.world.Tick / 60
+	drawing.DrawText(screen, fmt.Sprintf("Time %d:%02d  Kills %d", secs/60, secs%60, g.world.Kills), 18, opt)
 }
 
 func (g *InGame) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -679,6 +685,48 @@ func (g *InGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 // (r,gr,b,a). It is the sprite-based replacement for the old drawEntity.
 func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.PointF, w, h, angle float64, r, gr, b, a float32) {
 	drawing.DrawSprite(screen, drawing.Image(key), pos.X-cam.X, pos.Y-cam.Y, w, h, angle, r, gr, b, a)
+}
+
+// enemySpriteKey selects the sprite for an enemy: candlestick, boss, or the
+// per-kind zako sprite.
+func enemySpriteKey(e *core.Enemy) string {
+	switch {
+	case e.DropsNipper:
+		return asset.ImgCandlestick
+	case e.IsBoss:
+		return asset.ImgBoss
+	case e.Kind == core.EnemySwarmer:
+		return asset.ImgEnemySwarmer
+	case e.Kind == core.EnemyBrute:
+		return asset.ImgEnemyBrute
+	default:
+		return asset.ImgEnemy
+	}
+}
+
+// drawBossBar draws a name + health bar across the top when a boss is on the
+// field, so the player can read the boss fight's progress.
+func (g *InGame) drawBossBar(screen *ebiten.Image) {
+	b := g.world.ActiveBoss()
+	if b == nil {
+		return
+	}
+	const bw, bh, by = 600.0, 16.0, 30.0
+	bx := (screenW - bw) / 2
+
+	opt := &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(bx, by-22)
+	drawing.DrawText(screen, b.Name, 18, opt)
+
+	drawing.DrawRect(screen, bx, by, bw, bh, 0.15, 0.05, 0.08, 1)
+	frac := 0.0
+	if b.MaxHP > 0 {
+		frac = b.HP / b.MaxHP
+	}
+	if frac < 0 {
+		frac = 0
+	}
+	drawing.DrawRect(screen, bx, by, bw*frac, bh, 0.85, 0.25, 0.30, 1)
 }
 
 // drawExplosions renders each queued explosion as an orange circle that fades

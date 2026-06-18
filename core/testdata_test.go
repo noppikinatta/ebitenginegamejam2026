@@ -1,6 +1,7 @@
 package core
 
 import (
+	"math"
 	"math/rand"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
@@ -24,11 +25,41 @@ func testConfig() Config {
 		Pickup:                 PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 4},
 		Spawn:                  SpawnSpec{EnemyDist: 520, EnemyBaseInterval: 60, EnemyMinInterval: 18, EnemyIntervalDecay: 600, CandleDist: 220, CandleDistRange: 220},
 		Doctor:                 DoctorSpec{NipperChance: 0.25, UpgradeChance: 0.625, NipperMin: 5, NipperMax: 10, MaxUpgrades: 3, MaxBundleTiles: 3, CapacitorChance: 0.15},
-		EnemyScaling:           EnemyScaling{HPBase: 10, HPDoublingTicks: 18000, Speed: 1.2, Radius: 16, Damage: 8, XPValue: 3},
+		EnemyKinds:             testEnemyKinds(),
+		HPDoublingTicks:        18000,
+		SpawnPhases:            testSpawnPhases(),
+		Bosses:                 testBosses(),
 		Candlestick:            Enemy{HP: 40, Radius: 16, DropsNipper: true},
 		TurretGen:              testTurretGenConfig(),
 		Weapons:                testWeapons(),
 		PowerCurve:             testPowerCurve(),
+	}
+}
+
+// testEnemyKinds / testSpawnPhases / testBosses mirror the data package so core
+// tests exercise the real spawn director and boss schedule.
+func testEnemyKinds() map[EnemyKind]EnemyStats {
+	return map[EnemyKind]EnemyStats{
+		EnemyGrunt:   {HPBase: 10, Speed: 1.2, Radius: 16, Damage: 8, XPValue: 3, PackMin: 1, PackMax: 1},
+		EnemySwarmer: {HPBase: 5, Speed: 2.1, Radius: 11, Damage: 4, XPValue: 1, PackMin: 3, PackMax: 6},
+		EnemyBrute:   {HPBase: 60, Speed: 0.7, Radius: 26, Damage: 18, XPValue: 8, PackMin: 1, PackMax: 1},
+	}
+}
+
+func testSpawnPhases() []SpawnPhase {
+	const min3, min6 = 3 * 3600, 6 * 3600
+	return []SpawnPhase{
+		{UntilTick: min3, Weights: []KindWeight{{EnemyGrunt, 7}, {EnemySwarmer, 3}}},
+		{UntilTick: min6, Weights: []KindWeight{{EnemyGrunt, 5}, {EnemySwarmer, 4}, {EnemyBrute, 1}}},
+		{UntilTick: math.MaxInt, Weights: []KindWeight{{EnemyGrunt, 4}, {EnemySwarmer, 4}, {EnemyBrute, 2}}},
+	}
+}
+
+func testBosses() []BossSpec {
+	return []BossSpec{
+		{AtTick: 3 * 3600, Name: "Prototype Hauler", HP: 1200, Speed: 0.9, Radius: 40, Damage: 20, XPValue: 50},
+		{AtTick: 6 * 3600, Name: "Siege Engine", HP: 3000, Speed: 0.85, Radius: 46, Damage: 26, XPValue: 100},
+		{AtTick: 10 * 3600, Name: "The Disconnector", HP: 8000, Speed: 0.8, Radius: 54, Damage: 32, XPValue: 200, Final: true},
 	}
 }
 

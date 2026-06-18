@@ -15,7 +15,8 @@ type State int
 const (
 	StatePlaying  State = iota
 	StateLevelUp        // awaiting the player's purge choice
-	StateGameOver       // run ended
+	StateGameOver       // run ended in defeat (player died)
+	StateCleared        // run won (final boss defeated)
 )
 
 // World holds all gameplay state for a single run. It has no Ebiten dependency
@@ -39,8 +40,20 @@ type World struct {
 	pendingLevelUps  int
 	candlestickTimer int
 	spawnTimer       int
+	bossesSpawned    int // index of the next boss in cfg.Bosses to spawn
 	rng              *rand.Rand
 	cfg              Config
+}
+
+// ActiveBoss returns the first alive boss enemy, or nil if none is on the field.
+// The scene uses it to draw a boss health bar.
+func (w *World) ActiveBoss() *Enemy {
+	for _, e := range w.Enemies {
+		if e.alive && e.IsBoss {
+			return e
+		}
+	}
+	return nil
 }
 
 // Turret exposes the turret grid read-only so the scene layer can draw it.
@@ -119,6 +132,7 @@ func (w *World) Update(move geom.PointF) {
 	w.updateGems()
 	w.updatePickups()
 	w.spawnEnemies()
+	w.spawnBosses()
 	w.spawnCandlestick()
 	w.compact()
 }
@@ -422,6 +436,9 @@ func (w *World) killEnemy(e *Enemy) {
 	if e.DropsNipper {
 		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, alive: true})
 	}
+	if e.Final && w.State == StatePlaying {
+		w.State = StateCleared // defeating the final boss wins the run
+	}
 }
 
 func (w *World) updateEnemies() {
@@ -445,7 +462,9 @@ func (w *World) damagePlayer(dmg float64) {
 	w.Player.invuln = 30
 	if w.Player.HP <= 0 {
 		w.Player.HP = 0
-		w.State = StateGameOver
+		if w.State == StatePlaying { // don't override a win decided earlier this tick
+			w.State = StateGameOver
+		}
 	}
 }
 
@@ -620,24 +639,98 @@ func (w *World) spawnEnemies() {
 	}
 	w.spawnTimer = interval
 
-	angle := w.rng.Float64() * 2 * math.Pi
-	pos := w.Player.Pos.Add(geom.PointFFromPolar(sp.EnemyDist, angle))
+	w.spawnPackOf(w.pickSpawnKind())
+}
 
-	// HP doubles every HPDoublingTicks so enemies get tankier as the run goes on.
-	sc := w.cfg.EnemyScaling
-	hp := sc.HPBase
-	if sc.HPDoublingTicks > 0 {
-		hp = sc.HPBase * math.Pow(2, float64(w.Tick)/sc.HPDoublingTicks)
+// spawnPackOf spawns a cluster (pack) of one zako kind around a single bearing,
+// so swarmers arrive as a group while grunts/brutes come one at a time. Pack
+// size is PackMin..PackMax.
+func (w *World) spawnPackOf(kind EnemyKind) {
+	stats := w.cfg.EnemyKinds[kind]
+	n := stats.PackMin
+	if n < 1 {
+		n = 1
 	}
-	w.Enemies = append(w.Enemies, &Enemy{
-		Pos:     pos,
-		HP:      hp,
-		Speed:   sc.Speed,
-		Radius:  sc.Radius,
-		Damage:  sc.Damage,
-		XPValue: sc.XPValue,
-		alive:   true,
-	})
+	if stats.PackMax > n {
+		n += w.rng.Intn(stats.PackMax - n + 1)
+	}
+	base := w.rng.Float64() * 2 * math.Pi
+	for i := 0; i < n; i++ {
+		a := base + (w.rng.Float64()-0.5)*0.6 // small spread so the pack isn't a single point
+		pos := w.Player.Pos.Add(geom.PointFFromPolar(w.cfg.Spawn.EnemyDist, a))
+		w.Enemies = append(w.Enemies, w.makeEnemy(kind, stats, pos))
+	}
+}
+
+// makeEnemy builds a zako enemy of the given kind, applying time-based HP
+// scaling: HP = HPBase × 2^(tick / HPDoublingTicks).
+func (w *World) makeEnemy(kind EnemyKind, s EnemyStats, pos geom.PointF) *Enemy {
+	hp := s.HPBase
+	if w.cfg.HPDoublingTicks > 0 {
+		hp = s.HPBase * math.Pow(2, float64(w.Tick)/w.cfg.HPDoublingTicks)
+	}
+	return &Enemy{
+		Pos: pos, Kind: kind, HP: hp, MaxHP: hp,
+		Speed: s.Speed, Radius: s.Radius, Damage: s.Damage, XPValue: s.XPValue,
+		alive: true,
+	}
+}
+
+// pickSpawnKind chooses an enemy kind using the weights of the current spawn
+// phase (the first phase whose UntilTick the game hasn't passed yet). Iteration
+// is over an ordered slice so the choice is deterministic for a given RNG state.
+func (w *World) pickSpawnKind() EnemyKind {
+	weights := w.currentPhaseWeights()
+	total := 0
+	for _, kw := range weights {
+		if kw.Weight > 0 {
+			total += kw.Weight
+		}
+	}
+	if total <= 0 {
+		return EnemyGrunt
+	}
+	r := w.rng.Intn(total)
+	for _, kw := range weights {
+		if kw.Weight <= 0 {
+			continue
+		}
+		if r < kw.Weight {
+			return kw.Kind
+		}
+		r -= kw.Weight
+	}
+	return EnemyGrunt
+}
+
+func (w *World) currentPhaseWeights() []KindWeight {
+	for _, ph := range w.cfg.SpawnPhases {
+		if w.Tick < ph.UntilTick {
+			return ph.Weights
+		}
+	}
+	if n := len(w.cfg.SpawnPhases); n > 0 {
+		return w.cfg.SpawnPhases[n-1].Weights
+	}
+	return nil
+}
+
+// spawnBosses spawns each scheduled boss once, when its AtTick is reached.
+func (w *World) spawnBosses() {
+	for w.bossesSpawned < len(w.cfg.Bosses) {
+		b := w.cfg.Bosses[w.bossesSpawned]
+		if w.Tick < b.AtTick {
+			break
+		}
+		w.bossesSpawned++
+		angle := w.rng.Float64() * 2 * math.Pi
+		pos := w.Player.Pos.Add(geom.PointFFromPolar(w.cfg.Spawn.EnemyDist, angle))
+		w.Enemies = append(w.Enemies, &Enemy{
+			Pos: pos, HP: b.HP, MaxHP: b.HP,
+			Speed: b.Speed, Radius: b.Radius, Damage: b.Damage, XPValue: b.XPValue,
+			IsBoss: true, Final: b.Final, Name: b.Name, alive: true,
+		})
+	}
 }
 
 // spawnCandlestick periodically drops a stationary, harmless candlestick the

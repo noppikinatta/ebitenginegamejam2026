@@ -18,16 +18,32 @@ type Player struct {
 	invuln      int     // i-frame ticks remaining after taking contact damage
 }
 
+// EnemyKind identifies a zako (trash) enemy spawn template, used both to pick
+// stats at spawn and to choose a sprite when drawing.
+type EnemyKind int
+
+const (
+	EnemyGrunt   EnemyKind = iota // balanced chaser
+	EnemySwarmer                  // fast, fragile, spawns in packs
+	EnemyBrute                    // slow, tanky, big, hits hard
+)
+
 // Enemy chases the player and deals contact damage. A candlestick is a special
 // stationary enemy (Speed 0, no contact damage) that drops a nipper when broken.
+// Bosses are large scheduled enemies; killing the Final boss clears the run.
 type Enemy struct {
 	Pos         geom.PointF
+	Kind        EnemyKind
 	HP          float64
+	MaxHP       float64 // spawn HP, for boss health bars
 	Speed       float64
 	Radius      float64
 	Damage      float64
 	XPValue     float64
-	DropsNipper bool // candlestick: spawns a nipper pickup on death
+	DropsNipper bool   // candlestick: spawns a nipper pickup on death
+	IsBoss      bool   // scheduled boss: drawn large, shows a health bar
+	Final       bool   // final boss: killing it clears the run
+	Name        string // boss display name
 	alive       bool
 }
 

@@ -20,15 +20,18 @@ func NewConfig() core.Config {
 		XPToNextGrowth:         1.25, // XPToNext multiplier applied each level-up
 		CapacitorFireRateBonus: 0.1,  // each connected Capacitor adds +0.1 to the fire-rate multiplier
 
-		Player:       defaultPlayer(),
-		Pickup:       defaultPickupRanges(),
-		Spawn:        defaultSpawn(),
-		Doctor:       defaultDoctor(),
-		EnemyScaling: basicEnemyScaling(),
-		Candlestick:  candlestick(),
-		TurretGen:    defaultTurretGen(),
-		Weapons:      weaponParams(),
-		PowerCurve:   powerCurve(),
+		Player:          defaultPlayer(),
+		Pickup:          defaultPickupRanges(),
+		Spawn:           defaultSpawn(),
+		Doctor:          defaultDoctor(),
+		EnemyKinds:      enemyKinds(),
+		HPDoublingTicks: 18000, // zako HP doubles every 5 min at 60 TPS (×2 @5min, ×4 @10min)
+		SpawnPhases:     spawnPhases(),
+		Bosses:          bosses(),
+		Candlestick:     candlestick(),
+		TurretGen:       defaultTurretGen(),
+		Weapons:         weaponParams(),
+		PowerCurve:      powerCurve(),
 	}
 }
 

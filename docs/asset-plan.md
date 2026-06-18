@@ -17,6 +17,16 @@
 
 > **弾の移動ロジック差し替え**：`core.ProjectileMover` インターフェース（`Steer(p, w)`）で弾の毎tick操舵を差し替え可能。`Projectile.Mover` に設定（`WeaponParams.Mover` 経由）。nil は直進。ホーミングは `core.NewHomingMover(turn, maxSpeed)`。将来「弾の仕組みを使うジャンク」（例：ゆらゆら登る風船）も別の `ProjectileMover` 実装として追加できる。`Projectile.PassThrough` で接触を無視するか（グレネード=true／ミサイル=false）を制御。
 
+## 敵・ボス
+スポーンは**ディレクタ方式**（`core` の `SpawnPhases` 時間帯別重み → `spawnPackOf` パック生成、HPは `HPBase×2^(tick/HPDoublingTicks)` で時間スケール）。ザコは描画時 `radius×2` のフットプリント。
+- **グラント (Grunt)** — 実装済。バランス型の追尾。画像 `enemy`（既存）。HPBase10/速1.2/半径16/接触8。単体出現
+- **スウォーマー (Swarmer)** — 実装済。高速・低耐久、**パック（3〜6体）**で出現。画像 `enemy_swarmer`（プレースホルダ＝ピンクの円）。HPBase5/速2.1/半径11/接触4
+- **ブルート (Brute)** — 実装済。低速・高耐久・大型・痛い。画像 `enemy_brute`（プレースホルダ＝茶の円）。HPBase60/速0.7/半径26/接触18。3分以降に出現
+- **燭台 (Candlestick)** — 実装済（停止・無害・ニッパー drop）。画像 `candlestick`（既存）
+- **ボス** — 実装済。`Config.Bosses` で 3分/6分/10分に1体ずつ出現（HP固定・時間スケールなし）。`ActiveBoss()`＋HUD上部にHPバー＋名前。画像 `boss`（プレースホルダ＝赤/金リングの円、`radius×2`で最大表示）
+  - 3分: Prototype Hauler（HP1200）／6分: Siege Engine（HP3000）／**10分: The Disconnector（HP8000・Final）→ 撃破で `StateCleared`（クリア）**
+  - ※HP/速/ダメージ・スポーン重み・`HPDoublingTicks` 等はすべて初期値、要バランス調整。実アート未着手（grunt/candlestick以外はプレースホルダ）。ボス専用挙動（召喚・弾幕等）は未実装＝ただの大型追尾
+
 ## 設備
 - キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のタイルバンドルで `DoctorSpec.CapacitorChance`(=0.15) の確率で出現
   - 将来拡張: `Modifier` に `MaxHPAdd` 等を足せば増加装甲のような設備も同じ仕組みで追加可能

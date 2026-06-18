@@ -12,15 +12,25 @@ type Config struct {
 	XPToNextGrowth         float64 // XPToNext multiplier applied each level-up
 	CapacitorFireRateBonus float64 // fire-rate multiplier added per connected Capacitor equipment
 
-	Player       Player                      // starting-stat template (Pos/Weapons/Facing/Nippers set by NewWorld)
-	Pickup       PickupRanges                // gem/nipper magnet+collect behaviour
-	Spawn        SpawnSpec                   // enemy/candlestick placement and timing
-	Doctor       DoctorSpec                  // level-up offer balance
-	EnemyScaling EnemyScaling                // basic enemy stats and HP scaling
-	Candlestick  Enemy                       // candlestick template (Pos/alive set on spawn)
-	TurretGen    TurretGenConfig             // random starting-turret generation params
-	Weapons      map[WeaponKind]WeaponParams // per-kind weapon stat curves
-	PowerCurve   []PowerPoint                // tile-count → fire-rate multiplier breakpoints
+	Player Player       // starting-stat template (Pos/Weapons/Facing/Nippers set by NewWorld)
+	Pickup PickupRanges // gem/nipper magnet+collect behaviour
+	Spawn  SpawnSpec    // enemy/candlestick placement and timing
+
+	// Enemy roster and director. Zako (trash) enemies come in several kinds
+	// (EnemyKinds), chosen each spawn by the time-gated SpawnPhases weights and
+	// emitted in packs. HPDoublingTicks scales every zako's HP with elapsed time.
+	// Bosses spawn once each at their scheduled ticks; killing the Final boss
+	// clears the run.
+	EnemyKinds      map[EnemyKind]EnemyStats
+	HPDoublingTicks float64
+	SpawnPhases     []SpawnPhase
+	Bosses          []BossSpec
+
+	Doctor      DoctorSpec                  // level-up offer balance
+	Candlestick Enemy                       // candlestick template (Pos/alive set on spawn)
+	TurretGen   TurretGenConfig             // random starting-turret generation params
+	Weapons     map[WeaponKind]WeaponParams // per-kind weapon stat curves
+	PowerCurve  []PowerPoint                // tile-count → fire-rate multiplier breakpoints
 }
 
 // PowerPoint is one breakpoint of the power curve: at Tiles connected consumer
@@ -125,15 +135,44 @@ type DoctorSpec struct {
 	CapacitorChance float64 // per bundle tile, probability it is a Capacitor (else weapon/junk)
 }
 
-// EnemyScaling holds the basic chasing enemy's stats. Only HP scales with time:
-// HP = HPBase × 2^(tick / HPDoublingTicks), so HP doubles every HPDoublingTicks
-// ticks (e.g. 18000 = every 5 min at 60 TPS → ×2 at 5 min, ×4 at 10 min). The
-// other fields are constant per enemy.
-type EnemyScaling struct {
-	HPBase          float64
-	HPDoublingTicks float64 // ticks for enemy HP to double; <=0 disables scaling
-	Speed           float64
-	Radius          float64
-	Damage          float64
-	XPValue         float64
+// EnemyStats is the spawn template for one zako (trash) enemy kind. Only HP
+// scales with time: HP = HPBase × 2^(tick / Config.HPDoublingTicks). The rest is
+// constant per enemy. A spawn emits a cluster of PackMin..PackMax of the kind.
+type EnemyStats struct {
+	HPBase  float64
+	Speed   float64
+	Radius  float64
+	Damage  float64
+	XPValue float64
+	PackMin int // smallest cluster spawned at once (>=1)
+	PackMax int // largest cluster (>=PackMin)
+}
+
+// KindWeight is one entry in a spawn phase's weighted table.
+type KindWeight struct {
+	Kind   EnemyKind
+	Weight int
+}
+
+// SpawnPhase gives the relative spawn weights of each enemy kind while the game
+// tick is below UntilTick. Phases are listed in ascending UntilTick order; the
+// last one should use a very large UntilTick to cover the rest of the run. The
+// weights are an ordered slice (not a map) so spawning stays deterministic.
+type SpawnPhase struct {
+	UntilTick int
+	Weights   []KindWeight
+}
+
+// BossSpec schedules a single boss to spawn once at AtTick. Bosses do not use
+// time-based HP scaling (HP is fixed here). Killing the boss whose Final flag is
+// set clears the run.
+type BossSpec struct {
+	AtTick  int
+	Name    string
+	HP      float64
+	Speed   float64
+	Radius  float64
+	Damage  float64
+	XPValue float64
+	Final   bool
 }

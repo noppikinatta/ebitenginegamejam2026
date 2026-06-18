@@ -4,13 +4,16 @@ package asset
 // file's base name (without ".png"); initImages registers images under that
 // key, and drawing.Image(key) looks them up here.
 const (
-	ImgTitle       = "title"
-	ImgTank        = "tank"
-	ImgEnemy       = "enemy"
-	ImgCandlestick = "candlestick"
-	ImgGem         = "gem"
-	ImgNipper      = "nipper"
-	ImgProjectile  = "projectile"
+	ImgTitle        = "title"
+	ImgTank         = "tank"
+	ImgEnemy        = "enemy" // grunt (default zako)
+	ImgEnemySwarmer = "enemy_swarmer"
+	ImgEnemyBrute   = "enemy_brute"
+	ImgBoss         = "boss"
+	ImgCandlestick  = "candlestick"
+	ImgGem          = "gem"
+	ImgNipper       = "nipper"
+	ImgProjectile   = "projectile"
 
 	// Turret tiles (24x24).
 	ImgTileWire      = "tile_wire"
