@@ -404,12 +404,73 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 		drawing.DrawRect(screen, x, cardY, cardW, cardH, bg, bg+0.02, bg+0.06, 0.98)
 		drawing.DrawRect(screen, x, cardY, cardW, 4, 0.3, 0.7, 1, 1) // top accent
 
+		// Header: pick number + doctor name.
 		opt = &ebiten.DrawImageOptions{}
-		opt.GeoM.Translate(x+14, cardY+16)
+		opt.GeoM.Translate(x+14, cardY+14)
 		drawing.DrawText(screen, fmt.Sprintf("%d", i+1), 22, opt)
+		opt = &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(x+46, cardY+16)
+		drawing.DrawText(screen, "Dr. "+c.Doctor, 20, opt)
 
-		drawWrapped(screen, c.Name, x+14, cardY+56, cardW-28, 18)
-		drawWrapped(screen, c.Desc, x+14, cardY+150, cardW-28, 14)
+		// One line per item: label, icon, then name.
+		itemY := cardY + 62.0
+		for _, it := range c.Items {
+			drawOfferItem(screen, it, x+14, itemY)
+			itemY += 46
+		}
+	}
+}
+
+// drawOfferItem draws a single proposal line at (x, y): an "Add"/"Upgrade" label,
+// the component's icon, then its name.
+func drawOfferItem(screen *ebiten.Image, it core.OfferItem, x, y float64) {
+	if label := offerLabel(it.Kind); label != "" {
+		opt := &ebiten.DrawImageOptions{}
+		opt.ColorScale.Scale(0.55, 0.70, 0.95, 1) // dim blue label
+		opt.GeoM.Translate(x, y+11)
+		drawing.DrawText(screen, label, 13, opt)
+	}
+
+	key, weapon := offerIcon(it)
+	img := drawing.Image(key)
+	icx, icy := x+90, y+16
+	if weapon { // weapon barrels keep their tall aspect ratio
+		b := img.Bounds()
+		const h = 30.0
+		drawing.DrawSprite(screen, img, icx, icy, h*float64(b.Dx())/float64(b.Dy()), h, 0, 1, 1, 1, 1)
+	} else {
+		drawing.DrawSprite(screen, img, icx, icy, 30, 30, 0, 1, 1, 1, 1)
+	}
+
+	opt := &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(x+114, y+5)
+	drawing.DrawText(screen, it.Text, 18, opt)
+}
+
+// offerLabel is the prefix shown for a proposal line ("" for nippers).
+func offerLabel(k core.OfferKind) string {
+	switch k {
+	case core.OfferUpgrade:
+		return "Upgrade"
+	case core.OfferNippers:
+		return ""
+	default: // adds
+		return "Add"
+	}
+}
+
+// offerIcon returns the preview image key for a proposal item and whether it is a
+// (tall-aspect) weapon barrel.
+func offerIcon(it core.OfferItem) (key string, weapon bool) {
+	switch it.Kind {
+	case core.OfferAddWeapon, core.OfferUpgrade:
+		return weaponTileKey(it.Weapon), true
+	case core.OfferAddCapacitor:
+		return asset.ImgTileCapacitor, false
+	case core.OfferNippers:
+		return asset.ImgNipper, false
+	default: // OfferAddJunk
+		return asset.ImgTileJunk, false
 	}
 }
 

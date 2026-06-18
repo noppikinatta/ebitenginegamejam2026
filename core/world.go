@@ -537,94 +537,104 @@ func (w *World) rollChoices() {
 	w.Choices = choices
 }
 
-// rollDoctorChoice produces a single doctor offer. There are three offer types:
-//   - Nippers (~25%): 5-10 spare nippers to fund future cuts.
-//   - Weapon upgrade (~37.5%): 1-3 existing weapons each gain +1 Level (+20% damage).
-//   - Tile bundle (~37.5%): 1-3 new tiles added; each is 50% weapon, 50% junk.
+// rollDoctorChoice produces a single doctor proposal. A proposal is either:
+//   - a Nippers offer (~NipperChance, also forced when capped with no weapons to
+//     upgrade): spare nippers to fund future cuts; or
+//   - a "build" offer: 1-MaxBundleTiles items, each independently a weapon
+//     upgrade or a new tile (weapon / junk / capacitor). Adds and upgrades are
+//     mixed freely within the one proposal.
 //
-// atCap forces non-tile offers (upgrade or nippers) so the turret doesn't exceed
-// maxTurretTiles.
+// atCap forces every build item to be an upgrade (no new tiles) so the turret
+// doesn't exceed maxTurretTiles.
 func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	doc := doctorNames[w.rng.Intn(len(doctorNames))]
 	r := w.rng.Float64()
 	activeWeapons := w.turret.ActiveWeapons()
 	dd := w.cfg.Doctor
 
-	// ~25%: nippers. Also forced when atCap and no weapons exist to upgrade.
+	// Nippers proposal. Also the only option when capped with nothing to upgrade.
 	if r < dd.NipperChance || (atCap && len(activeWeapons) == 0) {
 		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
 		return Upgrade{
-			Name: fmt.Sprintf("Dr. %s: spare nippers (+%d)", doc, n),
-			Desc: "Plastic-model nippers to cut tiles mid-battle.",
-			Apply: func(world *World) {
-				world.Player.Nippers += n
-			},
+			Doctor: doc,
+			Items:  []OfferItem{{Kind: OfferNippers, Text: fmt.Sprintf("+%d Nippers", n)}},
+			Apply:  func(world *World) { world.Player.Nippers += n },
 		}
 	}
 
-	// atCap or ~37.5% of remaining: weapon upgrade (1-3 existing weapons +1 Level).
-	if atCap || (len(activeWeapons) > 0 && r < dd.UpgradeChance) {
-		maxCount := len(activeWeapons)
-		if maxCount > dd.MaxUpgrades {
-			maxCount = dd.MaxUpgrades
-		}
-		count := 1 + w.rng.Intn(maxCount)
-		perm := w.rng.Perm(len(activeWeapons))
-		selected := make([]*Weapon, count)
-		for i := 0; i < count; i++ {
-			selected[i] = activeWeapons[perm[i]]
-		}
-		nameStr := ""
-		for i, wp := range selected {
-			if i > 0 {
-				nameStr += ", "
-			}
-			nameStr += wp.Name
-		}
-		return Upgrade{
-			Name: fmt.Sprintf("Dr. %s upgrades: %s", doc, nameStr),
-			Desc: "Each upgraded weapon deals 20% more damage per level (multiplicative).",
-			Apply: func(world *World) {
-				for _, wp := range selected {
-					wp.Level++
-				}
-			},
-		}
+	// Build proposal: a mix of upgrades and tile additions.
+	itemCount := 1 + w.rng.Intn(dd.MaxBundleTiles)
+	// Shuffled pool of existing weapons so upgrade items target distinct weapons.
+	perm := w.rng.Perm(len(activeWeapons))
+	upIdx := 0
+	if atCap && itemCount > len(activeWeapons) {
+		itemCount = len(activeWeapons) // every item must be an upgrade
 	}
 
-	// Tile bundle: 1-MaxBundleTiles tiles. Each tile is independently a Capacitor
-	// (chance dd.CapacitorChance), else a 50/50 weapon/junk split.
-	tileCount := 1 + w.rng.Intn(dd.MaxBundleTiles)
-	comps := make([]Component, tileCount)
-	bundleDesc := ""
-	for i := range comps {
-		if i > 0 {
-			bundleDesc += " + "
+	pUpgrade := upgradeShare(dd)
+	items := make([]OfferItem, 0, itemCount)
+	var upgrades []*Weapon // existing weapons to level on Apply
+	var comps []Component  // new tiles to add on Apply
+
+	for k := 0; k < itemCount; k++ {
+		canUpgrade := upIdx < len(activeWeapons)
+		if canUpgrade && (atCap || w.rng.Float64() < pUpgrade) {
+			wp := activeWeapons[perm[upIdx]]
+			upIdx++
+			upgrades = append(upgrades, wp)
+			items = append(items, OfferItem{Kind: OfferUpgrade, Weapon: wp.Kind, Text: wp.Name})
+			continue
 		}
+		if atCap {
+			continue // out of distinct weapons and can't add tiles
+		}
+		// Otherwise add a new tile: capacitor / weapon / junk.
 		switch {
 		case w.rng.Float64() < dd.CapacitorChance:
-			comps[i] = Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus}
-			bundleDesc += "Capacitor"
+			comps = append(comps, Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus})
+			items = append(items, OfferItem{Kind: OfferAddCapacitor, Text: "Capacitor"})
 		case w.rng.Float64() < 0.5:
 			kind := pickWeaponKind(w.rng)
-			comps[i] = WeaponComponent{Weapon: NewWeapon(kind.String(), kind)}
-			bundleDesc += kind.String()
+			comps = append(comps, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})
+			items = append(items, OfferItem{Kind: OfferAddWeapon, Weapon: kind, Text: kind.String()})
 		default:
 			name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]
-			comps[i] = Junk{DeviceName: name}
-			bundleDesc += name
+			comps = append(comps, Junk{DeviceName: name})
+			items = append(items, OfferItem{Kind: OfferAddJunk, Text: name})
 		}
 	}
+
 	return Upgrade{
-		Name: fmt.Sprintf("Dr. %s: %s", doc, bundleDesc),
-		Desc: fmt.Sprintf("Adds %d tile(s) — dilutes power for all, but may bring new weapons.", tileCount),
+		Doctor: doc,
+		Items:  items,
 		Apply: func(world *World) {
+			for _, wp := range upgrades {
+				wp.Level++
+			}
 			for _, comp := range comps {
 				world.turret.AddTile(comp, world.rng)
 			}
 			world.Player.Weapons = world.turret.ActiveWeapons()
 		},
 	}
+}
+
+// upgradeShare is the probability a build item is an upgrade (vs a new tile),
+// derived from the doctor probabilities: the upgrade mass over the non-nipper
+// mass. Falls back to 0.5 when the masses are degenerate.
+func upgradeShare(dd DoctorSpec) float64 {
+	upMass := dd.UpgradeChance - dd.NipperChance
+	tileMass := 1 - dd.UpgradeChance
+	if upMass < 0 {
+		upMass = 0
+	}
+	if tileMass < 0 {
+		tileMass = 0
+	}
+	if total := upMass + tileMass; total > 0 {
+		return upMass / total
+	}
+	return 0.5
 }
 
 func (w *World) spawnEnemies() {

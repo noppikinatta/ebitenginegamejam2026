@@ -413,11 +413,23 @@ func TestDoctorChoices_HaveValidOutcome(t *testing.T) {
 		gaveNippers := w.Player.Nippers > beforeNippers
 		upgradedWeapon := totalWeaponLevel(w) > beforeLevel
 		if !grewTurret && !gaveNippers && !upgradedWeapon {
-			t.Errorf("choice %d (%q) had no effect: tiles=%d nippers=%d levels=%d",
-				i, c.Name, w.turret.TileCount()-beforeTiles,
+			t.Errorf("choice %d (%s) had no effect: tiles=%d nippers=%d levels=%d",
+				i, offerText(c), w.turret.TileCount()-beforeTiles,
 				w.Player.Nippers-beforeNippers, totalWeaponLevel(w)-beforeLevel)
 		}
 	}
+}
+
+// offerText summarises a proposal's items for test failure messages.
+func offerText(c Upgrade) string {
+	s := ""
+	for i, it := range c.Items {
+		if i > 0 {
+			s += " + "
+		}
+		s += it.Text
+	}
+	return s
 }
 
 // totalWeaponLevel sums the Level field of all active weapons in the turret.
@@ -445,7 +457,7 @@ func TestRollChoices_AtCapNeverAddsTiles(t *testing.T) {
 		beforeTiles := w.turret.TileCount()
 		c.Apply(w)
 		if w.turret.TileCount() > beforeTiles {
-			t.Errorf("offer %d (%q) grew the turret past the cap", i, c.Name)
+			t.Errorf("offer %d (%s) grew the turret past the cap", i, offerText(c))
 		}
 	}
 }
