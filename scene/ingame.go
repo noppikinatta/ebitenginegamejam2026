@@ -481,10 +481,10 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		ps = append(ps, placed{idx: idx, c: geom.PointF{X: cx + rot.X, Y: cy + rot.Y}})
 	}
 	sort.Slice(ps, func(i, j int) bool {
-		if ps[i].c.X != ps[j].c.X {
-			return ps[i].c.X < ps[j].c.X
+		if ps[i].c.Y != ps[j].c.Y {
+			return ps[i].c.Y < ps[j].c.Y // top-to-bottom so lower (nearer) tiles draw on top
 		}
-		return ps[i].c.Y < ps[j].c.Y
+		return ps[i].c.X < ps[j].c.X
 	})
 
 	// Pass 1: tile bases (weapons reuse the wire socket as their base).
@@ -493,9 +493,13 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		drawing.DrawSprite(screen, drawing.Image(key), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
 	}
 
-	// Pass 2: weapon barrels, a bit smaller so the socket shows, and drawn after
-	// all bases so a front tile's base never covers a back tile's barrel.
-	barrel := size * 0.85
+	// Pass 2: weapon barrels. These are rectangular sprites taller than a tile,
+	// authored pointing "up" (= forward) with their mount tile as the bottom
+	// TurretTileSize×TurretTileSize block. We anchor at that mount-tile centre and
+	// scale uniformly by the tile zoom, so the barrel base sits on the socket and
+	// the barrel swings about it as the turret rotates. Drawn after all bases (and
+	// in Y order) so a front tile's barrel overlays the tiles behind it.
+	z := size / core.TurretTileSize
 	for _, p := range ps {
 		wc, ok := tiles[p.idx].Component.(core.WeaponComponent)
 		if !ok {
@@ -505,7 +509,11 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		if power[p.idx] <= 0 {
 			dim = 0.5
 		}
-		drawing.DrawSprite(screen, drawing.Image(weaponTileKey(wc.Weapon.Kind)), p.c.X, p.c.Y, barrel, barrel, theta, dim, dim, dim, 1)
+		img := drawing.Image(weaponTileKey(wc.Weapon.Kind))
+		b := img.Bounds()
+		ax := float64(b.Dx()) / 2                     // mount tile is horizontally centred
+		ay := float64(b.Dy()) - core.TurretTileSize/2 // ...and is the bottom tile block
+		drawing.DrawSpriteAnchored(screen, img, p.c.X, p.c.Y, z, theta, ax, ay, dim, dim, dim, 1)
 	}
 }
 

@@ -147,7 +147,7 @@ go test ./lang/... -run TestName -v
 ### drawing パッケージ
 
 - `text.go` — `DrawText` / `DrawTextByKey` / `DrawTextTemplate` / `MeasureText`。`(文字列, フォントサイズ)` をキーに**描画済みテキスト画像をキャッシュ**する（影付き）。フレーム毎に `ebiten.Image` を作らないこと
-- `img.go` — `drawing.Image("key")` で `asset` 側のロード済み画像マップから取得。見つからなければ赤い "IMAGE NOT FOUND" のフォールバック画像を返す。`WhitePixel` は `DrawTriangles` で塗り図形を描くための1px白テクスチャ
+- `img.go` — `drawing.Image("key")` で `asset` 側のロード済み画像マップから取得。見つからなければ赤い "IMAGE NOT FOUND" のフォールバック画像を返す。`WhitePixel` は `DrawTriangles` で塗り図形を描くための1px白テクスチャ。`DrawSprite`＝中心 pivot で w×h ボックスに合わせて描画（縦横独立スケール）。`DrawSpriteAnchored`＝**ソースpx基準の任意 pivot (ax,ay) を中心に一様スケール＋回転**して `(cx,cy)` へ配置（アスペクト維持）。砲塔バレルのような「タイルより縦長の長方形スプライト」を土台タイル中心で旋回させるために使う
 - `rect.go` — `DrawRect`（`DrawTriangles` で矩形塗り）と `ColorF32` ヘルパー
 - `gauge.go` — `GaugeDrawer`。`Current/Max` の割合でバー幅と色（Min→Max 補間）を描く HP/エネルギーゲージ用
 
