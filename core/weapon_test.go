@@ -5,85 +5,68 @@ import (
 	"testing"
 )
 
-// TestStats_FireIntervalScalesWithMultiplier: the fire interval is the base
-// interval divided by the fire-rate multiplier (rounded), clamped to MinInterval.
-// Damage and range do not depend on the multiplier.
-func TestStats_FireIntervalScalesWithMultiplier(t *testing.T) {
-	p := testParams(KindCannon) // BaseInterval 45, MinInterval 6, BaseDamage 5, BaseRange 220
+// TestFireIncrement_ScalesAndClamps: the accumulator advances by the fire-rate
+// multiplier each tick, capped to BaseInterval/MinInterval so the effective
+// interval never drops below MinInterval. Non-positive multipliers yield 0.
+func TestFireIncrement_ScalesAndClamps(t *testing.T) {
+	p := testParams(KindCannon) // BaseInterval 45, MinInterval 6 -> maxInc 7.5
 
 	tests := []struct {
-		name         string
-		fireMult     float64
-		wantInterval int
+		name     string
+		fireMult float64
+		want     float64
 	}{
-		{"1x is base", 1, 45},
-		{"3x divides", 3, 15},     // 45/3 = 15
-		{"4x rounds", 4, 11},      // 45/4 = 11.25 -> 11
-		{"high mult clamps", 10, 6}, // 45/10 = 4.5 -> 5, clamped to MinInterval 6
+		{"1x", 1, 1},
+		{"2.5x", 2.5, 2.5},
+		{"caps at BaseInterval/MinInterval", 10, 7.5}, // 45/6
+		{"zero -> 0", 0, 0},
+		{"negative -> 0", -2, 0},
 	}
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			w := NewWeapon("Cannon", KindCannon)
-			stats := w.Stats(p, tc.fireMult)
-			if stats.FireInterval != tc.wantInterval {
-				t.Errorf("FireInterval = %d, want %d", stats.FireInterval, tc.wantInterval)
-			}
-			if stats.Damage != p.BaseDamage {
-				t.Errorf("Damage = %.2f, want %.2f (mult must not affect damage)", stats.Damage, p.BaseDamage)
-			}
-			if stats.Range != p.BaseRange {
-				t.Errorf("Range = %.2f, want %.2f (mult must not affect range)", stats.Range, p.BaseRange)
-			}
-		})
+		if got := fireIncrement(p, tc.fireMult); math.Abs(got-tc.want) > eps {
+			t.Errorf("%s: fireIncrement = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestStats_DamageAndRange: damage and range come straight from the params (no
+// fire-rate coupling); the fire cadence lives in the accumulator, not Stats.
+func TestStats_DamageAndRange(t *testing.T) {
+	p := testParams(KindCannon)
+	stats := NewWeapon("Cannon", KindCannon).Stats(p)
+	if stats.Damage != p.BaseDamage {
+		t.Errorf("Damage = %.2f, want %.2f", stats.Damage, p.BaseDamage)
+	}
+	if stats.Range != p.BaseRange {
+		t.Errorf("Range = %.2f, want %.2f", stats.Range, p.BaseRange)
 	}
 }
 
 // TestStats_ProjectileLifeFromMaxDist: projectile lifetime is derived from the
 // data-driven max travel distance (ProjLife = round(ProjMaxDist/ProjSpeed)), and
-// the collision radius passes through. The fire-rate multiplier must not change
-// either.
+// the collision radius passes through.
 func TestStats_ProjectileLifeFromMaxDist(t *testing.T) {
 	p := testParams(KindCannon) // ProjSpeed 6, ProjMaxDist 260, ProjRadius 5
-	w := NewWeapon("Cannon", KindCannon)
-
-	for _, mult := range []float64{1, 3, 10} {
-		stats := w.Stats(p, mult)
-		if stats.ProjLife != 43 { // round(260/6) = 43
-			t.Errorf("mult %.0f: ProjLife = %d, want 43", mult, stats.ProjLife)
-		}
-		if stats.ProjRadius != 5 {
-			t.Errorf("mult %.0f: ProjRadius = %v, want 5", mult, stats.ProjRadius)
-		}
+	stats := NewWeapon("Cannon", KindCannon).Stats(p)
+	if stats.ProjLife != 43 { // round(260/6) = 43
+		t.Errorf("ProjLife = %d, want 43", stats.ProjLife)
+	}
+	if stats.ProjRadius != 5 {
+		t.Errorf("ProjRadius = %v, want 5", stats.ProjRadius)
 	}
 }
 
-// TestStats_NonPositiveMultiplierTreatedAsOne guards against divide-by-zero or
-// negative multipliers producing nonsense intervals.
-func TestStats_NonPositiveMultiplierTreatedAsOne(t *testing.T) {
-	p := testParams(KindCannon)
-	w := NewWeapon("Cannon", KindCannon)
-	if got := w.Stats(p, 0).FireInterval; got != 45 {
-		t.Errorf("zero mult: FireInterval = %d, want 45 (treated as 1x)", got)
-	}
-	if got := w.Stats(p, -2).FireInterval; got != 45 {
-		t.Errorf("negative mult: FireInterval = %d, want 45 (treated as 1x)", got)
-	}
-}
-
-// TestStats_LevelScalesDamageOnly: doctor upgrade Level multiplies damage by
-// LevelMult^Level and leaves the fire interval untouched.
-func TestStats_LevelScalesDamageOnly(t *testing.T) {
+// TestStats_LevelScalesDamage: doctor upgrade Level multiplies damage by
+// LevelMult^Level.
+func TestStats_LevelScalesDamage(t *testing.T) {
 	p := testParams(KindCannon) // BaseDamage 5, LevelMult 1.2
 	w := NewWeapon("Cannon", KindCannon)
 	w.Level = 2
 
-	stats := w.Stats(p, 1)
+	stats := w.Stats(p)
 	want := 5 * math.Pow(1.2, 2)
 	if math.Abs(stats.Damage-want) > eps {
 		t.Errorf("Damage = %.4f, want %.4f", stats.Damage, want)
-	}
-	if stats.FireInterval != 45 {
-		t.Errorf("FireInterval = %d, want 45 (level must not affect interval)", stats.FireInterval)
 	}
 }
 

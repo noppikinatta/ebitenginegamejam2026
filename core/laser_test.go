@@ -40,7 +40,7 @@ func TestBeamDPS_HitsEnemyInPath(t *testing.T) {
 	w := buildLaserWorld([]*Enemy{e})
 	weapon := w.Player.Weapons[0]
 
-	stats := weapon.Stats(testParams(KindLaser), w.FireRateMultiplier())
+	stats := weapon.Stats(testParams(KindLaser))
 	hpBefore := e.HP
 
 	w.updateBeams()

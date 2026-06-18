@@ -173,35 +173,38 @@ func (w *World) updatePlayer(move geom.PointF) {
 func (w *World) updateWeapons() {
 	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
-		if weapon.cooldown > 0 {
-			weapon.cooldown--
-			continue
-		}
+		params := w.cfg.Weapons[weapon.Kind]
+		stats := weapon.Stats(params)
 
-		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind], fireMult)
+		// Aim step (independent of firing): lock onto the nearest enemy within
+		// range, centred on the player (screen centre). nil means none in range.
 		target := w.nearestEnemy(w.Player.Pos, stats.Range)
-		if target == nil {
+
+		// Fire step: advance the accumulator; fire when it reaches BaseInterval.
+		weapon.fireProgress += fireIncrement(params, fireMult)
+		if weapon.fireProgress < params.BaseInterval {
 			continue
 		}
+		// Interception weapons (CIWS) hold the charge until a target appears
+		// instead of firing into empty space; others fire regardless (forward
+		// when nothing is locked) so the player feels the cadence.
+		if params.HoldWhenNoTarget && target == nil {
+			weapon.fireProgress = params.BaseInterval
+			continue
+		}
+		weapon.fireProgress -= params.BaseInterval
 
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+		aim := w.aimAngle(target, muzzle)
 
 		if weapon.Kind == KindLaser {
 			weapon.beamTicksLeft = stats.BeamDuration
-			weapon.cooldown = stats.FireInterval
+			weapon.beamAngle = aim
 			continue
 		}
-
-		// Projectiles aim from the turret tile muzzle toward the target.
-		dir := target.Pos.Subtract(muzzle)
-		d := dir.Abs()
-		if d == 0 {
-			continue
-		}
-		baseAngle := dir.Angle()
 
 		for _, offset := range weapon.ProjectileOffsets() {
-			vel := geom.PointFFromPolar(stats.ProjectileSpeed, baseAngle+offset)
+			vel := geom.PointFFromPolar(stats.ProjectileSpeed, aim+offset)
 			w.Projectiles = append(w.Projectiles, &Projectile{
 				Pos:    muzzle,
 				Vel:    vel,
@@ -211,33 +214,35 @@ func (w *World) updateWeapons() {
 				alive:  true,
 			})
 		}
-		weapon.cooldown = stats.FireInterval
 	}
 }
 
-// updateBeams applies DPS from active laser beams each tick.
-// Beams track the nearest enemy each frame and penetrate all enemies in path.
+// aimAngle returns the world angle a shot from muzzle should travel: toward
+// target if one is locked, otherwise the tank's forward facing (firing "off into
+// nowhere" when no enemy is in range).
+func (w *World) aimAngle(target *Enemy, muzzle geom.PointF) float64 {
+	if target != nil {
+		dir := target.Pos.Subtract(muzzle)
+		if dir.Abs() > 0 {
+			return dir.Angle()
+		}
+	}
+	return w.Player.FacingAngle
+}
+
+// updateBeams applies DPS from active laser beams each tick. A beam tracks the
+// nearest enemy in range, or fires along its captured forward angle when none is
+// locked, and penetrates all enemies in its path.
 func (w *World) updateBeams() {
-	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
 		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
 			continue
 		}
 		weapon.beamTicksLeft--
 
-		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind], fireMult)
+		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-		target := w.nearestEnemy(muzzle, stats.Range)
-		if target == nil {
-			continue
-		}
-
-		dir := target.Pos.Subtract(muzzle)
-		d := dir.Abs()
-		if d == 0 {
-			continue
-		}
-		unitDir := dir.Multiply(1 / d)
+		unitDir := w.beamDir(weapon, muzzle, stats.Range)
 		end := muzzle.Add(unitDir.Multiply(stats.BeamLength))
 		halfWidth := stats.BeamWidth / 2
 
@@ -255,28 +260,31 @@ func (w *World) updateBeams() {
 	}
 }
 
+// beamDir returns the unit direction a laser burst points: toward the nearest
+// enemy within range (centred on the player), or the burst's captured forward
+// angle when no enemy is locked.
+func (w *World) beamDir(weapon *Weapon, muzzle geom.PointF, rng float64) geom.PointF {
+	if target := w.nearestEnemy(w.Player.Pos, rng); target != nil {
+		dir := target.Pos.Subtract(muzzle)
+		if d := dir.Abs(); d > 0 {
+			return dir.Multiply(1 / d)
+		}
+	}
+	return geom.PointFFromPolar(1, weapon.beamAngle)
+}
+
 // ActiveBeams returns snapshots of all currently firing laser beams for drawing.
 func (w *World) ActiveBeams() []BeamView {
-	fireMult := w.FireRateMultiplier()
 	var out []BeamView
 	for _, weapon := range w.Player.Weapons {
 		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
 			continue
 		}
-		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind], fireMult)
+		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-		target := w.nearestEnemy(muzzle, stats.Range)
-		if target == nil {
-			continue
-		}
-		dir := target.Pos.Subtract(muzzle)
-		d := dir.Abs()
-		if d == 0 {
-			continue
-		}
 		out = append(out, BeamView{
 			Origin: muzzle,
-			Dir:    dir.Multiply(1 / d),
+			Dir:    w.beamDir(weapon, muzzle, stats.Range),
 			Length: stats.BeamLength,
 			Width:  stats.BeamWidth,
 		})

@@ -35,24 +35,29 @@ type PowerPoint struct {
 
 // WeaponParams contains the balance numbers for one weapon kind.
 //
-// Formulae used by Weapon.Stats(p, fireMult):
+// Fire cadence uses an accumulator: each tick a weapon's progress advances by
+// the turret fire-rate multiplier (capped to BaseInterval/MinInterval) and a
+// shot fires when progress reaches BaseInterval. So the average interval is
+// BaseInterval/fireMult, floored at MinInterval. Other values:
 //
-//	Damage       = BaseDamage × LevelMult^Level
-//	FireInterval = max(MinInterval, round(BaseInterval / fireMult))
-//	Range        = BaseRange
-//	ProjLife     = round(ProjMaxDist / ProjSpeed)  (projectile lifetime in ticks)
+//	Damage   = BaseDamage × LevelMult^Level
+//	Range    = BaseRange  (lock-on radius for aiming)
+//	ProjLife = round(ProjMaxDist / ProjSpeed)  (projectile lifetime in ticks)
 //
-// fireMult is the turret-wide power multiplier (see PowerPoint); it affects only
-// the fire interval. Laser-only fields (BeamBase*) are zero for projectile
-// weapons; ProjSpeed/ProjMaxDist/ProjRadius are zero for KindLaser.
+// Laser-only fields (BeamBase*) are zero for projectile weapons;
+// ProjSpeed/ProjMaxDist/ProjRadius are zero for KindLaser.
 type WeaponParams struct {
 	BaseDamage   float64
-	BaseInterval float64
-	MinInterval  int
+	BaseInterval float64 // accumulator threshold; average ticks between shots at fireMult=1
+	MinInterval  int     // floor on the effective interval (caps the fastest fire rate)
 	ProjSpeed    float64
 	ProjMaxDist  float64 // max travel distance; projectile dies after ProjMaxDist/ProjSpeed ticks
 	ProjRadius   float64 // projectile collision radius
 	BaseRange    float64
+	// HoldWhenNoTarget keeps a full accumulator charged (instead of firing into
+	// empty space) until an enemy enters range. Used by interception weapons
+	// (CIWS); other weapons fire forward even with no target.
+	HoldWhenNoTarget bool
 	// Laser-only.
 	BeamBaseLength   float64
 	BeamBaseWidth    float64
