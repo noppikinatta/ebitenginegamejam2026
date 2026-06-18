@@ -57,7 +57,7 @@ func testParams(kind WeaponKind) WeaponParams {
 	case KindShotgun:
 		return WeaponParams{BaseDamage: 3, BaseInterval: 28, MinInterval: 8, ProjSpeed: 5, BaseRange: 100, LevelMult: 1.2}
 	case KindSniper:
-		return WeaponParams{BaseDamage: 20, BaseInterval: 120, MinInterval: 20, ProjSpeed: 10, BaseRange: 400, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 20, BaseInterval: 120, MinInterval: 20, ProjSpeed: 10, BaseRange: 360, LevelMult: 1.2}
 	case KindLaser:
 		return WeaponParams{BaseDamage: 2, BaseInterval: 90, MinInterval: 15, BaseRange: 200, BeamBaseLength: 200, BeamBaseWidth: 6, BeamBaseDuration: 30, LevelMult: 1.2}
 	default: // KindCannon

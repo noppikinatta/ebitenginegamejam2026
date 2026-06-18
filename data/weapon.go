@@ -22,7 +22,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 		core.KindSniper: {
 			BaseDamage:   20,
 			BaseInterval: 120, MinInterval: 20,
-			ProjSpeed: 10, BaseRange: 400,
+			ProjSpeed: 10, BaseRange: 360,
 			LevelMult: 1.2,
 		},
 		core.KindLaser: {
