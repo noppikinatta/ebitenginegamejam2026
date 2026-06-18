@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/noppikinatta/bamenn"
 	"github.com/noppikinatta/ebitenginegamejam2026/asset"
 	"github.com/noppikinatta/ebitenginegamejam2026/core"
@@ -301,6 +302,8 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 
 	// Turret miniature on top of the tank body, rotated to face movement direction.
 	g.drawTurretCombat(screen, cam)
+
+	g.drawExplosions(screen, cam)
 
 	g.drawHUD(screen)
 
@@ -664,6 +667,22 @@ func (g *InGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 // (r,gr,b,a). It is the sprite-based replacement for the old drawEntity.
 func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.PointF, w, h, angle float64, r, gr, b, a float32) {
 	drawing.DrawSprite(screen, drawing.Image(key), pos.X-cam.X, pos.Y-cam.Y, w, h, angle, r, gr, b, a)
+}
+
+// drawExplosions renders each queued explosion as an orange circle that fades
+// out (premultiplied alpha) as its Life counts down.
+func (g *InGame) drawExplosions(screen *ebiten.Image, cam geom.PointF) {
+	for _, e := range g.world.Explosions {
+		if e.MaxLife <= 0 {
+			continue
+		}
+		f := float32(e.Life) / float32(e.MaxLife)
+		cx := float32(e.Pos.X - cam.X)
+		cy := float32(e.Pos.Y - cam.Y)
+		// Orange (255,140,0) with premultiplied alpha so it fades to transparent.
+		c := color.RGBA{R: uint8(255 * f), G: uint8(140 * f), B: 0, A: uint8(255 * f)}
+		vector.DrawFilledCircle(screen, cx, cy, float32(e.Radius), c, true)
+	}
 }
 
 func scale(r, g, b, a float32) ebiten.ColorScale {

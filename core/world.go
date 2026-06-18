@@ -25,7 +25,8 @@ type World struct {
 	Enemies     []*Enemy
 	Projectiles []*Projectile
 	Gems        []*Gem
-	Pickups     []*Pickup // dropped nippers awaiting collection
+	Pickups     []*Pickup    // dropped nippers awaiting collection
+	Explosions  []*Explosion // active explosion visual effects
 
 	// Choices are the doctor offers shown while State==StateLevelUp.
 	Choices []Upgrade
@@ -112,6 +113,7 @@ func (w *World) Update(move geom.PointF) {
 	w.updatePlayer(move)
 	w.updateWeapons()
 	w.updateBeams()
+	w.updateExplosions() // age existing effects before new ones may spawn this tick
 	w.updateProjectiles()
 	w.updateEnemies()
 	w.updateGems()
@@ -376,8 +378,13 @@ func (w *World) updateProjectiles() {
 	}
 }
 
-// explode deals dmg to every alive enemy within radius of center (area damage).
+// explosionLife is how many ticks an explosion effect stays visible (fading out).
+const explosionLife = 24
+
+// explode deals dmg to every alive enemy within radius of center (area damage)
+// and queues a visual explosion effect at that spot.
 func (w *World) explode(center geom.PointF, radius, dmg float64) {
+	w.Explosions = append(w.Explosions, &Explosion{Pos: center, Radius: radius, Life: explosionLife, MaxLife: explosionLife})
 	for _, e := range w.Enemies {
 		if !e.alive {
 			continue
@@ -387,6 +394,15 @@ func (w *World) explode(center geom.PointF, radius, dmg float64) {
 			if e.HP <= 0 {
 				w.killEnemy(e)
 			}
+		}
+	}
+}
+
+// updateExplosions ages active explosion effects; compact() drops expired ones.
+func (w *World) updateExplosions() {
+	for _, e := range w.Explosions {
+		if e.Life > 0 {
+			e.Life--
 		}
 	}
 }
@@ -643,6 +659,7 @@ func (w *World) compact() {
 	w.Projectiles = filterAlive(w.Projectiles, func(p *Projectile) bool { return p.alive })
 	w.Gems = filterAlive(w.Gems, func(g *Gem) bool { return g.alive })
 	w.Pickups = filterAlive(w.Pickups, func(p *Pickup) bool { return p.alive })
+	w.Explosions = filterAlive(w.Explosions, func(e *Explosion) bool { return e.Life > 0 })
 }
 
 func filterAlive[T any](s []T, alive func(T) bool) []T {

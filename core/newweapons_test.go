@@ -87,3 +87,29 @@ func TestGrenade_ExplodesOnExpiryAndPassesThrough(t *testing.T) {
 		t.Errorf("blast enemy HP = %.0f, want 85 (100 - 15 explosion)", blastTarget.HP)
 	}
 }
+
+// TestExplosion_QueuedAndDecays: explode() queues a visual effect that ages each
+// tick and is removed by compact when its Life hits zero.
+func TestExplosion_QueuedAndDecays(t *testing.T) {
+	w, _ := buildWeaponWorld(KindGrenade, hexmap.IdxXY(1, 0))
+
+	w.explode(geom.PointF{X: 10, Y: 20}, 64, 15)
+	if len(w.Explosions) != 1 {
+		t.Fatalf("explode queued %d effects, want 1", len(w.Explosions))
+	}
+	e := w.Explosions[0]
+	if e.Radius != 64 || e.Life != e.MaxLife || e.Life <= 0 {
+		t.Fatalf("bad explosion: %+v", e)
+	}
+
+	for i := 0; i < e.MaxLife; i++ {
+		w.updateExplosions()
+	}
+	if e.Life != 0 {
+		t.Errorf("Life = %d after MaxLife ticks, want 0", e.Life)
+	}
+	w.compact()
+	if len(w.Explosions) != 0 {
+		t.Errorf("expired explosion not removed by compact: %d remain", len(w.Explosions))
+	}
+}

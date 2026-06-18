@@ -45,6 +45,18 @@ type Projectile struct {
 	alive         bool
 }
 
+// Explosion is a short-lived visual effect queued where an explosive shell
+// detonates. It has no gameplay effect (the area damage is applied at spawn
+// time); the scene draws it as a fading circle. Life counts down each tick, and
+// alpha = Life/MaxLife. It is queued in World because the projectile that
+// spawned it is gone by the time it should be drawn.
+type Explosion struct {
+	Pos     geom.PointF
+	Radius  float64
+	Life    int // ticks remaining
+	MaxLife int // initial Life, for alpha = Life/MaxLife
+}
+
 // Gem drops from a dead enemy and grants XP when collected.
 type Gem struct {
 	Pos   geom.PointF
