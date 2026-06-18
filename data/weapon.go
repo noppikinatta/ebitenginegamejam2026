@@ -47,8 +47,24 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseDamage:   0,                     // no contact damage; all damage is the explosion
 			BaseInterval: 1800, MinInterval: 30, // 30s
 			ProjSpeed: 2, ProjMaxDist: 120, // lobbed slowly; expires after 60 ticks
-			Aim:           core.AimOutward, // never locks on; always fires outward
-			ExplodeRadius: 64, ExplodeDamage: 15,
+			Aim:           core.AimOutward,                          // never locks on; always fires outward
+			ExplodeRadius: 64, ExplodeDamage: 15, PassThrough: true, // flies through; detonates where it lands
+			LevelMult: 1.2,
+		},
+		core.KindCIWS: {
+			BaseDamage:   2,
+			BaseInterval: 480, MinInterval: 6, // 8s between bursts
+			ProjSpeed: 5, ProjMaxDist: 120, ProjRadius: 2, BaseRange: 80, // very short range point defence
+			Pellets: 10, SpreadRad: 0.1, SpreadRandom: true, BurstGap: 2, // tight rapid burst
+			HoldWhenNoTarget: true, // stays charged until something enters range
+			LevelMult:        1.2,
+		},
+		core.KindMissile: {
+			BaseDamage:   8,                    // contact damage
+			BaseInterval: 960, MinInterval: 20, // 16s
+			ProjSpeed: 2, ProjMaxDist: 240, ProjRadius: 6, BaseRange: 240, // slow shell, long lock range
+			ExplodeRadius: 48, ExplodeDamage: 10, // smaller blast than the grenade, only if it expires unhit
+			Mover:     core.NewHomingMover(0.3, 6), // homes onto the nearest enemy (turn force 0.3, cruise speed 6)
 			LevelMult: 1.2,
 		},
 	}

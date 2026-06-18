@@ -235,6 +235,8 @@ func (w *World) emitPellets(weapon *Weapon, params WeaponParams, stats WeaponSta
 			Life:          stats.ProjLife,
 			ExplodeRadius: stats.ExplodeRadius,
 			ExplodeDamage: stats.ExplodeDamage,
+			PassThrough:   params.PassThrough,
+			Mover:         params.Mover,
 			alive:         true,
 		})
 	}
@@ -349,6 +351,9 @@ func (w *World) updateProjectiles() {
 		if !p.alive {
 			continue
 		}
+		if p.Mover != nil {
+			p.Mover.Steer(p, w) // homing / drift: adjust velocity before moving
+		}
 		p.Pos = p.Pos.Add(p.Vel)
 		p.Life--
 		if p.Life <= 0 {
@@ -358,8 +363,9 @@ func (w *World) updateProjectiles() {
 			}
 			continue
 		}
-		// Explosive shells fly through enemies and only detonate on expiry.
-		if p.ExplodeRadius > 0 {
+		// Pass-through shells (e.g. the grenade) ignore contact and only matter
+		// on expiry; contact projectiles fall through to the hit test below.
+		if p.PassThrough {
 			continue
 		}
 		for _, e := range w.Enemies {

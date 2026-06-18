@@ -38,11 +38,17 @@ type Projectile struct {
 	Damage float64
 	Radius float64
 	Life   int // ticks remaining before it expires
-	// ExplodeRadius>0 marks an explosive shell: it ignores contact and, on expiry,
-	// deals ExplodeDamage to every enemy within ExplodeRadius of its position.
+	// ExplodeRadius>0 makes the projectile deal ExplodeDamage to every enemy
+	// within ExplodeRadius of its position when it expires.
 	ExplodeRadius float64
 	ExplodeDamage float64
-	alive         bool
+	// PassThrough projectiles ignore contact with enemies (they only matter on
+	// expiry, e.g. the grenade shell that detonates where it lands). Contact
+	// projectiles (including missiles) die on the first enemy they touch.
+	PassThrough bool
+	// Mover steers the projectile each tick (homing, drifting). nil flies straight.
+	Mover ProjectileMover
+	alive bool
 }
 
 // Explosion is a short-lived visual effect queued where an explosive shell

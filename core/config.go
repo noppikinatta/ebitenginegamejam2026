@@ -68,10 +68,15 @@ type WeaponParams struct {
 	// empty space) until an enemy enters range. Used by interception weapons
 	// (CIWS); other weapons fire even with no target.
 	HoldWhenNoTarget bool
-	// Explosive projectiles: ExplodeRadius>0 makes a projectile pass through
-	// enemies and detonate on expiry, dealing ExplodeDamage within ExplodeRadius.
+	// Explosive projectiles: ExplodeRadius>0 makes a projectile deal ExplodeDamage
+	// within ExplodeRadius when it expires. PassThrough makes it ignore contact so
+	// it only detonates on expiry (the grenade); contact projectiles (missiles)
+	// still hit enemies directly.
 	ExplodeRadius float64
 	ExplodeDamage float64
+	PassThrough   bool
+	// Mover steers each fired projectile (homing, drift). nil flies straight.
+	Mover ProjectileMover
 	// Laser-only.
 	BeamBaseLength   float64
 	BeamBaseWidth    float64

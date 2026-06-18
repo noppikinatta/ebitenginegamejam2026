@@ -17,6 +17,8 @@ const (
 	KindLaser                     // sustained beam, DPS, penetrates all enemies in path
 	KindGatling                   // forward-only staggered burst of random-spread pellets
 	KindGrenade                   // outward-only lobbed shell that explodes (AoE) on expiry
+	KindCIWS                      // short-range point defence: holds fire until a target is in range, then a burst
+	KindMissile                   // long-range homing shell; contact damage plus a small explosion on expiry
 )
 
 func (k WeaponKind) String() string {
@@ -31,6 +33,10 @@ func (k WeaponKind) String() string {
 		return "Gatling"
 	case KindGrenade:
 		return "Grenade"
+	case KindCIWS:
+		return "CIWS"
+	case KindMissile:
+		return "Missile"
 	default:
 		return "Cannon"
 	}
