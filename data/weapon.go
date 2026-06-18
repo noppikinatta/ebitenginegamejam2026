@@ -10,19 +10,19 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 		core.KindCannon: {
 			BaseDamage:   20,
 			BaseInterval: 720, MinInterval: 6, // 12s between shots at fireMult=1
-			ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 5, BaseRange: 200,
+			ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 6, BaseRange: 200,
 			LevelMult: 1.2,
 		},
 		core.KindShotgun: {
 			BaseDamage:   8,                   // ×4 pellets per shot (see Weapon.ProjectileOffsets)
 			BaseInterval: 720, MinInterval: 8, // 12s
-			ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 5, BaseRange: 100,
+			ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 2, BaseRange: 100,
 			LevelMult: 1.2,
 		},
 		core.KindSniper: {
 			BaseDamage:   10,
 			BaseInterval: 960, MinInterval: 20, // 16s
-			ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 5, BaseRange: 360,
+			ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 2, BaseRange: 360,
 			LevelMult: 1.2,
 		},
 		core.KindLaser: {

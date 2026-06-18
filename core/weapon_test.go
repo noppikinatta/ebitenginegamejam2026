@@ -46,13 +46,13 @@ func TestStats_DamageAndRange(t *testing.T) {
 // data-driven max travel distance (ProjLife = round(ProjMaxDist/ProjSpeed)), and
 // the collision radius passes through.
 func TestStats_ProjectileLifeFromMaxDist(t *testing.T) {
-	p := testParams(KindCannon) // ProjSpeed 6, ProjMaxDist 260, ProjRadius 5
+	p := testParams(KindCannon) // ProjSpeed 6, ProjMaxDist 260, ProjRadius 6
 	stats := NewWeapon("Cannon", KindCannon).Stats(p)
 	if stats.ProjLife != 43 { // round(260/6) = 43
 		t.Errorf("ProjLife = %d, want 43", stats.ProjLife)
 	}
-	if stats.ProjRadius != 5 {
-		t.Errorf("ProjRadius = %v, want 5", stats.ProjRadius)
+	if stats.ProjRadius != 6 {
+		t.Errorf("ProjRadius = %v, want 6", stats.ProjRadius)
 	}
 }
 
