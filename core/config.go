@@ -6,10 +6,11 @@ package core
 // injected through NewWorld. The dependency therefore points inward
 // (data -> core), never core -> data.
 type Config struct {
-	StartingNippers     int     // nippers the player begins every run with
-	MaxTurretTiles      int     // soft cap on turret size; forces non-tile offers
-	CandlestickInterval int     // ticks between candlestick spawns
-	XPToNextGrowth      float64 // XPToNext multiplier applied each level-up
+	StartingNippers        int     // nippers the player begins every run with
+	MaxTurretTiles         int     // soft cap on turret size; forces non-tile offers
+	CandlestickInterval    int     // ticks between candlestick spawns
+	XPToNextGrowth         float64 // XPToNext multiplier applied each level-up
+	CapacitorFireRateBonus float64 // fire-rate multiplier added per connected Capacitor equipment
 
 	Player       Player                      // starting-stat template (Pos/Weapons/Facing/Nippers set by NewWorld)
 	Pickup       PickupRanges                // gem/nipper magnet+collect behaviour
@@ -79,12 +80,13 @@ type SpawnSpec struct {
 //   - Weapon upgrade: selected weapons gain +1 Level.
 //   - Tile bundle: 1-MaxBundleTiles new tiles, each 50% weapon / 50% junk.
 type DoctorSpec struct {
-	NipperChance   float64 // probability of a nipper offer (evaluated first)
-	UpgradeChance  float64 // cumulative: upgrade if r < UpgradeChance after nipper check
-	NipperMin      int     // minimum nippers per nipper offer
-	NipperMax      int     // maximum nippers per nipper offer
-	MaxUpgrades    int     // max weapons upgraded per upgrade offer
-	MaxBundleTiles int     // max tiles added per tile-bundle offer
+	NipperChance    float64 // probability of a nipper offer (evaluated first)
+	UpgradeChance   float64 // cumulative: upgrade if r < UpgradeChance after nipper check
+	NipperMin       int     // minimum nippers per nipper offer
+	NipperMax       int     // maximum nippers per nipper offer
+	MaxUpgrades     int     // max weapons upgraded per upgrade offer
+	MaxBundleTiles  int     // max tiles added per tile-bundle offer
+	CapacitorChance float64 // per bundle tile, probability it is a Capacitor (else weapon/junk)
 }
 
 // EnemyScaling holds the basic chasing enemy's stats. Only HP scales with time

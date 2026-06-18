@@ -34,29 +34,47 @@ func MuzzleOffset(idx hexmap.Index, facingAngle float64) geom.PointF {
 	return geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
 }
 
+// Modifier holds the additive adjustments a connected turret component
+// contributes to the tank/turret-wide stats. The zero value is "no effect".
+// Modifiers from every connected component are summed (see Turret.Modifiers),
+// which is the extension point for equipment: the Capacitor raises the fire-rate
+// multiplier today, and e.g. armour could add MaxHP here in future.
+type Modifier struct {
+	FireRateAdd float64 // added to the turret-wide fire-rate multiplier
+}
+
+// Add returns the sum of two modifiers.
+func (m Modifier) Add(o Modifier) Modifier {
+	return Modifier{FireRateAdd: m.FireRateAdd + o.FireRateAdd}
+}
+
 // Component is what occupies a single hex tile on the turret. Power is shared
-// flatly across all connected tiles, so a component's only job is to identify
-// itself and (for weapons) carry the mounted Weapon.
+// flatly across all connected tiles, so a component identifies itself (Name) and
+// reports any tank/turret stat modifiers it contributes while connected (Mods).
 type Component interface {
 	Name() string
+	Mods() Modifier
 }
 
 // Wire is a passive conductor: it carries power but does nothing with it.
 type Wire struct{}
 
-func (Wire) Name() string { return "Wire" }
+func (Wire) Name() string   { return "Wire" }
+func (Wire) Mods() Modifier { return Modifier{} }
 
-// WeaponComponent mounts a weapon on a tile. The weapon's Energy is set to the
-// tile's share of generator power by ActiveWeapons.
+// WeaponComponent mounts a weapon on a tile. Power is a turret-wide fire-rate
+// multiplier rather than a per-weapon value (see Weapon.Stats).
 type WeaponComponent struct {
 	Weapon *Weapon
 }
 
-func (w WeaponComponent) Name() string { return w.Weapon.Name }
+func (w WeaponComponent) Name() string   { return w.Weapon.Name }
+func (w WeaponComponent) Mods() Modifier { return Modifier{} }
 
 // Junk is a useless device a doctor bolted on (espresso machine, balloon
 // launcher, rubber duck...). It conducts power like a wire but does nothing,
-// diluting the per-tile power share. The flavour is the point.
+// adding to the tile count (which dilutes the fire-rate multiplier). The flavour
+// is the point.
 type Junk struct {
 	DeviceName string
 }
@@ -67,6 +85,19 @@ func (j Junk) Name() string {
 	}
 	return j.DeviceName
 }
+
+func (j Junk) Mods() Modifier { return Modifier{} }
+
+// Capacitor is an equipment tile that raises the turret-wide fire-rate
+// multiplier by a flat FireRateBonus while it is connected. Like any tile it
+// also adds to the tile count, so the bonus is weighed against the dilution.
+type Capacitor struct {
+	FireRateBonus float64
+}
+
+func (Capacitor) Name() string { return "Capacitor" }
+
+func (c Capacitor) Mods() Modifier { return Modifier{FireRateAdd: c.FireRateBonus} }
 
 // ---- Tile ----
 
@@ -96,15 +127,43 @@ func (t *Tile) IsPurged() bool {
 // Data model is generator-list-friendly for future multi-generator expansion,
 // but the current version uses a single central generator.
 type Turret struct {
-	tiles      map[hexmap.Index]*Tile
-	generators []hexmap.Index
-	genPower   float64 // total power output of the generator
+	tiles         map[hexmap.Index]*Tile
+	generators    []hexmap.Index
+	genPower      float64  // total power output of the generator
+	connectedMods Modifier // cached sum of modifiers over connected tiles; recomputed on tile add/remove
 }
 
 // NewTurret creates a Turret with the given generator positions and generator
 // power output. Tiles map is shared (caller should not mutate it externally).
 func NewTurret(tiles map[hexmap.Index]*Tile, generators []hexmap.Index, genPower float64) *Turret {
-	return &Turret{tiles: tiles, generators: generators, genPower: genPower}
+	t := &Turret{tiles: tiles, generators: generators, genPower: genPower}
+	t.recomputeMods()
+	return t
+}
+
+// Modifiers returns the cached sum of stat modifiers contributed by all
+// connected components (e.g. capacitors). Recomputed only when tiles are added
+// or removed, since connectivity changes only then.
+func (t *Turret) Modifiers() Modifier { return t.connectedMods }
+
+// recomputeMods recalculates the aggregate modifier over all connected
+// non-generator tiles. Call after any change to the tile set or connectivity.
+func (t *Turret) recomputeMods() {
+	var sum Modifier
+	if len(t.generators) == 0 {
+		t.connectedMods = sum
+		return
+	}
+	reachable := t.distancesFrom(t.generators[0])
+	for idx := range reachable {
+		if t.IsGenerator(idx) {
+			continue
+		}
+		if tile := t.tiles[idx]; tile != nil && !tile.purged && tile.Component != nil {
+			sum = sum.Add(tile.Component.Mods())
+		}
+	}
+	t.connectedMods = sum
 }
 
 // Tiles returns the internal tiles map (read-only use expected).
@@ -284,6 +343,7 @@ func (t *Turret) AddTile(comp Component, rng *rand.Rand) (hexmap.Index, bool) {
 	})
 	chosen := candidates[rng.Intn(len(candidates))]
 	t.tiles[chosen] = &Tile{Component: comp}
+	t.recomputeMods()
 	return chosen, true
 }
 
@@ -308,6 +368,7 @@ func (t *Turret) PurgeTile(idx hexmap.Index) bool {
 	}
 	tile.purged = true
 	t.propagatePurge()
+	t.recomputeMods()
 	return true
 }
 

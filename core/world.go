@@ -53,7 +53,8 @@ func (w *World) FireRateMultiplier() float64 {
 	if w.turret == nil {
 		return 1
 	}
-	return PowerMultiplier(w.cfg.PowerCurve, w.turret.ConsumerTileCount())
+	base := PowerMultiplier(w.cfg.PowerCurve, w.turret.ConsumerTileCount())
+	return base + w.turret.Modifiers().FireRateAdd
 }
 
 // FireRateMultBounds returns the minimum and maximum fire-rate multiplier the
@@ -485,7 +486,8 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		}
 	}
 
-	// Tile bundle: 1-MaxBundleTiles tiles, each independently 50% weapon / 50% junk.
+	// Tile bundle: 1-MaxBundleTiles tiles. Each tile is independently a Capacitor
+	// (chance dd.CapacitorChance), else a 50/50 weapon/junk split.
 	tileCount := 1 + w.rng.Intn(dd.MaxBundleTiles)
 	comps := make([]Component, tileCount)
 	bundleDesc := ""
@@ -493,11 +495,15 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		if i > 0 {
 			bundleDesc += " + "
 		}
-		if w.rng.Float64() < 0.5 {
+		switch {
+		case w.rng.Float64() < dd.CapacitorChance:
+			comps[i] = Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus}
+			bundleDesc += "Capacitor"
+		case w.rng.Float64() < 0.5:
 			kind := pickWeaponKind(w.rng)
 			comps[i] = WeaponComponent{Weapon: NewWeapon(kind.String(), kind)}
 			bundleDesc += kind.String()
-		} else {
+		default:
 			name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]
 			comps[i] = Junk{DeviceName: name}
 			bundleDesc += name

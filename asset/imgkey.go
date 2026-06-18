@@ -16,6 +16,7 @@ const (
 	ImgTileWire      = "tile_wire"
 	ImgTileGenerator = "tile_generator"
 	ImgTileJunk      = "tile_junk"
+	ImgTileCapacitor = "tile_capacitor"
 
 	// Weapon tiles, one per WeaponKind.
 	ImgTileWeaponCannon  = "tile_weapon_cannon"

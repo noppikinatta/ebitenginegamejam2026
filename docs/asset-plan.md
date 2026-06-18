@@ -14,7 +14,8 @@
 - ミサイル (Missile)
 
 ## 設備
-- キャパシタ: タイルあたりの電力をつねに +100
+- キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のタイルバンドルで `DoctorSpec.CapacitorChance`(=0.15) の確率で出現
+  - 将来拡張: `Modifier` に `MaxHPAdd` 等を足せば増加装甲のような設備も同じ仕組みで追加可能
 
 ## ジャンク（何かが出る物。弾の発射を応用して作る）
 - 風船サービス装置

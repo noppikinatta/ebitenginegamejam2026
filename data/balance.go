@@ -14,10 +14,11 @@ import "github.com/noppikinatta/ebitenginegamejam2026/core"
 // NewConfig returns the canonical balance configuration for a fresh run.
 func NewConfig() core.Config {
 	return core.Config{
-		StartingNippers:     3,    // nippers the player begins every run with
-		MaxTurretTiles:      40,   // soft cap on turret size; forces non-tile offers
-		CandlestickInterval: 600,  // ticks between candlestick spawns (~10 s at 60 TPS)
-		XPToNextGrowth:      1.25, // XPToNext multiplier applied each level-up
+		StartingNippers:        3,    // nippers the player begins every run with
+		MaxTurretTiles:         40,   // soft cap on turret size; forces non-tile offers
+		CandlestickInterval:    600,  // ticks between candlestick spawns (~10 s at 60 TPS)
+		XPToNextGrowth:         1.25, // XPToNext multiplier applied each level-up
+		CapacitorFireRateBonus: 0.1,  // each connected Capacitor adds +0.1 to the fire-rate multiplier
 
 		Player:       defaultPlayer(),
 		Pickup:       defaultPickupRanges(),

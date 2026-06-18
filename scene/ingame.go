@@ -563,6 +563,11 @@ func tileBase(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64)
 	switch tile.Component.(type) {
 	case core.Junk:
 		return asset.ImgTileJunk, 1
+	case core.Capacitor:
+		if power <= 0 {
+			return asset.ImgTileCapacitor, 0.45 // dim: disconnected capacitor
+		}
+		return asset.ImgTileCapacitor, 1
 	case core.WeaponComponent:
 		if power <= 0 {
 			return asset.ImgTileWire, 0.45 // dim: unpowered weapon socket
