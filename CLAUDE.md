@@ -58,7 +58,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 - [x] **H4：クリックUI** — `scene/ingame.go` に砲塔オーバーレイ（後に再設計）
 - [x] **レーザー武装** — `KindLaser`。砲塔タイルに固定された持続ビーム（毎フレーム最近接敵を追尾、経路上の敵を貫通DPS）。`geom.PointSegmentDistance` でカプセル判定。`World.ActiveBeams()` で描画用スナップショット
 - [x] **再設計A：電力フラット化** — BFS距離リングソルバーを撤廃し `発電量/接続タイル数` の均等配分へ。`Component` を `Name()` のみに簡略化、`ProportionalWeapon`→`WeaponComponent` 改名、`Junk`（無意味ガジェット）追加。`Capacitor`/`ThresholdWeapon`/`PurgeWeapon` 削除。HUD に Pwr/Tile 表示
-- [x] **再設計B：ポーズ画面でクリック切断** — `Player.Nippers`、`World.CutTile`（ニッパー消費＋カスケード）。当初は Shift+WASD+Space の戦闘中カーソル切断だったが難しすぎたため再設計：**Space でポーズ**（`InGame.paused`、シミュレーション停止）→ 砲塔をズーム・上向き描画 → **タイルをクリックで切断**。切断してもポーズ継続で連続カット可、マウスのみ。砲塔描画は `InGame.drawTurretTiles(cx,cy,size,theta)` に共通化し戦闘ミニチュアと共用
+- [x] **再設計B：ポーズ画面でクリック切断** — `Player.Nippers`、`World.CutTile`（ニッパー消費＋カスケード）。当初は Shift+WASD+Space の戦闘中カーソル切断だったが難しすぎたため再設計：**Space でポーズ**（`InGame.paused`、シミュレーション停止）→ 砲塔をズーム・上向き描画 → **タイルをクリックで切断**。切断してもポーズ継続で連続カット可、マウスのみ。砲塔描画は `InGame.drawTurretTiles(cx,cy,size,theta)` に共通化し戦闘ミニチュアと共用。**ホバー中タイルの説明**を画面下パネルに表示（`drawPauseTileInfo`／`pauseTileInfo`＋`weaponDesc`：プレビュー画像＋名前＋一行説明、切る対象を把握できる）
 - [x] **再設計C：レベルアップ＝タイル追加** — `Turret.AddTile`（空き隣接にランダム配置）/`TileCount`。`rollChoices` を博士3人提案（武装/ジャンク/ニッパー）に置換、ソフトキャップ `maxTurretTiles`。scene はカード式UIに置換
 - [x] **再設計D：燭台ドロップ** — `Enemy.DropsNipper`/`Pickup`。`spawnCandlestick`（停止・無害・周期スポーン）、`updatePickups`（収集で+1ニッパー）
 - [ ] **H5：複数ジェネレータ対応** — 初版は中央1基のみ。後続バージョンで追加予定

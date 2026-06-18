@@ -543,7 +543,8 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0)
 
 	// Highlight the tile under the cursor, plus a cut preview: the collateral
-	// tiles that would cascade-cut are framed in a dimmer white.
+	// tiles that would cascade-cut are framed in a dimmer white. The hovered
+	// tile's name and description are shown in a panel at the bottom.
 	if idx, ok := g.pauseTileAtCursor(); ok {
 		for pidx := range g.world.Turret().CutPreview(idx) {
 			if pidx == idx {
@@ -554,6 +555,80 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 		}
 		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
 		drawTileFrame(screen, c.X, c.Y, pauseTileSize, 1, 1, 1, 1) // bright: target
+		g.drawPauseTileInfo(screen, idx)
+	}
+}
+
+// drawPauseTileInfo draws a bottom panel describing the hovered turret tile: a
+// preview image, its name, and a one-line explanation, so the player knows what
+// they are about to cut.
+func (g *InGame) drawPauseTileInfo(screen *ebiten.Image, idx hexmap.Index) {
+	tile := g.world.Turret().Tiles()[idx]
+	if tile == nil {
+		return
+	}
+	name, desc, imgKey, weapon := pauseTileInfo(tile.Component)
+
+	const bx, bh = 24.0, 110.0
+	bw := float64(screenW) - 2*bx
+	by := float64(screenH) - bh - 16
+	drawing.DrawRect(screen, bx, by, bw, bh, 0.06, 0.07, 0.10, 0.92)
+
+	// Preview image on the left (weapon barrels keep their tall aspect ratio).
+	icx, icy := bx+70, by+bh/2
+	img := drawing.Image(imgKey)
+	if weapon {
+		b := img.Bounds()
+		h := 84.0
+		drawing.DrawSprite(screen, img, icx, icy, h*float64(b.Dx())/float64(b.Dy()), h, 0, 1, 1, 1, 1)
+	} else {
+		drawing.DrawSprite(screen, img, icx, icy, 72, 72, 0, 1, 1, 1, 1)
+	}
+
+	// Name + wrapped description on the right.
+	tx := bx + 150
+	opt := &ebiten.DrawImageOptions{}
+	opt.GeoM.Translate(tx, by+14)
+	drawing.DrawText(screen, name, 26, opt)
+	drawWrapped(screen, desc, tx, by+58, bw-170, 18)
+}
+
+// pauseTileInfo returns the display name, description, preview image key, and
+// whether the component is a weapon (a tall barrel sprite) for the pause info
+// panel. These strings are UI copy; if the game grows localisation they can move
+// to the lang CSVs.
+func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool) {
+	switch c := comp.(type) {
+	case core.WeaponComponent:
+		return c.Weapon.Name, weaponDesc(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
+	case core.Junk:
+		return c.Name(), "A useless gadget a doctor bolted on. It conducts power but does nothing — a prime tile to cut.", asset.ImgTileJunk, false
+	case core.Capacitor:
+		return "Capacitor", "Equipment that raises the turret's fire rate while it stays connected.", asset.ImgTileCapacitor, false
+	default: // Wire (or empty)
+		return "Wire", "A bare conductor: it carries power but does nothing on its own. Cut it to reshape the layout.", asset.ImgTileWire, false
+	}
+}
+
+// weaponDesc returns a short explanation of a weapon kind for the info panel.
+func weaponDesc(k core.WeaponKind) string {
+	switch k {
+	case core.KindShotgun:
+		return "Sprays a short-range spread of pellets at the nearest enemy."
+	case core.KindSniper:
+		return "Fires a fast, long-range round that hits hard."
+	case core.KindLaser:
+		return "Fires a sustained beam at the nearest enemy, piercing everything in its path."
+	case core.KindGatling:
+		return "Streams a rapid burst of pellets straight ahead."
+	case core.KindGrenade:
+		return "Lobs a shell outward that explodes where it lands."
+	case core.KindCIWS:
+		return "Point defence: holds fire until an enemy is close, then unleashes a burst."
+	case core.KindMissile:
+		return "Launches a homing missile that explodes on impact."
+	default: // KindCannon
+		return "Fires a balanced shell at the nearest enemy."
 	}
 }
 
