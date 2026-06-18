@@ -40,15 +40,18 @@ type PowerPoint struct {
 //	Damage       = BaseDamage × LevelMult^Level
 //	FireInterval = max(MinInterval, round(BaseInterval / fireMult))
 //	Range        = BaseRange
+//	ProjLife     = round(ProjMaxDist / ProjSpeed)  (projectile lifetime in ticks)
 //
 // fireMult is the turret-wide power multiplier (see PowerPoint); it affects only
 // the fire interval. Laser-only fields (BeamBase*) are zero for projectile
-// weapons; ProjSpeed is zero for KindLaser.
+// weapons; ProjSpeed/ProjMaxDist/ProjRadius are zero for KindLaser.
 type WeaponParams struct {
 	BaseDamage   float64
 	BaseInterval float64
 	MinInterval  int
 	ProjSpeed    float64
+	ProjMaxDist  float64 // max travel distance; projectile dies after ProjMaxDist/ProjSpeed ticks
+	ProjRadius   float64 // projectile collision radius
 	BaseRange    float64
 	// Laser-only.
 	BeamBaseLength   float64

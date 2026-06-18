@@ -36,6 +36,8 @@ type WeaponStats struct {
 	Damage          float64
 	FireInterval    int     // ticks between shots (lower = faster)
 	ProjectileSpeed float64 // px per tick; unused by KindLaser
+	ProjLife        int     // ticks a projectile lives before expiring; unused by KindLaser
+	ProjRadius      float64 // projectile collision radius; unused by KindLaser
 	Range           float64 // only enemies within this distance are targeted
 	// Laser-only fields (zero for projectile weapons).
 	BeamLength   float64
@@ -86,6 +88,10 @@ func (w *Weapon) Stats(p WeaponParams, fireMult float64) WeaponStats {
 		stats.BeamDuration = int(p.BeamBaseDuration)
 	} else {
 		stats.ProjectileSpeed = p.ProjSpeed
+		stats.ProjRadius = p.ProjRadius
+		if p.ProjSpeed > 0 {
+			stats.ProjLife = int(math.Round(p.ProjMaxDist / p.ProjSpeed))
+		}
 	}
 	if w.Level > 0 {
 		stats.Damage *= math.Pow(p.LevelMult, float64(w.Level))

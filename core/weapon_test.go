@@ -38,6 +38,25 @@ func TestStats_FireIntervalScalesWithMultiplier(t *testing.T) {
 	}
 }
 
+// TestStats_ProjectileLifeFromMaxDist: projectile lifetime is derived from the
+// data-driven max travel distance (ProjLife = round(ProjMaxDist/ProjSpeed)), and
+// the collision radius passes through. The fire-rate multiplier must not change
+// either.
+func TestStats_ProjectileLifeFromMaxDist(t *testing.T) {
+	p := testParams(KindCannon) // ProjSpeed 6, ProjMaxDist 260, ProjRadius 5
+	w := NewWeapon("Cannon", KindCannon)
+
+	for _, mult := range []float64{1, 3, 10} {
+		stats := w.Stats(p, mult)
+		if stats.ProjLife != 43 { // round(260/6) = 43
+			t.Errorf("mult %.0f: ProjLife = %d, want 43", mult, stats.ProjLife)
+		}
+		if stats.ProjRadius != 5 {
+			t.Errorf("mult %.0f: ProjRadius = %v, want 5", mult, stats.ProjRadius)
+		}
+	}
+}
+
 // TestStats_NonPositiveMultiplierTreatedAsOne guards against divide-by-zero or
 // negative multipliers producing nonsense intervals.
 func TestStats_NonPositiveMultiplierTreatedAsOne(t *testing.T) {

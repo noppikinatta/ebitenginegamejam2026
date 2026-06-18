@@ -206,8 +206,8 @@ func (w *World) updateWeapons() {
 				Pos:    muzzle,
 				Vel:    vel,
 				Damage: stats.Damage,
-				Radius: 5,
-				Life:   120,
+				Radius: stats.ProjRadius,
+				Life:   stats.ProjLife,
 				alive:  true,
 			})
 		}
