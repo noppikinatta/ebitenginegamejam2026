@@ -2,6 +2,7 @@ package core
 
 import (
 	"math"
+	"math/rand"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
@@ -11,9 +12,11 @@ type WeaponKind int
 
 const (
 	KindCannon  WeaponKind = iota // balanced auto-fire
-	KindShotgun                   // 3-projectile spread, short range
+	KindShotgun                   // 4-pellet spread, short range
 	KindSniper                    // single high-damage shot, very long range
 	KindLaser                     // sustained beam, DPS, penetrates all enemies in path
+	KindGatling                   // forward-only staggered burst of random-spread pellets
+	KindGrenade                   // outward-only lobbed shell that explodes (AoE) on expiry
 )
 
 func (k WeaponKind) String() string {
@@ -24,6 +27,10 @@ func (k WeaponKind) String() string {
 		return "Sniper"
 	case KindLaser:
 		return "Laser"
+	case KindGatling:
+		return "Gatling"
+	case KindGrenade:
+		return "Grenade"
 	default:
 		return "Cannon"
 	}
@@ -37,6 +44,8 @@ type WeaponStats struct {
 	ProjectileSpeed float64 // px per tick; unused by KindLaser
 	ProjLife        int     // ticks a projectile lives before expiring; unused by KindLaser
 	ProjRadius      float64 // projectile collision radius; unused by KindLaser
+	ExplodeRadius   float64 // >0: projectile explodes on expiry, dealing ExplodeDamage in this radius
+	ExplodeDamage   float64
 	Range           float64 // only enemies within this distance are targeted
 	// Laser-only fields (zero for projectile weapons).
 	BeamLength   float64
@@ -51,6 +60,8 @@ type Weapon struct {
 	TileIdx       hexmap.Index // the turret tile this weapon sits on; set by ActiveWeapons
 	Level         int          // doctor upgrade level; each +1 multiplies Damage by WeaponParams.LevelMult
 	fireProgress  float64      // accumulator: advances by fireIncrement each tick, fires at BaseInterval
+	pelletsLeft   int          // projectiles still to emit in the current shot (for staggered bursts)
+	pelletTimer   int          // ticks until the next staggered pellet
 	beamTicksLeft int          // KindLaser: ticks remaining in current beam burst
 	beamAngle     float64      // KindLaser: world angle the current burst points when no enemy is in range
 }
@@ -96,26 +107,43 @@ func (w *Weapon) Stats(p WeaponParams) WeaponStats {
 	} else {
 		stats.ProjectileSpeed = p.ProjSpeed
 		stats.ProjRadius = p.ProjRadius
+		stats.ExplodeRadius = p.ExplodeRadius
+		stats.ExplodeDamage = p.ExplodeDamage
 		if p.ProjSpeed > 0 {
 			stats.ProjLife = int(math.Round(p.ProjMaxDist / p.ProjSpeed))
 		}
 	}
 	if w.Level > 0 {
-		stats.Damage *= math.Pow(p.LevelMult, float64(w.Level))
+		mult := math.Pow(p.LevelMult, float64(w.Level))
+		stats.Damage *= mult
+		stats.ExplodeDamage *= mult
 	}
 	return stats
 }
 
-// ProjectileOffsets returns angular offsets (radians) relative to the target
-// direction for each projectile fired per shot. Shotgun fires a 4-pellet spread.
-// Returns nil for KindLaser (beams are not projectiles).
-func (w *Weapon) ProjectileOffsets() []float64 {
-	switch w.Kind {
-	case KindShotgun:
-		return []float64{-0.3, -0.1, 0.1, 0.3}
-	case KindLaser:
-		return nil
-	default:
-		return []float64{0}
+// pelletCount returns how many projectiles a single shot emits (≥1).
+func pelletCount(p WeaponParams) int {
+	if p.Pellets > 1 {
+		return p.Pellets
 	}
+	return 1
+}
+
+// pelletOffset returns the angular offset (radians) for pellet i of n in a shot.
+// With SpreadRandom the offset is uniform random in ±SpreadRad (rng required);
+// otherwise pellets are spread evenly across ±SpreadRad by index.
+func pelletOffset(p WeaponParams, i, n int, rng *rand.Rand) float64 {
+	if p.SpreadRad <= 0 {
+		return 0
+	}
+	if p.SpreadRandom {
+		if rng == nil {
+			return 0
+		}
+		return (rng.Float64()*2 - 1) * p.SpreadRad
+	}
+	if n <= 1 {
+		return 0
+	}
+	return -p.SpreadRad + 2*p.SpreadRad*float64(i)/float64(n-1)
 }

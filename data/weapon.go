@@ -14,9 +14,10 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			LevelMult: 1.2,
 		},
 		core.KindShotgun: {
-			BaseDamage:   8,                   // ×4 pellets per shot (see Weapon.ProjectileOffsets)
+			BaseDamage:   8,                   // ×4 pellets per shot
 			BaseInterval: 720, MinInterval: 8, // 12s
 			ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 2, BaseRange: 100,
+			Pellets: 4, SpreadRad: 0.3, // simultaneous fixed 4-pellet spread
 			LevelMult: 1.2,
 		},
 		core.KindSniper: {
@@ -33,6 +34,22 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BeamBaseWidth:    6,
 			BeamBaseDuration: 30,
 			LevelMult:        1.2,
+		},
+		core.KindGatling: {
+			BaseDamage:   2,
+			BaseInterval: 480, MinInterval: 6, // 8s between bursts
+			ProjSpeed: 5, ProjMaxDist: 240, ProjRadius: 2,
+			Pellets: 10, SpreadRad: 0.2, SpreadRandom: true, BurstGap: 3, // staggered random stream
+			Aim:       core.AimForward, // never locks on; always fires forward
+			LevelMult: 1.2,
+		},
+		core.KindGrenade: {
+			BaseDamage:   0,                     // no contact damage; all damage is the explosion
+			BaseInterval: 1800, MinInterval: 30, // 30s
+			ProjSpeed: 2, ProjMaxDist: 120, // lobbed slowly; expires after 60 ticks
+			Aim:           core.AimOutward, // never locks on; always fires outward
+			ExplodeRadius: 64, ExplodeDamage: 15,
+			LevelMult: 1.2,
 		},
 	}
 }

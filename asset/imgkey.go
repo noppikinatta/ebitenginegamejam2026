@@ -23,4 +23,6 @@ const (
 	ImgTileWeaponShotgun = "tile_weapon_shotgun"
 	ImgTileWeaponSniper  = "tile_weapon_sniper"
 	ImgTileWeaponLaser   = "tile_weapon_laser"
+	ImgTileWeaponGatling = "tile_weapon_gatling"
+	ImgTileWeaponGrenade = "tile_weapon_grenade"
 )

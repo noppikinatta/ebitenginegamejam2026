@@ -590,6 +590,10 @@ func weaponTileKey(k core.WeaponKind) string {
 		return asset.ImgTileWeaponSniper
 	case core.KindLaser:
 		return asset.ImgTileWeaponLaser
+	case core.KindGatling:
+		return asset.ImgTileWeaponGatling
+	case core.KindGrenade:
+		return asset.ImgTileWeaponGrenade
 	default:
 		return asset.ImgTileWeaponCannon
 	}

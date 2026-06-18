@@ -176,58 +176,93 @@ func (w *World) updateWeapons() {
 		params := w.cfg.Weapons[weapon.Kind]
 		stats := weapon.Stats(params)
 
-		// Aim step (independent of firing): lock onto the nearest enemy within
-		// range, centred on the player (screen centre). nil means none in range.
-		target := w.nearestEnemy(w.Player.Pos, stats.Range)
-
-		// Fire step: advance the accumulator; fire when it reaches BaseInterval.
+		// Fire step: advance the accumulator; trigger a shot at BaseInterval.
 		weapon.fireProgress += fireIncrement(params, fireMult)
-		if weapon.fireProgress < params.BaseInterval {
-			continue
-		}
-		// Interception weapons (CIWS) hold the charge until a target appears
-		// instead of firing into empty space; others fire regardless (forward
-		// when nothing is locked) so the player feels the cadence.
-		if params.HoldWhenNoTarget && target == nil {
-			weapon.fireProgress = params.BaseInterval
-			continue
-		}
-		weapon.fireProgress -= params.BaseInterval
-
-		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-		aim := w.aimAngle(target, muzzle)
-
-		if weapon.Kind == KindLaser {
-			weapon.beamTicksLeft = stats.BeamDuration
-			weapon.beamAngle = aim
-			continue
+		if weapon.fireProgress >= params.BaseInterval {
+			// Interception weapons (CIWS) hold a full charge until a target
+			// appears instead of firing into empty space; others fire regardless
+			// (forward/outward) so the player feels the cadence.
+			if params.HoldWhenNoTarget && w.nearestEnemy(w.Player.Pos, stats.Range) == nil {
+				weapon.fireProgress = params.BaseInterval
+			} else {
+				weapon.fireProgress -= params.BaseInterval
+				if weapon.Kind == KindLaser {
+					weapon.beamTicksLeft = stats.BeamDuration
+					weapon.beamAngle = w.weaponAim(weapon, params)
+				} else {
+					weapon.pelletsLeft = pelletCount(params) // queue this shot's pellets
+					weapon.pelletTimer = 0
+				}
+			}
 		}
 
-		for _, offset := range weapon.ProjectileOffsets() {
-			vel := geom.PointFFromPolar(stats.ProjectileSpeed, aim+offset)
-			w.Projectiles = append(w.Projectiles, &Projectile{
-				Pos:    muzzle,
-				Vel:    vel,
-				Damage: stats.Damage,
-				Radius: stats.ProjRadius,
-				Life:   stats.ProjLife,
-				alive:  true,
-			})
+		// Emit any due pellets (handles both simultaneous shots and staggered bursts).
+		if weapon.Kind != KindLaser {
+			w.emitPellets(weapon, params, stats)
 		}
 	}
 }
 
-// aimAngle returns the world angle a shot from muzzle should travel: toward
-// target if one is locked, otherwise the tank's forward facing (firing "off into
-// nowhere" when no enemy is in range).
-func (w *World) aimAngle(target *Enemy, muzzle geom.PointF) float64 {
-	if target != nil {
-		dir := target.Pos.Subtract(muzzle)
-		if dir.Abs() > 0 {
-			return dir.Angle()
-		}
+// emitPellets fires the projectiles owed for the weapon's current shot. With
+// BurstGap==0 all remaining pellets fire at once; otherwise one fires every
+// BurstGap ticks (a stream).
+func (w *World) emitPellets(weapon *Weapon, params WeaponParams, stats WeaponStats) {
+	if weapon.pelletsLeft <= 0 {
+		return
 	}
-	return w.Player.FacingAngle
+	if weapon.pelletTimer > 0 {
+		weapon.pelletTimer--
+		return
+	}
+	n := weapon.pelletsLeft
+	if params.BurstGap > 0 {
+		n = 1
+	}
+	total := pelletCount(params)
+	muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+	aim := w.weaponAim(weapon, params)
+	for k := 0; k < n; k++ {
+		i := total - weapon.pelletsLeft + k // pellet index within the shot
+		offset := pelletOffset(params, i, total, w.rng)
+		vel := geom.PointFFromPolar(stats.ProjectileSpeed, aim+offset)
+		w.Projectiles = append(w.Projectiles, &Projectile{
+			Pos:           muzzle,
+			Vel:           vel,
+			Damage:        stats.Damage,
+			Radius:        stats.ProjRadius,
+			Life:          stats.ProjLife,
+			ExplodeRadius: stats.ExplodeRadius,
+			ExplodeDamage: stats.ExplodeDamage,
+			alive:         true,
+		})
+	}
+	weapon.pelletsLeft -= n
+	if weapon.pelletsLeft > 0 {
+		weapon.pelletTimer = params.BurstGap
+	}
+}
+
+// weaponAim returns the world angle a weapon fires along, per its AimMode:
+// toward the nearest in-range enemy (else forward) for lock-on, the tank's
+// forward facing for forward weapons, or radially outward through its tile.
+func (w *World) weaponAim(weapon *Weapon, params WeaponParams) float64 {
+	switch params.Aim {
+	case AimForward:
+		return w.Player.FacingAngle
+	case AimOutward:
+		if off := MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle); off.Abs() > 0 {
+			return off.Angle()
+		}
+		return w.Player.FacingAngle
+	default: // AimLockOn
+		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+		if target := w.nearestEnemy(w.Player.Pos, params.BaseRange); target != nil {
+			if dir := target.Pos.Subtract(muzzle); dir.Abs() > 0 {
+				return dir.Angle()
+			}
+		}
+		return w.Player.FacingAngle
+	}
 }
 
 // updateBeams applies DPS from active laser beams each tick. A beam tracks the
@@ -316,6 +351,13 @@ func (w *World) updateProjectiles() {
 		p.Life--
 		if p.Life <= 0 {
 			p.alive = false
+			if p.ExplodeRadius > 0 {
+				w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+			}
+			continue
+		}
+		// Explosive shells fly through enemies and only detonate on expiry.
+		if p.ExplodeRadius > 0 {
 			continue
 		}
 		for _, e := range w.Enemies {
@@ -329,6 +371,21 @@ func (w *World) updateProjectiles() {
 					w.killEnemy(e)
 				}
 				break
+			}
+		}
+	}
+}
+
+// explode deals dmg to every alive enemy within radius of center (area damage).
+func (w *World) explode(center geom.PointF, radius, dmg float64) {
+	for _, e := range w.Enemies {
+		if !e.alive {
+			continue
+		}
+		if e.Pos.Distance(center) <= radius+e.Radius {
+			e.HP -= dmg
+			if e.HP <= 0 {
+				w.killEnemy(e)
 			}
 		}
 	}

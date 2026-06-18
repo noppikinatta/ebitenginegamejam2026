@@ -107,15 +107,16 @@ func TestUpdate_TickIncrements(t *testing.T) {
 func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 
-	// Base stats (Damage and Range are independent of the fire-rate multiplier).
-	weapon := w.Player.Weapons[0]
-
+	// Use an explicit lock-on cannon so the test doesn't depend on which weapon
+	// kinds the random turret generated (some never aim at a target).
+	weapon := NewWeapon("Cannon", KindCannon)
+	w.Player.Weapons = []*Weapon{weapon}
 	stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
 
 	// Place a weak enemy just within range.
 	enemy := &Enemy{
 		Pos:     geom.PointF{X: 50, Y: 0},
-		HP:      4, // will die on first hit (Damage=5)
+		HP:      4, // dies on first cannon hit (Damage 20)
 		Speed:   0, // stationary so it doesn't wander
 		Radius:  12,
 		Damage:  0,

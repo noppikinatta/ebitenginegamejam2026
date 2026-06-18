@@ -38,7 +38,11 @@ type Projectile struct {
 	Damage float64
 	Radius float64
 	Life   int // ticks remaining before it expires
-	alive  bool
+	// ExplodeRadius>0 marks an explosive shell: it ignores contact and, on expiry,
+	// deals ExplodeDamage to every enemy within ExplodeRadius of its position.
+	ExplodeRadius float64
+	ExplodeDamage float64
+	alive         bool
 }
 
 // Gem drops from a dead enemy and grants XP when collected.

@@ -43,8 +43,8 @@ func testPowerCurve() []PowerPoint {
 }
 
 func testWeapons() map[WeaponKind]WeaponParams {
-	m := make(map[WeaponKind]WeaponParams, 4)
-	for _, k := range []WeaponKind{KindCannon, KindShotgun, KindSniper, KindLaser} {
+	m := make(map[WeaponKind]WeaponParams, 6)
+	for _, k := range []WeaponKind{KindCannon, KindShotgun, KindSniper, KindLaser, KindGatling, KindGrenade} {
 		m[k] = testParams(k)
 	}
 	return m
@@ -55,11 +55,15 @@ func testWeapons() map[WeaponKind]WeaponParams {
 func testParams(kind WeaponKind) WeaponParams {
 	switch kind {
 	case KindShotgun:
-		return WeaponParams{BaseDamage: 8, BaseInterval: 720, MinInterval: 8, ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 2, BaseRange: 100, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 8, BaseInterval: 720, MinInterval: 8, ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 2, BaseRange: 100, Pellets: 4, SpreadRad: 0.3, LevelMult: 1.2}
 	case KindSniper:
 		return WeaponParams{BaseDamage: 10, BaseInterval: 960, MinInterval: 20, ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 2, BaseRange: 360, LevelMult: 1.2}
 	case KindLaser:
 		return WeaponParams{BaseDamage: 1, BaseInterval: 1440, MinInterval: 15, BaseRange: 200, BeamBaseLength: 200, BeamBaseWidth: 6, BeamBaseDuration: 30, LevelMult: 1.2}
+	case KindGatling:
+		return WeaponParams{BaseDamage: 2, BaseInterval: 480, MinInterval: 6, ProjSpeed: 5, ProjMaxDist: 240, ProjRadius: 2, Pellets: 10, SpreadRad: 0.2, SpreadRandom: true, BurstGap: 3, Aim: AimForward, LevelMult: 1.2}
+	case KindGrenade:
+		return WeaponParams{BaseDamage: 0, BaseInterval: 1800, MinInterval: 30, ProjSpeed: 2, ProjMaxDist: 120, Aim: AimOutward, ExplodeRadius: 64, ExplodeDamage: 15, LevelMult: 1.2}
 	default: // KindCannon
 		return WeaponParams{BaseDamage: 20, BaseInterval: 720, MinInterval: 6, ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 6, BaseRange: 200, LevelMult: 1.2}
 	}

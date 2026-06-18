@@ -54,10 +54,24 @@ type WeaponParams struct {
 	ProjMaxDist  float64 // max travel distance; projectile dies after ProjMaxDist/ProjSpeed ticks
 	ProjRadius   float64 // projectile collision radius
 	BaseRange    float64
+	// Per-shot pellets. Pellets>1 emits multiple projectiles per shot; SpreadRad
+	// is the half-angle of the spread (0 = none); SpreadRandom picks each pellet's
+	// angle randomly in ±SpreadRad (else evenly spaced). BurstGap>0 staggers the
+	// pellets that many ticks apart (a stream) instead of firing them at once.
+	Pellets      int
+	SpreadRad    float64
+	SpreadRandom bool
+	BurstGap     int
+	// Aim selects how the weapon points (lock-on / forward / outward).
+	Aim AimMode
 	// HoldWhenNoTarget keeps a full accumulator charged (instead of firing into
 	// empty space) until an enemy enters range. Used by interception weapons
-	// (CIWS); other weapons fire forward even with no target.
+	// (CIWS); other weapons fire even with no target.
 	HoldWhenNoTarget bool
+	// Explosive projectiles: ExplodeRadius>0 makes a projectile pass through
+	// enemies and detonate on expiry, dealing ExplodeDamage within ExplodeRadius.
+	ExplodeRadius float64
+	ExplodeDamage float64
 	// Laser-only.
 	BeamBaseLength   float64
 	BeamBaseWidth    float64
@@ -65,6 +79,15 @@ type WeaponParams struct {
 	// LevelMult is the Damage multiplier applied per doctor upgrade Level.
 	LevelMult float64
 }
+
+// AimMode selects how a weapon chooses its firing direction.
+type AimMode int
+
+const (
+	AimLockOn  AimMode = iota // aim at the nearest enemy in range, else forward
+	AimForward                // always the tank's forward facing (never locks on)
+	AimOutward                // always radially outward through the weapon's tile
+)
 
 // PickupRanges are shared by XP gems and nipper pickups.
 type PickupRanges struct {

@@ -151,13 +151,17 @@ func pickComponent(cfg TurretGenConfig, rng *rand.Rand) *Tile {
 }
 
 func pickWeaponKind(rng *rand.Rand) WeaponKind {
-	switch rng.Intn(4) {
+	switch rng.Intn(6) {
 	case 0:
 		return KindShotgun
 	case 1:
 		return KindSniper
 	case 2:
 		return KindLaser
+	case 3:
+		return KindGatling
+	case 4:
+		return KindGrenade
 	default:
 		return KindCannon
 	}

@@ -4,14 +4,14 @@
 > ここでは「どんな案があるか」だけを記録する。挙動・ステータス・画像キーは未確定。
 
 ## 武器
-- キャノン (Cannon)
-- ショットガン (Shotgun)
-- スナイパー (Sniper)
-- レーザー (Laser)
-- ガトリング (Gatling)
-- グレネード (Grenade)
-- CIWS
-- ミサイル (Missile)
+- キャノン (Cannon) — 実装済
+- ショットガン (Shotgun) — 実装済（4発・固定拡散）
+- スナイパー (Sniper) — 実装済
+- レーザー (Laser) — 実装済
+- ガトリング (Gatling) — **実装済**。前方固定・ロックオンなし。8s毎に2ダメージ弾10発を3tick間隔ストリーム、ランダム拡散±0.2rad。画像 `tile_weapon_gatling`（プレースホルダ＝cannonコピー、本番アート必要）
+- グレネード (Grenade) — **実装済**。外側固定・ロックオンなし。30s毎に速度2の無ダメージ弾を放射状に発射、寿命切れ(120px)で半径64に15ダメージ爆発。画像 `tile_weapon_grenade`（同上プレースホルダ）。※爆発エフェクト描画は未実装（判定のみ）
+- CIWS — 未実装（受け皿の `HoldWhenNoTarget` だけ用意済）
+- ミサイル (Missile) — 未実装
 
 ## 設備
 - キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のタイルバンドルで `DoctorSpec.CapacitorChance`(=0.15) の確率で出現
