@@ -97,13 +97,15 @@ type DoctorSpec struct {
 	CapacitorChance float64 // per bundle tile, probability it is a Capacitor (else weapon/junk)
 }
 
-// EnemyScaling holds the basic chasing enemy's stats. Only HP scales with time
-// (HP = HPBase + tick×HPPerTick); the other fields are constant per enemy.
+// EnemyScaling holds the basic chasing enemy's stats. Only HP scales with time:
+// HP = HPBase × 2^(tick / HPDoublingTicks), so HP doubles every HPDoublingTicks
+// ticks (e.g. 18000 = every 5 min at 60 TPS → ×2 at 5 min, ×4 at 10 min). The
+// other fields are constant per enemy.
 type EnemyScaling struct {
-	HPBase    float64
-	HPPerTick float64
-	Speed     float64
-	Radius    float64
-	Damage    float64
-	XPValue   float64
+	HPBase          float64
+	HPDoublingTicks float64 // ticks for enemy HP to double; <=0 disables scaling
+	Speed           float64
+	Radius          float64
+	Damage          float64
+	XPValue         float64
 }

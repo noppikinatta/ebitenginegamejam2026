@@ -544,11 +544,15 @@ func (w *World) spawnEnemies() {
 	angle := w.rng.Float64() * 2 * math.Pi
 	pos := w.Player.Pos.Add(geom.PointFFromPolar(sp.EnemyDist, angle))
 
-	// HP scales linearly with time so enemies get tankier as the run goes on.
+	// HP doubles every HPDoublingTicks so enemies get tankier as the run goes on.
 	sc := w.cfg.EnemyScaling
+	hp := sc.HPBase
+	if sc.HPDoublingTicks > 0 {
+		hp = sc.HPBase * math.Pow(2, float64(w.Tick)/sc.HPDoublingTicks)
+	}
 	w.Enemies = append(w.Enemies, &Enemy{
 		Pos:     pos,
-		HP:      sc.HPBase + float64(w.Tick)*sc.HPPerTick,
+		HP:      hp,
 		Speed:   sc.Speed,
 		Radius:  sc.Radius,
 		Damage:  sc.Damage,

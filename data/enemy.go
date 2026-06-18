@@ -6,12 +6,12 @@ import "github.com/noppikinatta/ebitenginegamejam2026/core"
 // the game tick (HP = HPBase + tick×HPPerTick); core applies the formula.
 func basicEnemyScaling() core.EnemyScaling {
 	return core.EnemyScaling{
-		HPBase:    10,
-		HPPerTick: 1.0 / 120.0,
-		Speed:     1.2,
-		Radius:    16, // matches the 32x32 enemy sprite
-		Damage:    8,
-		XPValue:   3,
+		HPBase:          10,
+		HPDoublingTicks: 18000, // 5 min at 60 TPS → ×2 at 5 min, ×4 at 10 min (tune later)
+		Speed:           1.2,
+		Radius:          16, // matches the 32x32 enemy sprite
+		Damage:          8,
+		XPValue:         3,
 	}
 }
 

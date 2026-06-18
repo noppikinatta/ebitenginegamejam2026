@@ -24,7 +24,7 @@ func testConfig() Config {
 		Pickup:                 PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 4},
 		Spawn:                  SpawnSpec{EnemyDist: 520, EnemyBaseInterval: 60, EnemyMinInterval: 18, EnemyIntervalDecay: 600, CandleDist: 220, CandleDistRange: 220},
 		Doctor:                 DoctorSpec{NipperChance: 0.25, UpgradeChance: 0.625, NipperMin: 5, NipperMax: 10, MaxUpgrades: 3, MaxBundleTiles: 3, CapacitorChance: 0.15},
-		EnemyScaling:           EnemyScaling{HPBase: 10, HPPerTick: 1.0 / 120.0, Speed: 1.2, Radius: 16, Damage: 8, XPValue: 3},
+		EnemyScaling:           EnemyScaling{HPBase: 10, HPDoublingTicks: 18000, Speed: 1.2, Radius: 16, Damage: 8, XPValue: 3},
 		Candlestick:            Enemy{HP: 40, Radius: 16, DropsNipper: true},
 		TurretGen:              testTurretGenConfig(),
 		Weapons:                testWeapons(),
@@ -55,13 +55,13 @@ func testWeapons() map[WeaponKind]WeaponParams {
 func testParams(kind WeaponKind) WeaponParams {
 	switch kind {
 	case KindShotgun:
-		return WeaponParams{BaseDamage: 3, BaseInterval: 28, MinInterval: 8, ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 5, BaseRange: 100, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 8, BaseInterval: 720, MinInterval: 8, ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 5, BaseRange: 100, LevelMult: 1.2}
 	case KindSniper:
-		return WeaponParams{BaseDamage: 20, BaseInterval: 120, MinInterval: 20, ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 5, BaseRange: 360, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 10, BaseInterval: 960, MinInterval: 20, ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 5, BaseRange: 360, LevelMult: 1.2}
 	case KindLaser:
-		return WeaponParams{BaseDamage: 2, BaseInterval: 90, MinInterval: 15, BaseRange: 200, BeamBaseLength: 200, BeamBaseWidth: 6, BeamBaseDuration: 30, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 1, BaseInterval: 1440, MinInterval: 15, BaseRange: 200, BeamBaseLength: 200, BeamBaseWidth: 6, BeamBaseDuration: 30, LevelMult: 1.2}
 	default: // KindCannon
-		return WeaponParams{BaseDamage: 5, BaseInterval: 45, MinInterval: 6, ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 5, BaseRange: 200, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 20, BaseInterval: 720, MinInterval: 6, ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 5, BaseRange: 200, LevelMult: 1.2}
 	}
 }
 

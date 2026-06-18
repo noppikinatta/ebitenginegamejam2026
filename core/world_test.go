@@ -130,9 +130,9 @@ func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 		t.Fatalf("enemy distance %.2f > range %.2f; adjust test setup", dist, stats.Range)
 	}
 
-	// projectile speed is 6 px/tick, enemy is 50px away.
-	// It should reach the enemy (radius 12) within ceil((50-12)/6)+1 ≈ 8 ticks.
-	const maxTicks = 200
+	// Fire intervals are long (BaseInterval ~720 ÷ fireMult), so allow plenty of
+	// ticks for at least one weapon to charge, fire, and the shot to connect.
+	const maxTicks = 1500
 	killed := false
 	for i := 0; i < maxTicks; i++ {
 		w.Update(noMove())
@@ -175,7 +175,7 @@ func TestUpdate_ProjectileCreatedBeforeHit(t *testing.T) {
 	}
 	w.Enemies = append(w.Enemies, enemy)
 
-	const maxTicks = 200
+	const maxTicks = 1500
 	fired := false
 	for i := 0; i < maxTicks; i++ {
 		w.Update(noMove())

@@ -9,7 +9,7 @@ import (
 // multiplier each tick, capped to BaseInterval/MinInterval so the effective
 // interval never drops below MinInterval. Non-positive multipliers yield 0.
 func TestFireIncrement_ScalesAndClamps(t *testing.T) {
-	p := testParams(KindCannon) // BaseInterval 45, MinInterval 6 -> maxInc 7.5
+	p := testParams(KindCannon) // BaseInterval 720, MinInterval 6 -> maxInc 120
 
 	tests := []struct {
 		name     string
@@ -18,7 +18,7 @@ func TestFireIncrement_ScalesAndClamps(t *testing.T) {
 	}{
 		{"1x", 1, 1},
 		{"2.5x", 2.5, 2.5},
-		{"caps at BaseInterval/MinInterval", 10, 7.5}, // 45/6
+		{"caps at BaseInterval/MinInterval", 200, 120}, // 720/6
 		{"zero -> 0", 0, 0},
 		{"negative -> 0", -2, 0},
 	}
@@ -59,12 +59,12 @@ func TestStats_ProjectileLifeFromMaxDist(t *testing.T) {
 // TestStats_LevelScalesDamage: doctor upgrade Level multiplies damage by
 // LevelMult^Level.
 func TestStats_LevelScalesDamage(t *testing.T) {
-	p := testParams(KindCannon) // BaseDamage 5, LevelMult 1.2
+	p := testParams(KindCannon) // BaseDamage 20, LevelMult 1.2
 	w := NewWeapon("Cannon", KindCannon)
 	w.Level = 2
 
 	stats := w.Stats(p)
-	want := 5 * math.Pow(1.2, 2)
+	want := p.BaseDamage * math.Pow(1.2, 2)
 	if math.Abs(stats.Damage-want) > eps {
 		t.Errorf("Damage = %.4f, want %.4f", stats.Damage, want)
 	}

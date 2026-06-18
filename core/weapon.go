@@ -107,12 +107,12 @@ func (w *Weapon) Stats(p WeaponParams) WeaponStats {
 }
 
 // ProjectileOffsets returns angular offsets (radians) relative to the target
-// direction for each projectile fired per shot. Shotgun fires a 3-way spread.
+// direction for each projectile fired per shot. Shotgun fires a 4-pellet spread.
 // Returns nil for KindLaser (beams are not projectiles).
 func (w *Weapon) ProjectileOffsets() []float64 {
 	switch w.Kind {
 	case KindShotgun:
-		return []float64{-0.25, 0, 0.25}
+		return []float64{-0.3, -0.1, 0.1, 0.3}
 	case KindLaser:
 		return nil
 	default:

@@ -8,26 +8,26 @@ import "github.com/noppikinatta/ebitenginegamejam2026/core"
 func weaponParams() map[core.WeaponKind]core.WeaponParams {
 	return map[core.WeaponKind]core.WeaponParams{
 		core.KindCannon: {
-			BaseDamage:   5,
-			BaseInterval: 45, MinInterval: 6,
+			BaseDamage:   20,
+			BaseInterval: 720, MinInterval: 6, // 12s between shots at fireMult=1
 			ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 5, BaseRange: 200,
 			LevelMult: 1.2,
 		},
 		core.KindShotgun: {
-			BaseDamage:   3,
-			BaseInterval: 28, MinInterval: 8,
+			BaseDamage:   8,                   // ×4 pellets per shot (see Weapon.ProjectileOffsets)
+			BaseInterval: 720, MinInterval: 8, // 12s
 			ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 5, BaseRange: 100,
 			LevelMult: 1.2,
 		},
 		core.KindSniper: {
-			BaseDamage:   20,
-			BaseInterval: 120, MinInterval: 20,
+			BaseDamage:   10,
+			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 5, BaseRange: 360,
 			LevelMult: 1.2,
 		},
 		core.KindLaser: {
-			BaseDamage:   2,
-			BaseInterval: 90, MinInterval: 15,
+			BaseDamage:   1,                     // per tick; ×BeamBaseDuration(30) = 30 over a burst
+			BaseInterval: 1440, MinInterval: 15, // 24s
 			BaseRange:        200,
 			BeamBaseLength:   200,
 			BeamBaseWidth:    6,
