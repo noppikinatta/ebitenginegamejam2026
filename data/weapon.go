@@ -10,13 +10,13 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 		core.KindCannon: {
 			BaseDamage:   5,
 			BaseInterval: 45, MinInterval: 6,
-			ProjSpeed: 6, BaseRange: 220,
+			ProjSpeed: 6, BaseRange: 200,
 			LevelMult: 1.2,
 		},
 		core.KindShotgun: {
 			BaseDamage:   3,
 			BaseInterval: 28, MinInterval: 8,
-			ProjSpeed: 5, BaseRange: 150,
+			ProjSpeed: 5, BaseRange: 100,
 			LevelMult: 1.2,
 		},
 		core.KindSniper: {
@@ -28,8 +28,8 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 		core.KindLaser: {
 			BaseDamage:   2,
 			BaseInterval: 90, MinInterval: 15,
-			BaseRange:        300,
-			BeamBaseLength:   300,
+			BaseRange:        200,
+			BeamBaseLength:   200,
 			BeamBaseWidth:    6,
 			BeamBaseDuration: 30,
 			LevelMult:        1.2,
