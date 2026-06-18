@@ -27,6 +27,17 @@ func testConfig() Config {
 		Candlestick:         Enemy{HP: 40, Radius: 16, DropsNipper: true},
 		TurretGen:           testTurretGenConfig(),
 		Weapons:             testWeapons(),
+		PowerCurve:          testPowerCurve(),
+	}
+}
+
+// testPowerCurve mirrors data.powerCurve() so core tests share the production
+// tile-count → fire-rate breakpoints.
+func testPowerCurve() []PowerPoint {
+	return []PowerPoint{
+		{Tiles: 10, Mult: 4.0},
+		{Tiles: 32, Mult: 1.0},
+		{Tiles: 40, Mult: 0.5},
 	}
 }
 
@@ -43,13 +54,13 @@ func testWeapons() map[WeaponKind]WeaponParams {
 func testParams(kind WeaponKind) WeaponParams {
 	switch kind {
 	case KindShotgun:
-		return WeaponParams{BaseDamage: 3, EnergyDamage: 1.5, BaseInterval: 28, EnergyInterval: 2, MinInterval: 8, ProjSpeed: 5, BaseRange: 150, EnergyRange: 10, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 3, BaseInterval: 28, MinInterval: 8, ProjSpeed: 5, BaseRange: 150, LevelMult: 1.2}
 	case KindSniper:
-		return WeaponParams{BaseDamage: 20, EnergyDamage: 8, BaseInterval: 120, EnergyInterval: 7, MinInterval: 20, ProjSpeed: 10, BaseRange: 400, EnergyRange: 40, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 20, BaseInterval: 120, MinInterval: 20, ProjSpeed: 10, BaseRange: 400, LevelMult: 1.2}
 	case KindLaser:
-		return WeaponParams{BaseDamage: 2, EnergyDamage: 0.8, BaseInterval: 90, EnergyInterval: 5, MinInterval: 15, BaseRange: 300, EnergyRange: 25, BeamBaseLength: 300, BeamEnergyLength: 25, BeamBaseWidth: 6, BeamEnergyWidth: 0.5, BeamBaseDuration: 30, BeamEnergyDuration: 4, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 2, BaseInterval: 90, MinInterval: 15, BaseRange: 300, BeamBaseLength: 300, BeamBaseWidth: 6, BeamBaseDuration: 30, LevelMult: 1.2}
 	default: // KindCannon
-		return WeaponParams{BaseDamage: 5, EnergyDamage: 3, BaseInterval: 45, EnergyInterval: 4, MinInterval: 6, ProjSpeed: 6, BaseRange: 220, EnergyRange: 20, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 5, BaseInterval: 45, MinInterval: 6, ProjSpeed: 6, BaseRange: 220, LevelMult: 1.2}
 	}
 }
 

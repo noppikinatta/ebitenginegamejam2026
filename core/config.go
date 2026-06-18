@@ -19,34 +19,40 @@ type Config struct {
 	Candlestick  Enemy                       // candlestick template (Pos/alive set on spawn)
 	TurretGen    TurretGenConfig             // random starting-turret generation params
 	Weapons      map[WeaponKind]WeaponParams // per-kind weapon stat curves
+	PowerCurve   []PowerPoint                // tile-count → fire-rate multiplier breakpoints
+}
+
+// PowerPoint is one breakpoint of the power curve: at Tiles connected consumer
+// tiles, weapons fire at Mult× their base rate. The curve is a list of these
+// points sorted ascending by Tiles; PowerMultiplier interpolates linearly
+// between adjacent points and clamps to the end points outside the range. Fewer
+// tiles → higher Mult, so cutting tiles re-concentrates power into faster fire.
+type PowerPoint struct {
+	Tiles int
+	Mult  float64
 }
 
 // WeaponParams contains the balance numbers for one weapon kind.
 //
-// Formulae used by Weapon.StatsFromEnergy:
+// Formulae used by Weapon.Stats(p, fireMult):
 //
-//	Damage       = (BaseDamage + e×EnergyDamage) × LevelMult^Level
-//	FireInterval = max(MinInterval, int(BaseInterval − e×EnergyInterval))
-//	Range        = BaseRange + e×EnergyRange
+//	Damage       = BaseDamage × LevelMult^Level
+//	FireInterval = max(MinInterval, round(BaseInterval / fireMult))
+//	Range        = BaseRange
 //
-// Laser-only fields (BeamBase*, BeamEnergy*) are zero for projectile weapons;
-// ProjSpeed is zero for KindLaser.
+// fireMult is the turret-wide power multiplier (see PowerPoint); it affects only
+// the fire interval. Laser-only fields (BeamBase*) are zero for projectile
+// weapons; ProjSpeed is zero for KindLaser.
 type WeaponParams struct {
-	BaseDamage     float64
-	EnergyDamage   float64
-	BaseInterval   float64
-	EnergyInterval float64
-	MinInterval    int
-	ProjSpeed      float64
-	BaseRange      float64
-	EnergyRange    float64
+	BaseDamage   float64
+	BaseInterval float64
+	MinInterval  int
+	ProjSpeed    float64
+	BaseRange    float64
 	// Laser-only.
-	BeamBaseLength     float64
-	BeamEnergyLength   float64
-	BeamBaseWidth      float64
-	BeamEnergyWidth    float64
-	BeamBaseDuration   float64
-	BeamEnergyDuration float64
+	BeamBaseLength   float64
+	BeamBaseWidth    float64
+	BeamBaseDuration float64
 	// LevelMult is the Damage multiplier applied per doctor upgrade Level.
 	LevelMult float64
 }

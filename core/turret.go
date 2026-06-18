@@ -134,25 +134,48 @@ func (t *Turret) connectedConsumers() (reachable map[hexmap.Index]int, n int) {
 	return reachable, n
 }
 
-// GenPower returns the generator's total power output. It is the per-tile share
-// when only a single consumer tile remains, so it serves as the natural ceiling
-// for a power-per-tile gauge.
-func (t *Turret) GenPower() float64 { return t.genPower }
-
-// PowerPerTile returns the power each connected non-generator tile receives:
-// the generator's output divided evenly among all connected consumer tiles.
-// Returns 0 when there are no consumer tiles.
-func (t *Turret) PowerPerTile() float64 {
+// ConsumerTileCount returns the number of connected non-generator tiles (the
+// tiles that draw power). This is the value fed into the power curve to derive
+// the fire-rate multiplier: cutting tiles lowers it, raising the multiplier.
+func (t *Turret) ConsumerTileCount() int {
 	_, n := t.connectedConsumers()
-	if n == 0 {
-		return 0
-	}
-	return t.genPower / float64(n)
+	return n
 }
 
-// ComputePower returns the power delivered to each connected tile. Every
-// connected non-generator tile gets PowerPerTile; the generator gets 0.
-// Disconnected (unreachable) and purged tiles are omitted.
+// PowerMultiplier interpolates the fire-rate multiplier for a given connected
+// tile count over the curve. The curve is a list of PowerPoint sorted ascending
+// by Tiles; below the first point the first Mult is used, above the last the
+// last Mult, and in between it is linear. An empty curve yields 1.
+func PowerMultiplier(curve []PowerPoint, tiles int) float64 {
+	if len(curve) == 0 {
+		return 1
+	}
+	if tiles <= curve[0].Tiles {
+		return curve[0].Mult
+	}
+	last := curve[len(curve)-1]
+	if tiles >= last.Tiles {
+		return last.Mult
+	}
+	for i := 1; i < len(curve); i++ {
+		a, b := curve[i-1], curve[i]
+		if tiles <= b.Tiles {
+			span := float64(b.Tiles - a.Tiles)
+			if span <= 0 {
+				return b.Mult
+			}
+			f := float64(tiles-a.Tiles) / span
+			return a.Mult + (b.Mult-a.Mult)*f
+		}
+	}
+	return last.Mult
+}
+
+// ComputePower returns a connectivity map: every connected non-generator tile
+// gets a positive value, the generator gets 0, and disconnected (unreachable)
+// or purged tiles are omitted. The actual value is no longer used for combat
+// (power is a turret-wide multiplier); callers only check presence / > 0 to know
+// whether a tile is powered, e.g. for render dimming.
 func (t *Turret) ComputePower() map[hexmap.Index]float64 {
 	reachable, n := t.connectedConsumers()
 	result := map[hexmap.Index]float64{}
@@ -362,19 +385,20 @@ func (t *Turret) reachableExcluding(excluded hexmap.Index) map[hexmap.Index]bool
 	return visited
 }
 
-// ActiveWeapons returns all weapon instances on active, powered tiles, with each
-// weapon's Energy set to its tile's flat power share. Call this each tick (or
-// after purging/adding tiles) to get the current armed weapon list.
+// ActiveWeapons returns all weapon instances on connected (powered) tiles, with
+// each weapon's TileIdx set to its turret position. Call this each tick (or
+// after purging/adding tiles) to get the current armed weapon list. Power no
+// longer scales per weapon; it is expressed as a turret-wide fire-rate
+// multiplier (see PowerMultiplier) applied in Weapon.Stats.
 func (t *Turret) ActiveWeapons() []*Weapon {
 	power := t.WeaponPower()
 	var weapons []*Weapon
-	for idx, p := range power {
+	for idx := range power {
 		tile := t.tiles[idx]
 		if tile == nil {
 			continue
 		}
 		if c, ok := tile.Component.(WeaponComponent); ok {
-			c.Weapon.Energy = p
 			c.Weapon.TileIdx = idx
 			weapons = append(weapons, c.Weapon)
 		}

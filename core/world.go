@@ -45,6 +45,37 @@ type World struct {
 // Turret exposes the turret grid read-only so the scene layer can draw it.
 func (w *World) Turret() *Turret { return w.turret }
 
+// FireRateMultiplier is the turret-wide power multiplier applied to every
+// weapon's fire interval (interval = baseInterval / multiplier). It is derived
+// from the connected consumer tile count via the configured power curve, so
+// cutting tiles raises it. Used by the simulation and by the HUD/gauge.
+func (w *World) FireRateMultiplier() float64 {
+	if w.turret == nil {
+		return 1
+	}
+	return PowerMultiplier(w.cfg.PowerCurve, w.turret.ConsumerTileCount())
+}
+
+// FireRateMultBounds returns the minimum and maximum fire-rate multiplier the
+// power curve can produce, so the HUD can normalise the multiplier into a [0,1]
+// gauge fill. Falls back to (1, 1) for an empty curve.
+func (w *World) FireRateMultBounds() (min, max float64) {
+	if len(w.cfg.PowerCurve) == 0 {
+		return 1, 1
+	}
+	min = w.cfg.PowerCurve[0].Mult
+	max = min
+	for _, p := range w.cfg.PowerCurve {
+		if p.Mult < min {
+			min = p.Mult
+		}
+		if p.Mult > max {
+			max = p.Mult
+		}
+	}
+	return min, max
+}
+
 // NewWorld builds a fresh run. seed makes enemy spawning and turret generation
 // deterministic for tests; pass time.Now().UnixNano() for real gameplay. cfg
 // supplies every balance number (see Config); the data package provides the
@@ -139,13 +170,14 @@ func (w *World) updatePlayer(move geom.PointF) {
 }
 
 func (w *World) updateWeapons() {
+	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
 		if weapon.cooldown > 0 {
 			weapon.cooldown--
 			continue
 		}
 
-		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
+		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind], fireMult)
 		target := w.nearestEnemy(w.Player.Pos, stats.Range)
 		if target == nil {
 			continue
@@ -185,13 +217,14 @@ func (w *World) updateWeapons() {
 // updateBeams applies DPS from active laser beams each tick.
 // Beams track the nearest enemy each frame and penetrate all enemies in path.
 func (w *World) updateBeams() {
+	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
 		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
 			continue
 		}
 		weapon.beamTicksLeft--
 
-		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
+		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind], fireMult)
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
 		target := w.nearestEnemy(muzzle, stats.Range)
 		if target == nil {
@@ -223,12 +256,13 @@ func (w *World) updateBeams() {
 
 // ActiveBeams returns snapshots of all currently firing laser beams for drawing.
 func (w *World) ActiveBeams() []BeamView {
+	fireMult := w.FireRateMultiplier()
 	var out []BeamView
 	for _, weapon := range w.Player.Weapons {
 		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
 			continue
 		}
-		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
+		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind], fireMult)
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
 		target := w.nearestEnemy(muzzle, stats.Range)
 		if target == nil {
@@ -461,7 +495,7 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		}
 		if w.rng.Float64() < 0.5 {
 			kind := pickWeaponKind(w.rng)
-			comps[i] = WeaponComponent{Weapon: NewWeapon(kind.String(), 0, kind)}
+			comps[i] = WeaponComponent{Weapon: NewWeapon(kind.String(), kind)}
 			bundleDesc += kind.String()
 		} else {
 			name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]

@@ -29,9 +29,9 @@ func (k WeaponKind) String() string {
 	}
 }
 
-// WeaponStats are the concrete combat numbers derived from a weapon's energy.
-// Everything flows through StatsFromEnergy so the wiring-tree (Disconnect)
-// mechanic can tune weapon behaviour purely by changing energy routing.
+// WeaponStats are the concrete combat numbers a weapon fires with. They flow
+// through Weapon.Stats, where the turret-wide fire-rate multiplier (the
+// Disconnect mechanic's power expression) modulates the fire interval.
 type WeaponStats struct {
 	Damage          float64
 	FireInterval    int     // ticks between shots (lower = faster)
@@ -47,43 +47,43 @@ type WeaponStats struct {
 type Weapon struct {
 	Name          string
 	Kind          WeaponKind
-	Energy        float64      // assigned by the Turret power solver; do not set directly
 	TileIdx       hexmap.Index // the turret tile this weapon sits on; set by ActiveWeapons
 	Level         int          // doctor upgrade level; each +1 multiplies Damage by WeaponParams.LevelMult
 	cooldown      int
 	beamTicksLeft int // KindLaser: ticks remaining in current beam burst
 }
 
-func NewWeapon(name string, energy float64, kind WeaponKind) *Weapon {
-	return &Weapon{Name: name, Energy: energy, Kind: kind}
+func NewWeapon(name string, kind WeaponKind) *Weapon {
+	return &Weapon{Name: name, Kind: kind}
 }
 
 // IsBeamActive reports whether this weapon is currently emitting a laser beam.
 func (w *Weapon) IsBeamActive() bool { return w.beamTicksLeft > 0 }
 
-// StatsFromEnergy maps routed energy onto combat numbers using the weapon's
-// balance params (supplied by the caller from the injected Config, keyed by
-// Kind). The energy→stats curve is the only coupling point between the power
-// solver and combat behaviour. Each weapon Level multiplies Damage by
-// p.LevelMult.
-func (w *Weapon) StatsFromEnergy(p WeaponParams) WeaponStats {
-	e := w.Energy
-	if e < 0 {
-		e = 0
+// Stats maps the weapon's balance params onto concrete combat numbers. The
+// turret's power is expressed as a single fire-rate multiplier (derived from the
+// turret tile count, the same for every weapon) and affects ONLY the fire
+// interval: FireInterval = round(BaseInterval / fireMult), clamped to
+// MinInterval. Damage, range and beam geometry are fixed by the params;
+// each weapon Level multiplies Damage by p.LevelMult. A higher fireMult means
+// a shorter interval, i.e. more frequent fire.
+func (w *Weapon) Stats(p WeaponParams, fireMult float64) WeaponStats {
+	if fireMult <= 0 {
+		fireMult = 1
 	}
-	interval := int(p.BaseInterval - e*p.EnergyInterval)
+	interval := int(math.Round(p.BaseInterval / fireMult))
 	if interval < p.MinInterval {
 		interval = p.MinInterval
 	}
 	stats := WeaponStats{
-		Damage:       p.BaseDamage + e*p.EnergyDamage,
+		Damage:       p.BaseDamage,
 		FireInterval: interval,
-		Range:        p.BaseRange + e*p.EnergyRange,
+		Range:        p.BaseRange,
 	}
 	if w.Kind == KindLaser {
-		stats.BeamLength = p.BeamBaseLength + e*p.BeamEnergyLength
-		stats.BeamWidth = p.BeamBaseWidth + e*p.BeamEnergyWidth
-		stats.BeamDuration = int(p.BeamBaseDuration + e*p.BeamEnergyDuration)
+		stats.BeamLength = p.BeamBaseLength
+		stats.BeamWidth = p.BeamBaseWidth
+		stats.BeamDuration = int(p.BeamBaseDuration)
 	} else {
 		stats.ProjectileSpeed = p.ProjSpeed
 	}

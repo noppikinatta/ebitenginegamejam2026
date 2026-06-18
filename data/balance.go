@@ -27,6 +27,7 @@ func NewConfig() core.Config {
 		Candlestick:  candlestick(),
 		TurretGen:    defaultTurretGen(),
 		Weapons:      weaponParams(),
+		PowerCurve:   powerCurve(),
 	}
 }
 

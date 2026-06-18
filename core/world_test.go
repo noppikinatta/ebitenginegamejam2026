@@ -107,12 +107,11 @@ func TestUpdate_TickIncrements(t *testing.T) {
 func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 
-	// Place weapon at energy=0: stats give FireInterval=45, Damage=5, Range=220.
+	// Base stats (Damage and Range are independent of the fire-rate multiplier).
 	weapon := w.Player.Weapons[0]
-	weapon.Energy = 0
 	weapon.cooldown = 0
 
-	stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
+	stats := weapon.Stats(w.cfg.Weapons[weapon.Kind], w.FireRateMultiplier())
 
 	// Place a weak enemy just within range.
 	enemy := &Enemy{
@@ -165,7 +164,6 @@ func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 func TestUpdate_ProjectileCreatedBeforeHit(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 	weapon := w.Player.Weapons[0]
-	weapon.Energy = 0
 	weapon.cooldown = 0
 
 	// Place a far-away enemy so the projectile is in-flight for several ticks.

@@ -140,7 +140,7 @@ func pickComponent(cfg TurretGenConfig, rng *rand.Rand) *Tile {
 	r := rng.Float64()
 	if r < cfg.WeaponDensity {
 		kind := pickWeaponKind(rng)
-		w := NewWeapon(kind.String(), 0, kind)
+		w := NewWeapon(kind.String(), kind)
 		return &Tile{Component: WeaponComponent{Weapon: w}}
 	}
 	r -= cfg.WeaponDensity

@@ -13,7 +13,7 @@ import (
 func makeTile(c Component) *Tile { return &Tile{Component: c} }
 func wireT() *Tile               { return makeTile(Wire{}) }
 func weaponT() *Tile {
-	return makeTile(WeaponComponent{Weapon: NewWeapon("test", 0, KindCannon)})
+	return makeTile(WeaponComponent{Weapon: NewWeapon("test", KindCannon)})
 }
 func junkT() *Tile { return makeTile(Junk{DeviceName: "Rubber Duck"}) }
 
@@ -31,8 +31,8 @@ func TestComputePower_GeneratorOnly(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	tiles := map[hexmap.Index]*Tile{gen: wireT()}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
-	if pt := tr.PowerPerTile(); !approx(pt, 0) {
-		t.Errorf("PowerPerTile with no consumers = %v, want 0", pt)
+	if n := tr.ConsumerTileCount(); n != 0 {
+		t.Errorf("ConsumerTileCount with no consumers = %d, want 0", n)
 	}
 }
 
@@ -50,9 +50,9 @@ func TestComputePower_FlatDistribution(t *testing.T) {
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 
-	// 2 consumer tiles (mid wire + weapon) → 50 each.
-	if pt := tr.PowerPerTile(); !approx(pt, 50) {
-		t.Errorf("PowerPerTile = %v, want 50", pt)
+	// 2 consumer tiles (mid wire + weapon).
+	if n := tr.ConsumerTileCount(); n != 2 {
+		t.Errorf("ConsumerTileCount = %d, want 2", n)
 	}
 	power := tr.ComputePower()
 	if !approx(power[weapon], 50) {
@@ -348,28 +348,23 @@ func TestCutPreview_RejectsGenerator(t *testing.T) {
 	}
 }
 
-// TestActiveWeapons_SetsEnergy: ActiveWeapons returns weapons with Energy set to
-// their flat power share.
-func TestActiveWeapons_SetsEnergy(t *testing.T) {
+// TestActiveWeapons_ReturnsConnectedWeapons: ActiveWeapons returns every weapon
+// on a connected tile (power is now a turret-wide multiplier, not per weapon).
+func TestActiveWeapons_ReturnsConnectedWeapons(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	left := hexmap.IdxXY(1, 0)
 	right := hexmap.IdxXY(0, 1)
 
 	tiles := map[hexmap.Index]*Tile{
 		gen:   wireT(),
-		left:  makeTile(WeaponComponent{Weapon: NewWeapon("L", 0, KindCannon)}),
-		right: makeTile(WeaponComponent{Weapon: NewWeapon("R", 0, KindCannon)}),
+		left:  makeTile(WeaponComponent{Weapon: NewWeapon("L", KindCannon)}),
+		right: makeTile(WeaponComponent{Weapon: NewWeapon("R", KindCannon)}),
 	}
 	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
 	weapons := tr.ActiveWeapons()
 
 	if len(weapons) != 2 {
 		t.Fatalf("got %d active weapons, want 2", len(weapons))
-	}
-	for _, w := range weapons {
-		if !approx(w.Energy, 50) {
-			t.Errorf("weapon %q energy=%v, want 50", w.Name, w.Energy)
-		}
 	}
 }
 
@@ -379,7 +374,7 @@ func TestActiveWeapons_SetsTileIdx(t *testing.T) {
 	gen := hexmap.IdxXY(0, 0)
 	wpos := hexmap.IdxXY(1, 0)
 
-	w := NewWeapon("w", 0, KindCannon)
+	w := NewWeapon("w", KindCannon)
 	tiles := map[hexmap.Index]*Tile{
 		gen:  wireT(),
 		wpos: makeTile(WeaponComponent{Weapon: w}),
@@ -437,7 +432,7 @@ func TestAddTile_PlacesAdjacentToActiveTile(t *testing.T) {
 	tr := NewTurret(map[hexmap.Index]*Tile{gen: wireT()}, []hexmap.Index{gen}, 100)
 	rng := rand.New(rand.NewSource(1))
 
-	idx, ok := tr.AddTile(WeaponComponent{Weapon: NewWeapon("x", 0, KindCannon)}, rng)
+	idx, ok := tr.AddTile(WeaponComponent{Weapon: NewWeapon("x", KindCannon)}, rng)
 	if !ok {
 		t.Fatal("AddTile returned false on an open grid")
 	}

@@ -60,8 +60,9 @@ type InGame struct {
 	paused bool
 
 	// powerGaugeFill is the smoothed [0,1] fill of the left-edge power gauge. It
-	// eases toward PowerPerTile/GenPower each frame so the bar visibly rises when
-	// a tile is cut (power re-concentrates) and falls when a doctor adds a tile.
+	// eases toward the normalised fire-rate multiplier each frame so the bar
+	// visibly rises when a tile is cut (power re-concentrates into faster fire)
+	// and falls when a doctor adds a tile.
 	powerGaugeFill float64
 }
 
@@ -91,18 +92,19 @@ func (g *InGame) OnStart() {
 }
 
 // powerGaugeTarget returns the [0,1] fill the left-edge power gauge should ease
-// toward: the current per-tile power as a fraction of the generator's output
-// (full bar = power concentrated into a single remaining tile).
+// toward: the current fire-rate multiplier normalised between the power curve's
+// minimum and maximum (full bar = the curve's max multiplier, i.e. power
+// concentrated into the fewest tiles).
 func (g *InGame) powerGaugeTarget() float64 {
-	tr := g.world.Turret()
-	if tr == nil {
+	if g.world.Turret() == nil {
 		return 0
 	}
-	gen := tr.GenPower()
-	if gen <= 0 {
+	min, max := g.world.FireRateMultBounds()
+	span := max - min
+	if span <= 0 {
 		return 0
 	}
-	r := tr.PowerPerTile() / gen
+	r := (g.world.FireRateMultiplier() - min) / span
 	if r < 0 {
 		return 0
 	}
@@ -335,8 +337,9 @@ const (
 )
 
 // drawPowerGauge draws a vertical bar on the left edge whose height encodes the
-// per-tile power share. It fills from the bottom up and brightens as power rises,
-// so disconnecting tiles (which re-concentrates power) makes the bar climb.
+// turret-wide fire-rate multiplier. It fills from the bottom up and brightens as
+// the multiplier rises, so disconnecting tiles (which re-concentrates power into
+// faster fire) makes the bar climb.
 func (g *InGame) drawPowerGauge(screen *ebiten.Image) {
 	trackH := powerGaugeBottom - powerGaugeTop
 
@@ -359,17 +362,13 @@ func (g *InGame) drawPowerGauge(screen *ebiten.Image) {
 		drawing.DrawRect(screen, powerGaugeX, powerGaugeBottom-fillH, powerGaugeW, fillH, r, gr, b, 1)
 	}
 
-	// Label above the bar plus the numeric per-tile power for an exact read.
-	powerPerTile := 0.0
-	if tr := g.world.Turret(); tr != nil {
-		powerPerTile = tr.PowerPerTile()
-	}
+	// Label above the bar plus the exact fire-rate multiplier below it.
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(powerGaugeX-4, powerGaugeTop-26)
 	drawing.DrawText(screen, "PWR", 14, opt)
 	opt = &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(powerGaugeX-4, powerGaugeBottom+4)
-	drawing.DrawText(screen, fmt.Sprintf("%.0f", powerPerTile), 14, opt)
+	opt.GeoM.Translate(powerGaugeX-6, powerGaugeBottom+4)
+	drawing.DrawText(screen, fmt.Sprintf("x%.2f", g.world.FireRateMultiplier()), 14, opt)
 }
 
 func (g *InGame) drawLevelUp(screen *ebiten.Image) {
@@ -633,13 +632,9 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 		drawing.DrawRect(screen, 20, 50, 300*float64(p.XP/p.XPToNext), 8, 0.4, 0.6, 1, 1)
 	}
 
-	powerPerTile := 0.0
-	if tr := g.world.Turret(); tr != nil {
-		powerPerTile = tr.PowerPerTile()
-	}
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(20, 64)
-	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Pwr/Tile %.1f  Nippers %d", p.Level, p.Speed, powerPerTile, p.Nippers), 18, opt)
+	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Fire x%.2f  Nippers %d", p.Level, p.Speed, g.world.FireRateMultiplier(), p.Nippers), 18, opt)
 
 	// Cut hint.
 	opt = &ebiten.DrawImageOptions{}
