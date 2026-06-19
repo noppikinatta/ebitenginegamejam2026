@@ -650,19 +650,26 @@ func upgradeShare(dd DoctorSpec) float64 {
 	return 0.5
 }
 
+// defaultSpawnInterval is used only if the active phase has no Interval set.
+const defaultSpawnInterval = 60
+
 func (w *World) spawnEnemies() {
 	if w.spawnTimer > 0 {
 		w.spawnTimer--
 		return
 	}
-	sp := w.cfg.Spawn
-	interval := sp.EnemyBaseInterval - w.Tick/sp.EnemyIntervalDecay
-	if interval < sp.EnemyMinInterval {
-		interval = sp.EnemyMinInterval
+	ph := w.currentPhase()
+	interval := defaultSpawnInterval
+	if ph != nil && ph.Interval > 0 {
+		interval = ph.Interval
 	}
 	w.spawnTimer = interval
 
-	w.spawnPackOf(w.pickSpawnKind())
+	kind := EnemyGrunt
+	if ph != nil {
+		kind = w.pickKind(ph.Weights)
+	}
+	w.spawnPackOf(kind)
 }
 
 // spawnPackOf spawns a cluster (pack) of one zako kind around a single bearing,
@@ -700,10 +707,19 @@ func (w *World) makeEnemy(kind EnemyKind, s EnemyStats, pos geom.PointF) *Enemy 
 }
 
 // pickSpawnKind chooses an enemy kind using the weights of the current spawn
-// phase (the first phase whose UntilTick the game hasn't passed yet). Iteration
-// is over an ordered slice so the choice is deterministic for a given RNG state.
+// phase. Returns EnemyGrunt if there is no phase.
 func (w *World) pickSpawnKind() EnemyKind {
-	weights := w.currentPhaseWeights()
+	ph := w.currentPhase()
+	if ph == nil {
+		return EnemyGrunt
+	}
+	return w.pickKind(ph.Weights)
+}
+
+// pickKind does a weighted random pick over an ordered weight slice. Iteration
+// order is fixed (slice, not map) so the choice is deterministic for a given RNG
+// state.
+func (w *World) pickKind(weights []KindWeight) EnemyKind {
 	total := 0
 	for _, kw := range weights {
 		if kw.Weight > 0 {
@@ -726,14 +742,16 @@ func (w *World) pickSpawnKind() EnemyKind {
 	return EnemyGrunt
 }
 
-func (w *World) currentPhaseWeights() []KindWeight {
-	for _, ph := range w.cfg.SpawnPhases {
-		if w.Tick < ph.UntilTick {
-			return ph.Weights
+// currentPhase returns the spawn band for the current tick: the first phase whose
+// UntilTick hasn't been passed, else the last phase, else nil.
+func (w *World) currentPhase() *SpawnPhase {
+	for i := range w.cfg.SpawnPhases {
+		if w.Tick < w.cfg.SpawnPhases[i].UntilTick {
+			return &w.cfg.SpawnPhases[i]
 		}
 	}
 	if n := len(w.cfg.SpawnPhases); n > 0 {
-		return w.cfg.SpawnPhases[n-1].Weights
+		return &w.cfg.SpawnPhases[n-1]
 	}
 	return nil
 }

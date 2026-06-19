@@ -32,6 +32,26 @@ func TestPickSpawnKind_PhaseGated(t *testing.T) {
 	}
 }
 
+// TestSpawnEnemies_UsesPhaseInterval: the spawn cadence is taken from the time
+// band the timer currently falls in.
+func TestSpawnEnemies_UsesPhaseInterval(t *testing.T) {
+	w := NewWorld(1, testConfig())
+
+	w.Tick = 0 // first band: interval 70
+	w.spawnTimer = 0
+	w.spawnEnemies()
+	if w.spawnTimer != 70 {
+		t.Errorf("opening-band interval = %d, want 70", w.spawnTimer)
+	}
+
+	w.Tick = 9 * 3600 // final band: interval 26
+	w.spawnTimer = 0
+	w.spawnEnemies()
+	if w.spawnTimer != 26 {
+		t.Errorf("final-band interval = %d, want 26", w.spawnTimer)
+	}
+}
+
 // TestMakeEnemy_HPScalesWithTime: HP doubles after one HPDoublingTicks interval.
 func TestMakeEnemy_HPScalesWithTime(t *testing.T) {
 	w := NewWorld(1, testConfig())

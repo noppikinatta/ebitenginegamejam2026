@@ -111,14 +111,12 @@ type PickupRanges struct {
 	MagnetSpeed float64 // px per tick toward the player
 }
 
-// SpawnSpec controls enemy and candlestick spawn placement and timing.
+// SpawnSpec controls enemy and candlestick spawn placement. The spawn cadence
+// and enemy mix are time-banded (see SpawnPhase).
 type SpawnSpec struct {
-	EnemyDist          float64 // fixed spawn distance from player
-	EnemyBaseInterval  int     // ticks between spawns at tick 0
-	EnemyMinInterval   int     // floor for spawn interval (faster cap)
-	EnemyIntervalDecay int     // game ticks that reduce spawn interval by 1
-	CandleDist         float64 // minimum candlestick distance from player
-	CandleDistRange    float64 // random extra distance beyond CandleDist
+	EnemyDist       float64 // fixed spawn distance from player
+	CandleDist      float64 // minimum candlestick distance from player
+	CandleDistRange float64 // random extra distance beyond CandleDist
 }
 
 // DoctorSpec controls the balance of the three level-up offer types:
@@ -154,12 +152,15 @@ type KindWeight struct {
 	Weight int
 }
 
-// SpawnPhase gives the relative spawn weights of each enemy kind while the game
-// tick is below UntilTick. Phases are listed in ascending UntilTick order; the
-// last one should use a very large UntilTick to cover the rest of the run. The
-// weights are an ordered slice (not a map) so spawning stays deterministic.
+// SpawnPhase is one time band: while the game tick is below UntilTick, enemies
+// spawn every Interval ticks with the given per-kind weights. Phases are listed
+// in ascending UntilTick order; the last one should use a very large UntilTick to
+// cover the rest of the run. Weights are an ordered slice (not a map) so spawning
+// stays deterministic. This is the single place to tune how the enemy mix and
+// cadence change over time.
 type SpawnPhase struct {
 	UntilTick int
+	Interval  int // ticks between spawns while in this band
 	Weights   []KindWeight
 }
 

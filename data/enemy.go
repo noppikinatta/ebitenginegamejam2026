@@ -35,24 +35,41 @@ func enemyKinds() map[core.EnemyKind]core.EnemyStats {
 	}
 }
 
-// spawnPhases returns the time-gated spawn weights. Early on it's mostly grunts
-// with a few swarmers; brutes join after the first boss; the mix thickens for
-// the final stretch. The last phase covers the rest of the run.
+// spawnPhases defines the time bands: each sets the spawn Interval (cadence) and
+// the per-kind weights for its stretch of the run. Edit these to retune how
+// enemies appear over time — the bands escalate by shortening the interval and
+// shifting the mix toward swarmers and brutes. The last band (math.MaxInt)
+// covers the rest of the run.
 func spawnPhases() []core.SpawnPhase {
+	min1_5, min8 := 90*60, 8*60*60
 	return []core.SpawnPhase{
-		{UntilTick: min3, Weights: []core.KindWeight{
-			{Kind: core.EnemyGrunt, Weight: 7},
-			{Kind: core.EnemySwarmer, Weight: 3},
+		// 0:00–1:30 — calm intro, slow grunts.
+		{UntilTick: min1_5, Interval: 70, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 8},
+			{Kind: core.EnemySwarmer, Weight: 2},
 		}},
-		{UntilTick: min6, Weights: []core.KindWeight{
+		// 1:30–3:00 — pace picks up, more swarmers.
+		{UntilTick: min3, Interval: 54, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 6},
+			{Kind: core.EnemySwarmer, Weight: 4},
+		}},
+		// 3:00–6:00 — brutes join after the first boss.
+		{UntilTick: min6, Interval: 44, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 5},
 			{Kind: core.EnemySwarmer, Weight: 4},
 			{Kind: core.EnemyBrute, Weight: 1},
 		}},
-		{UntilTick: math.MaxInt, Weights: []core.KindWeight{
+		// 6:00–8:00 — heavier swarms.
+		{UntilTick: min8, Interval: 34, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 4},
-			{Kind: core.EnemySwarmer, Weight: 4},
+			{Kind: core.EnemySwarmer, Weight: 5},
 			{Kind: core.EnemyBrute, Weight: 2},
+		}},
+		// 8:00+ — final-stretch onslaught.
+		{UntilTick: math.MaxInt, Interval: 26, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 3},
+			{Kind: core.EnemySwarmer, Weight: 5},
+			{Kind: core.EnemyBrute, Weight: 3},
 		}},
 	}
 }
@@ -79,14 +96,12 @@ func candlestick() core.Enemy {
 	}
 }
 
-// defaultSpawn returns the enemy/candlestick placement and timing parameters.
+// defaultSpawn returns the enemy/candlestick placement parameters. Spawn cadence
+// and enemy mix are time-banded in spawnPhases.
 func defaultSpawn() core.SpawnSpec {
 	return core.SpawnSpec{
-		EnemyDist:          520,
-		EnemyBaseInterval:  60,
-		EnemyMinInterval:   18,
-		EnemyIntervalDecay: 600,
-		CandleDist:         220,
-		CandleDistRange:    220,
+		EnemyDist:       520,
+		CandleDist:      220,
+		CandleDistRange: 220,
 	}
 }

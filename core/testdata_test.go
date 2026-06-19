@@ -23,7 +23,7 @@ func testConfig() Config {
 		CapacitorFireRateBonus: 0.1,
 		Player:                 Player{HP: 100, MaxHP: 100, Speed: 3, Radius: 36, Level: 1, XPToNext: 10},
 		Pickup:                 PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 4},
-		Spawn:                  SpawnSpec{EnemyDist: 520, EnemyBaseInterval: 60, EnemyMinInterval: 18, EnemyIntervalDecay: 600, CandleDist: 220, CandleDistRange: 220},
+		Spawn:                  SpawnSpec{EnemyDist: 520, CandleDist: 220, CandleDistRange: 220},
 		Doctor:                 DoctorSpec{NipperChance: 0.25, UpgradeChance: 0.625, NipperMin: 5, NipperMax: 10, MaxUpgrades: 3, MaxBundleTiles: 3, CapacitorChance: 0.15},
 		EnemyKinds:             testEnemyKinds(),
 		HPDoublingTicks:        18000,
@@ -47,11 +47,13 @@ func testEnemyKinds() map[EnemyKind]EnemyStats {
 }
 
 func testSpawnPhases() []SpawnPhase {
-	const min3, min6 = 3 * 3600, 6 * 3600
+	const min1_5, min3, min6, min8 = 90 * 60, 3 * 3600, 6 * 3600, 8 * 3600
 	return []SpawnPhase{
-		{UntilTick: min3, Weights: []KindWeight{{EnemyGrunt, 7}, {EnemySwarmer, 3}}},
-		{UntilTick: min6, Weights: []KindWeight{{EnemyGrunt, 5}, {EnemySwarmer, 4}, {EnemyBrute, 1}}},
-		{UntilTick: math.MaxInt, Weights: []KindWeight{{EnemyGrunt, 4}, {EnemySwarmer, 4}, {EnemyBrute, 2}}},
+		{UntilTick: min1_5, Interval: 70, Weights: []KindWeight{{EnemyGrunt, 8}, {EnemySwarmer, 2}}},
+		{UntilTick: min3, Interval: 54, Weights: []KindWeight{{EnemyGrunt, 6}, {EnemySwarmer, 4}}},
+		{UntilTick: min6, Interval: 44, Weights: []KindWeight{{EnemyGrunt, 5}, {EnemySwarmer, 4}, {EnemyBrute, 1}}},
+		{UntilTick: min8, Interval: 34, Weights: []KindWeight{{EnemyGrunt, 4}, {EnemySwarmer, 5}, {EnemyBrute, 2}}},
+		{UntilTick: math.MaxInt, Interval: 26, Weights: []KindWeight{{EnemyGrunt, 3}, {EnemySwarmer, 5}, {EnemyBrute, 3}}},
 	}
 }
 
