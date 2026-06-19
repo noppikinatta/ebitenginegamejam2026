@@ -72,6 +72,30 @@ func NewInGame(input *ui.Input) *InGame {
 	}
 }
 
+// Outcome reports how the last run ended, for the result screen to branch on.
+type Outcome int
+
+const (
+	OutcomeNone Outcome = iota // run still in progress (or not started)
+	OutcomeWin                 // final boss defeated
+	OutcomeLose                // player destroyed
+)
+
+// Outcome returns the result of the current world's run.
+func (g *InGame) Outcome() Outcome {
+	if g.world == nil {
+		return OutcomeNone
+	}
+	switch g.world.State {
+	case core.StateCleared:
+		return OutcomeWin
+	case core.StateGameOver:
+		return OutcomeLose
+	default:
+		return OutcomeNone
+	}
+}
+
 func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transition bamenn.Transition) {
 	g.nextScene = nextScene
 	g.sequence = sequence

@@ -104,11 +104,13 @@ go test ./lang/... -run TestName -v
 
 ### Scene System
 
-`scene/sequence.go` — `bamenn.Sequence` でシーン遷移を構成。順序は **Title → InGame → Result → (Title)** のループ。各シーンは `Init(nextScene, sequence, transition)` で次シーンへの参照を受け取り、`SwitchWithTransition` でフェード遷移する。
+`scene/sequence.go` — `bamenn.Sequence` でシーン遷移を構成。順序は **Opening → Title → InGame → Result** で、Result から勝利時=Opening / 敗北時=InGame(リトライ)・Opening(受容) へ分岐ループ。各シーンは `Init(...)` で次シーン参照を受け取り `SwitchWithTransition` でフェード遷移。`Result.Init` だけ `(inGame, opening, seq, tran)` と特殊（勝敗判定元＋分岐先のため）。
 
 `CreateSequence` は `wrapperGame` を返す。これは `langSwitcher`（後述）を `Sequence` にかぶせ、全シーン共通で言語切替の入力と表示を処理するラッパー。
 
+- `scene/opening.go` — オープニング・シネマティック。エイリアン徘徊＋テロップ→自機（武装なし）が下から登場し中央へ→博士のセリフで武装が画面外から1つずつ飛来して装着→完成でタイトルへ自動遷移（クリックでスキップ）。`OnStart` で毎回リセット。タイムラインは tick ベース、装飾用の固定砲塔配置 `openingWeapons`（実runの生成砲塔とは無関係）
 - `scene/title.go` — タイトル画面。タイトル画像とストーリーテキスト（`lang.Text("story-1")`）を表示し、左クリックで次シーンへ。シーン実装の参考パターンになる（`Title` 構造体 + `NewTitle` + `Init`/`Update`/`Draw`/`Layout`）
+- `scene/result.go` — 勝敗で分岐。勝利＝「エイリアンを倒し、自由を手に入れた」＋『オープニングに戻る』。敗北＝「…自由を失った。…」＋『リトライ』(InGame)／『結果を受け入れる』(Opening)。勝敗は `InGame.Outcome()`（`StateCleared`/`StateGameOver`）から取得。`sceneButton` で簡易クリックボタン
 - `scene/lang.go` — `langSwitcher`。**L キー**で言語をトグルし、`DrawTriangles` のグラデ矩形＋テキストで現在言語を一時表示（alpha フェードアウト）
 
 ### Packages

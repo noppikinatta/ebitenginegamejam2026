@@ -10,15 +10,17 @@ import (
 )
 
 func CreateSequence(input *ui.Input) ebiten.Game {
+	opening := NewOpening(input)
 	title := NewTitle(input)
 	inGame := NewInGame(input)
 	result := NewResult(input)
-	seq := bamenn.NewSequence(title)
+	seq := bamenn.NewSequence(opening)
 	tran := bamenn.NewLinearTransition(5, 10, bamennutil.LinearFillFadingDrawer{Color: color.Black})
 
+	opening.Init(title, seq, tran)
 	title.Init(inGame, seq, tran)
 	inGame.Init(result, seq, tran)
-	result.Init(title, seq, tran)
+	result.Init(inGame, opening, seq, tran)
 
 	return &wrapperGame{
 		langSwitcher: &langSwitcher{},
