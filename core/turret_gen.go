@@ -129,18 +129,17 @@ func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 
 // junkSpec defines one absurd device a doctor might bolt on. Name is the English
 // display string (also the localisation slug source); Tall marks junk drawn as a
-// tall, always-upright fixture rather than a flat tile. Emits is reserved for the
-// "things that come out" junk (projectile behaviour, planned) and is currently
-// unused, so every junk is inert.
+// tall, always-upright fixture rather than a flat tile. Emitter, when set, makes
+// the junk periodically spit out a cosmetic projectile; nil junk is inert.
 type junkSpec struct {
-	Name  string
-	Tall  bool
-	Emits bool
+	Name    string
+	Tall    bool
+	Emitter *EmitterSpec
 }
 
 // junkSpecs is the pool of junk devices. The first group is purely cosmetic
-// novelties; the second group is intended to eventually emit projectiles but is
-// inert for now (Emits is not yet wired to any behaviour).
+// novelties; the second group is the "emits something" junk — only those wired
+// with an Emitter actually fire (the rest are inert until their behaviour lands).
 var junkSpecs = []junkSpec{
 	// Inert novelties.
 	{Name: "Unusual Banana"},
@@ -157,34 +156,56 @@ var junkSpecs = []junkSpec{
 	{Name: "NFT Nuclear Missile"},
 	{Name: "Horns"},
 	{Name: "AI Targeting Device"},
-	// Devices that will emit something later (currently inert).
-	{Name: "Balloon Service Unit", Emits: true},
-	{Name: "Coffee Maker", Emits: true},
-	{Name: "Toaster", Emits: true},
-	{Name: "Music Box", Emits: true},
-	{Name: "Rubber Duck Dispenser", Emits: true},
-	{Name: "Fireworks", Emits: true},
+	// Devices that emit something. Wired emitters fire; the rest are inert until
+	// their behaviour is implemented.
+	{Name: "Balloon Service Unit", Emitter: &balloonEmitter},
+	{Name: "Coffee Maker"},
+	{Name: "Toaster"},
+	{Name: "Music Box"},
+	{Name: "Rubber Duck Dispenser"},
+	{Name: "Fireworks"},
+}
+
+// junkBySpec finds the spec for a device name (nil if not in the pool).
+func junkBySpec(name string) *junkSpec {
+	for i := range junkSpecs {
+		if junkSpecs[i].Name == name {
+			return &junkSpecs[i]
+		}
+	}
+	return nil
 }
 
 // junkTall reports whether the named device renders as a tall fixture.
 func junkTall(name string) bool {
-	for _, s := range junkSpecs {
-		if s.Name == name {
-			return s.Tall
-		}
+	if s := junkBySpec(name); s != nil {
+		return s.Tall
 	}
 	return false
 }
 
-// newJunk builds a Junk for the given device, setting Tall for the tall ones.
+// junkFromSpec builds a Junk from a spec, attaching a fresh emitter (with its
+// own firing accumulator) when the spec defines one.
+func junkFromSpec(s junkSpec) Junk {
+	j := Junk{DeviceName: s.Name, Tall: s.Tall}
+	if s.Emitter != nil {
+		spec := *s.Emitter
+		j.emitter = &junkEmitter{spec: spec}
+	}
+	return j
+}
+
+// newJunk builds a Junk for the given device name (inert if unknown).
 func newJunk(name string) Junk {
-	return Junk{DeviceName: name, Tall: junkTall(name)}
+	if s := junkBySpec(name); s != nil {
+		return junkFromSpec(*s)
+	}
+	return Junk{DeviceName: name}
 }
 
 // randomJunk builds a Junk with a random device from the pool.
 func randomJunk(rng *rand.Rand) Junk {
-	s := junkSpecs[rng.Intn(len(junkSpecs))]
-	return Junk{DeviceName: s.Name, Tall: s.Tall}
+	return junkFromSpec(junkSpecs[rng.Intn(len(junkSpecs))])
 }
 
 // pickComponent returns a tile whose Component is chosen probabilistically.

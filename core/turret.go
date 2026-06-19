@@ -84,6 +84,10 @@ func (w WeaponComponent) Mods() Modifier { return Modifier{} }
 type Junk struct {
 	DeviceName string
 	Tall       bool
+	// emitter, when set, makes this junk periodically spit out a cosmetic
+	// projectile (see junk_emitter.go). nil junk is inert. It is a pointer so a
+	// copied Junk value shares the same firing accumulator.
+	emitter *junkEmitter
 }
 
 func (j Junk) Name() string {
@@ -472,4 +476,29 @@ func (t *Turret) ActiveWeapons() []*Weapon {
 		}
 	}
 	return weapons
+}
+
+// emitterAt pairs an active junk emitter with the tile it sits on.
+type emitterAt struct {
+	idx     hexmap.Index
+	emitter *junkEmitter
+}
+
+// ActiveEmitters returns the connected emitting-junk tiles (the cosmetic
+// projectile spitters), analogous to ActiveWeapons. Inert junk is skipped.
+func (t *Turret) ActiveEmitters() []emitterAt {
+	// ComputePower keys every connected consumer tile (WeaponPower would filter to
+	// weapon tiles and drop junk), so this sees connected emitting junk.
+	power := t.ComputePower()
+	var out []emitterAt
+	for idx := range power {
+		tile := t.tiles[idx]
+		if tile == nil {
+			continue
+		}
+		if j, ok := tile.Component.(Junk); ok && j.emitter != nil {
+			out = append(out, emitterAt{idx: idx, emitter: j.emitter})
+		}
+	}
+	return out
 }

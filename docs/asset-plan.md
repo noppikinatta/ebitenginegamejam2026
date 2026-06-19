@@ -31,16 +31,25 @@
 - キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のタイルバンドルで `DoctorSpec.CapacitorChance`(=0.15) の確率で出現
   - 将来拡張: `Modifier` に `MaxHPAdd` 等を足せば増加装甲のような設備も同じ仕組みで追加可能
 
-> **実装状況**：全ジャンクは `core/turret_gen.go` の `junkSpecs` レジストリ（`junkSpec{Name, Tall, Emits}`）にデータ定義済み。現状は**すべて inert（何も出ない）＝サグラダファミリア同型の装飾ジャンク**で、電力を薄めるだけ。表示名は `asset/lang/*.csv` の `junk-<slug>` キーで多言語化。画像は `tile_junk` 共用（Tall のみ `junk_tower`）。`Emits` フラグは「何かが出る物」用の予約で、まだ挙動に未接続。
+> **実装状況**：全ジャンクは `core/turret_gen.go` の `junkSpecs` レジストリ（`junkSpec{Name, Tall, Emitter}`）にデータ定義済み。装飾ジャンクは inert（電力を薄めるだけ）。表示名は `asset/lang/*.csv` の `junk-<slug>` キーで多言語化。画像は `tile_junk` 共用（Tall のみ `junk_tower`）。`Emitter`（`*EmitterSpec`）が設定されたジャンクのみ弾を出す。
 
 ## ジャンク（何かが出る物。弾の発射を応用して作る）
-`Emits: true`。現状は inert。挙動は後述の計画で実装予定。
-- 風船サービス装置 (Balloon Service Unit)
-- コーヒーメーカー (Coffee Maker)
-- トースター (Toaster)
-- オルゴール (Music Box)
-- ラバーダック設置装置 (Rubber Duck Dispenser)
-- 花火 (Fireworks)
+
+**発射の仕組み（実装済みの基盤）**：武器とは独立した軽量エミッタ系で `Projectile`＋`ProjectileMover` を再利用。
+- `core/junk_emitter.go`：`EmitterSpec{Interval, Aim(EmitUp/Outward/Random), Speed, Life, Radius, Sprite, Mover, ExplodeRadius}`、ランタイム `junkEmitter{spec, timer}`（`Junk.emitter *junkEmitter`、値コピーでも timer 共有）、`World.updateJunkEmitters()`（`Update` で毎tick、`MuzzleOffset` から発射）、`emitAngle`。
+- `Turret.ActiveEmitters()`：接続中の発射ジャンクを収集（`ComputePower` ベース＝junkも含む）。
+- 発射は**固定 Interval（発射倍率の影響なし）**。弾は**コミカル演出＝0ダメージ・`PassThrough`（敵すり抜け）**で、ジャンクは依然「切るべき無用タイル」。
+- `Projectile.Sprite`（画像キー、空＝既定弾）追加。scene は junk弾を 16px・既定弾を 8px で描画。Mover は `core/projectile_mover.go`。
+
+**実装状況**
+- 風船サービス装置 (Balloon Service Unit) — **実装済**。`NewRiseMover`（上昇＋サイン横揺れ）で画面上へ漂う。Interval 90tick、Sprite `proj_balloon`（プレースホルダ＝赤丸）。
+- コーヒーメーカー (Coffee Maker) — 未。案：外側へ噴出→`gravityMover`（下向き加速）で落下。Sprite `proj_coffee`
+- トースター (Toaster) — 未。案：上へポン→`gravityMover` でアーチ落下。Sprite `proj_toast`
+- オルゴール (Music Box) — 未。案：外側へ漂う音符（drift/fade）。Sprite `proj_note`
+- ラバーダック設置装置 (Rubber Duck Dispenser) — 未。案：周囲に落とす（`gravityMover` 短寿命）。Sprite `proj_duck`
+- 花火 (Fireworks) — 未。案：上へ→寿命切れで `ExplodeRadius>0` の**0ダメージ爆発**演出。Sprite `proj_firework`
+
+> 次フェーズ（残り5種）の追加点：①共通 `gravityMover` 実装 ②各 `proj_*` プレースホルダ画像 ③`asset/lang` の説明は共通 `junk-desc` を流用（個別説明は任意）。各 `EmitterSpec` を `junkSpecs` の該当エントリに紐付けるだけで有効化。
 
 ## ジャンク（何も出ないもの）— 実装済（inert）
 - unusual banana (Unusual Banana)
@@ -64,4 +73,4 @@
 - 武器: Cannon / Shotgun / Sniper / Laser（`core/weapon.go`、画像キー `tile_weapon_*`）
 - ジャンク: 機械的効果は同一（inert）・画像は `tile_junk` 1枚共用（`core/turret_gen.go` の `junkSpecs`、20種）。Tall のみ `junk_tower`
 - キャパシタ（電力ボーナス）は実装済（設備カテゴリ）
-- 「弾が出るジャンク」は `Emits` フラグだけ用意済みで**挙動は未実装**（次の計画で着手）
+- 「弾が出るジャンク」はエミッタ系（`core/junk_emitter.go`）実装済み。**風船サービス装置のみ稼働**、残り5種は `EmitterSpec` 紐付け待ち

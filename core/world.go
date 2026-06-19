@@ -133,6 +133,7 @@ func (w *World) Update(move geom.PointF) {
 	w.Tick++
 	w.updatePlayer(move)
 	w.updateWeapons()
+	w.updateJunkEmitters()
 	w.updateBeams()
 	w.updateExplosions() // age existing effects before new ones may spawn this tick
 	w.updateProjectiles()

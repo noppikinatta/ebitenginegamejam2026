@@ -335,7 +335,13 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1)
 	}
 	for _, p := range w.Projectiles {
-		drawSprite(screen, cam, asset.ImgProjectile, p.Pos, 8, 8, 0, 1, 1, 1, 1)
+		// Junk emitters tag their cosmetic projectiles with a sprite key; plain
+		// bullets leave it empty and use the default sprite (drawn smaller).
+		key, sz := asset.ImgProjectile, 8.0
+		if p.Sprite != "" {
+			key, sz = p.Sprite, 16.0
+		}
+		drawSprite(screen, cam, key, p.Pos, sz, sz, 0, 1, 1, 1, 1)
 	}
 	g.drawBeams(screen, cam)
 

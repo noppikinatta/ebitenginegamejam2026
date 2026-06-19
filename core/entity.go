@@ -64,7 +64,10 @@ type Projectile struct {
 	PassThrough bool
 	// Mover steers the projectile each tick (homing, drifting). nil flies straight.
 	Mover ProjectileMover
-	alive bool
+	// Sprite is the image key this projectile is drawn with; empty uses the
+	// default bullet sprite. Junk emitters set it to their cosmetic projectile.
+	Sprite string
+	alive  bool
 }
 
 // Explosion is a short-lived visual effect queued where an explosive shell

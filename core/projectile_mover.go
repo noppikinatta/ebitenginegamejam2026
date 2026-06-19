@@ -31,6 +31,33 @@ func NewHomingMover(turn, maxSpeed float64) ProjectileMover {
 	return homingMover{turn: turn, maxSpeed: maxSpeed}
 }
 
+// riseMover makes a projectile drift up the screen (toward world -Y) with a
+// gentle horizontal sway — a wobbling, rising balloon. Used by cosmetic junk
+// emitters; it ignores enemies entirely (movement only).
+type riseMover struct {
+	lift     float64 // upward acceleration per tick (toward -Y)
+	wobble   float64 // horizontal sway acceleration amplitude
+	maxSpeed float64 // speed cap (0 = uncapped)
+}
+
+// NewRiseMover returns a mover that floats a projectile upward with a sideways
+// wobble. lift is the per-tick upward acceleration, wobble the sway amplitude,
+// maxSpeed the cap (0 = none).
+func NewRiseMover(lift, wobble, maxSpeed float64) ProjectileMover {
+	return riseMover{lift: lift, wobble: wobble, maxSpeed: maxSpeed}
+}
+
+func (m riseMover) Steer(p *Projectile, w *World) {
+	p.Vel.Y -= m.lift
+	// Phase the sway by the projectile's spawn X so balloons don't sway in unison.
+	p.Vel.X += math.Sin(float64(w.Tick)*0.15+p.Pos.X) * m.wobble
+	if m.maxSpeed > 0 {
+		if s := p.Vel.Abs(); s > m.maxSpeed {
+			p.Vel = p.Vel.Multiply(m.maxSpeed / s)
+		}
+	}
+}
+
 func (m homingMover) Steer(p *Projectile, w *World) {
 	target := w.nearestEnemy(p.Pos, math.MaxFloat64)
 	if target == nil {
