@@ -12,6 +12,7 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/core"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
+	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
@@ -77,11 +78,6 @@ var openingWeapons = []struct {
 	{54, 54, core.KindMissile},
 	{0, 74, core.KindGrenade},
 }
-
-const (
-	opLineAliens = "エイリアンが攻めてきたぞ！"
-	opLineDoctor = "一人では危険じゃ、これを授けよう"
-)
 
 func NewOpening(input *ui.Input) *Opening {
 	return &Opening{input: input}
@@ -182,7 +178,7 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 
 	if o.t < opAliensEnd {
 		a := float32(clamp01(math.Min(float64(o.t)/30, float64(opAliensEnd-o.t)/30)))
-		drawTelopC(screen, opLineAliens, opCenterX, 150, 44, 1, 0.5, 0.45, a)
+		drawTelopC(screen, lang.Text("op-aliens"), opCenterX, 150, 44, 1, 0.5, 0.45, a)
 		o.drawSkipHint(screen)
 		return
 	}
@@ -216,12 +212,12 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 
 	// The first doctor's line, then the crowd of repeated bubbles.
 	if o.t >= opFirstLine && o.t < opFirstArrive+40 {
-		drawTelopC(screen, opLineDoctor, opCenterX, 600, 30, 1, 0.95, 0.6, 1)
+		drawTelopC(screen, lang.Text("op-doctor"), opCenterX, 600, 30, 1, 0.95, 0.6, 1)
 	}
 	for _, b := range o.bubbles {
 		a := float32(clamp01(1 - float64(o.t-b.born)/80))
 		if a > 0 {
-			drawTelopC(screen, opLineDoctor, b.pos.X, b.pos.Y, 18, 0.9, 0.9, 1, a)
+			drawTelopC(screen, lang.Text("op-doctor"), b.pos.X, b.pos.Y, 18, 0.9, 0.9, 1, a)
 		}
 	}
 
@@ -232,7 +228,7 @@ func (o *Opening) drawSkipHint(screen *ebiten.Image) {
 	opt := &ebiten.DrawImageOptions{}
 	opt.ColorScale.Scale(0.6, 0.6, 0.6, 0.6)
 	opt.GeoM.Translate(screenW-180, screenH-36)
-	drawing.DrawText(screen, "Click to skip", 16, opt)
+	drawing.DrawTextByKey(screen, "click-skip", 16, opt)
 }
 
 func (o *Opening) Layout(outsideWidth, outsideHeight int) (int, int) { return screenW, screenH }

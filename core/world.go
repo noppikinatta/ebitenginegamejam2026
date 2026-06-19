@@ -29,6 +29,10 @@ type World struct {
 	Pickups     []*Pickup    // dropped nippers awaiting collection
 	Explosions  []*Explosion // active explosion visual effects
 
+	// SoundEvents are the sound effects triggered during the current tick.
+	// The scene layer drains this after Update; it is reset each tick.
+	SoundEvents []SoundEvent
+
 	// Choices are the doctor offers shown while State==StateLevelUp.
 	Choices []Upgrade
 
@@ -118,6 +122,10 @@ func NewWorld(seed int64, cfg Config) *World {
 // direction (each axis in [-1,1]); it is normalised so diagonal is not faster.
 // While State != StatePlaying the world is frozen; use ChooseUpgrade to resume.
 func (w *World) Update(move geom.PointF) {
+	// Clear last tick's sound events before the guard so the scene never
+	// replays stale effects while the world is frozen (level-up, game over).
+	w.SoundEvents = w.SoundEvents[:0]
+
 	if w.State != StatePlaying {
 		return
 	}
@@ -125,6 +133,7 @@ func (w *World) Update(move geom.PointF) {
 	w.Tick++
 	w.updatePlayer(move)
 	w.updateWeapons()
+	w.updateJunkEmitters()
 	w.updateBeams()
 	w.updateExplosions() // age existing effects before new ones may spawn this tick
 	w.updateProjectiles()
@@ -215,6 +224,7 @@ func (w *World) updateWeapons() {
 				weapon.fireProgress = params.BaseInterval
 			} else {
 				weapon.fireProgress -= params.BaseInterval
+				w.emit(SndFire) // one fire SE per shot (not per pellet)
 				if weapon.Kind == KindLaser {
 					weapon.beamTicksLeft = stats.BeamDuration
 					weapon.beamAngle = w.weaponAim(weapon, params)
@@ -418,6 +428,7 @@ const explosionLife = 24
 // and queues a visual explosion effect at that spot.
 func (w *World) explode(center geom.PointF, radius, dmg float64) {
 	w.Explosions = append(w.Explosions, &Explosion{Pos: center, Radius: radius, Life: explosionLife, MaxLife: explosionLife})
+	w.emit(SndExplosion)
 	for _, e := range w.Enemies {
 		if !e.alive {
 			continue
@@ -473,6 +484,7 @@ func (w *World) updateEnemies() {
 func (w *World) damagePlayer(dmg float64) {
 	w.Player.HP -= dmg
 	w.Player.invuln = 30
+	w.emit(SndPlayerHit)
 	if w.Player.HP <= 0 {
 		w.Player.HP = 0
 		if w.State == StatePlaying { // don't override a win decided earlier this tick
@@ -570,7 +582,7 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
 		return Upgrade{
 			Doctor: doc,
-			Items:  []OfferItem{{Kind: OfferNippers, Text: fmt.Sprintf("+%d Nippers", n)}},
+			Items:  []OfferItem{{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)}},
 			Apply:  func(world *World) { world.Player.Nippers += n },
 		}
 	}

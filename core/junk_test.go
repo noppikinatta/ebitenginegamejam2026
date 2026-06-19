@@ -2,7 +2,7 @@ package core
 
 import "testing"
 
-// TestNewJunk_TallFlag: the tall device names get Tall set; ordinary ones don't.
+// TestNewJunk_TallFlag: tall device names get Tall set; ordinary ones don't.
 func TestNewJunk_TallFlag(t *testing.T) {
 	if !newJunk("Sagrada Familia").Tall {
 		t.Error("Sagrada Familia should be a Tall junk")
@@ -10,17 +10,19 @@ func TestNewJunk_TallFlag(t *testing.T) {
 	if newJunk("Toaster").Tall {
 		t.Error("Toaster should not be a Tall junk")
 	}
-	// Every name flagged tall must be in the device pool so it can actually spawn.
-	for name := range tallJunkNames {
-		found := false
-		for _, n := range junkDeviceNames {
-			if n == name {
-				found = true
-				break
-			}
+}
+
+// TestJunkSpecs_Unique: device names in the pool are unique, so localisation
+// slugs and random selection are unambiguous.
+func TestJunkSpecs_Unique(t *testing.T) {
+	seen := map[string]bool{}
+	for _, s := range junkSpecs {
+		if s.Name == "" {
+			t.Error("junk spec with empty name")
 		}
-		if !found {
-			t.Errorf("tall junk %q is not in junkDeviceNames", name)
+		if seen[s.Name] {
+			t.Errorf("duplicate junk name %q", s.Name)
 		}
+		seen[s.Name] = true
 	}
 }

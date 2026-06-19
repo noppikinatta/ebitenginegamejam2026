@@ -6,7 +6,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
-	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
@@ -49,11 +48,11 @@ func (t *Title) Draw(screen *ebiten.Image) {
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(40, 400)
-	drawing.DrawText(screen, lang.Text("story-1"), 24, opt)
+	drawing.DrawTextByKey(screen, "story-1", 24, opt)
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(440, 640)
-	drawing.DrawText(screen, "Click to Start", 28, opt)
+	drawing.DrawTextByKey(screen, "title-start", 28, opt)
 }
 
 func (t *Title) Layout(outsideWidth, outsideHeight int) (int, int) {

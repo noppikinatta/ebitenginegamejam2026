@@ -17,6 +17,22 @@ func Text(key string) string {
 	return ExecuteTemplate(key, nil)
 }
 
+// TextWithDefault returns the localised text for key, or def if the key is not
+// defined in the current language. Used while migrating hard-coded strings to
+// the CSVs so a missing entry falls back to the original literal instead of a
+// NO_TMPL marker.
+func TextWithDefault(key, def string) string {
+	if !Has(key) {
+		return def
+	}
+	return Text(key)
+}
+
+// Has reports whether key is defined in the current language.
+func Has(key string) bool {
+	return txtProv.Has(key)
+}
+
 func ExecuteTemplate(key string, data map[string]any) string {
 	return txtProv.ExecuteTemplate(key, data)
 }
@@ -49,6 +65,12 @@ func (p *textProvider) Switch() string {
 
 	langName := p.Languages[p.CurrentLanguageIdx]
 	return strings.ToUpper(langName[:1]) + langName[1:]
+}
+
+func (p *textProvider) Has(key string) bool {
+	lang := p.Languages[p.CurrentLanguageIdx]
+	_, ok := p.Templates[lang][key]
+	return ok
 }
 
 func (p *textProvider) ExecuteTemplate(key string, data map[string]any) string {

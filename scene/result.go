@@ -6,6 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
+	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
@@ -32,9 +33,9 @@ func (r *Result) Init(inGame *InGame, opening ebiten.Game, sequence *bamenn.Sequ
 
 // Result button layout.
 var (
-	resReturnBtn = sceneButton{x: screenW/2 - 170, y: 470, w: 340, h: 60, label: "オープニングに戻る"}
-	resRetryBtn  = sceneButton{x: screenW/2 - 350, y: 470, w: 320, h: 60, label: "リトライ"}
-	resAcceptBtn = sceneButton{x: screenW/2 + 30, y: 470, w: 320, h: 60, label: "結果を受け入れる"}
+	resReturnBtn = sceneButton{x: screenW/2 - 170, y: 470, w: 340, h: 60, labelKey: "btn-return"}
+	resRetryBtn  = sceneButton{x: screenW/2 - 350, y: 470, w: 320, h: 60, labelKey: "btn-retry"}
+	resAcceptBtn = sceneButton{x: screenW/2 + 30, y: 470, w: 320, h: 60, labelKey: "btn-accept"}
 )
 
 func (r *Result) Update() error {
@@ -62,24 +63,25 @@ func (r *Result) Draw(screen *ebiten.Image) {
 	mx, my := ebiten.CursorPosition()
 	if r.inGame.Outcome() == OutcomeWin {
 		screen.Fill(color.RGBA{10, 18, 12, 255})
-		drawTelopC(screen, "エイリアンを倒し、自由を手に入れた", screenW/2, 280, 40, 0.8, 1, 0.8, 1)
+		drawTelopC(screen, lang.Text("result-win"), screenW/2, 280, 40, 0.8, 1, 0.8, 1)
 		resReturnBtn.draw(screen, resReturnBtn.hit(mx, my))
 		return
 	}
 
 	screen.Fill(color.RGBA{18, 10, 10, 255})
-	drawTelopC(screen, "エイリアンに敗北し、自由を失った。", screenW/2, 250, 38, 1, 0.8, 0.8, 1)
-	drawTelopC(screen, "我々は毎日4時間も労働し、週の休みは4日しかない", screenW/2, 320, 26, 0.85, 0.7, 0.7, 1)
+	drawTelopC(screen, lang.Text("result-lose-1"), screenW/2, 250, 38, 1, 0.8, 0.8, 1)
+	drawTelopC(screen, lang.Text("result-lose-2"), screenW/2, 320, 26, 0.85, 0.7, 0.7, 1)
 	resRetryBtn.draw(screen, resRetryBtn.hit(mx, my))
 	resAcceptBtn.draw(screen, resAcceptBtn.hit(mx, my))
 }
 
 func (r *Result) Layout(outsideWidth, outsideHeight int) (int, int) { return screenW, screenH }
 
-// sceneButton is a simple clickable rectangle with a centred label.
+// sceneButton is a simple clickable rectangle with a centred label. labelKey is
+// a lang key resolved at draw time so the text follows the current language.
 type sceneButton struct {
 	x, y, w, h float64
-	label      string
+	labelKey   string
 }
 
 func (b sceneButton) hit(mx, my int) bool {
@@ -93,8 +95,9 @@ func (b sceneButton) draw(screen *ebiten.Image, hovered bool) {
 	}
 	drawing.DrawRect(screen, b.x, b.y, b.w, b.h, bg, bg+0.02, bg+0.06, 1)
 	drawing.DrawRect(screen, b.x, b.y, b.w, 3, 0.3, 0.7, 1, 1) // top accent
-	tw := drawing.MeasureText(b.label, 20)
+	label := lang.Text(b.labelKey)
+	tw := drawing.MeasureText(label, 20)
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(b.x+(b.w-tw.X)/2, b.y+(b.h-tw.Y)/2)
-	drawing.DrawText(screen, b.label, 20, opt)
+	drawing.DrawText(screen, label, 20, opt)
 }

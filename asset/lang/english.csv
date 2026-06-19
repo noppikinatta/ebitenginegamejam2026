@@ -1,0 +1,114 @@
+# UI text and content strings (key,value). '#' starts a comment.
+# '\n' in a value becomes a newline. Templates use Go text/template ({{.Field}}).
+
+# --- Title ---
+story-1,The doctors bolted so many weapons onto the tank that the turret grew\nmonstrous. Cut the dead weight and reconcentrate the power.
+title-start,Click to Start
+
+# --- Opening cinematic ---
+op-aliens,The aliens are attacking!
+op-doctor,Too dangerous to go alone — take this!
+click-skip,Click to skip
+
+# --- In-game HUD ---
+hud-pwr,PWR
+hud-pwr-mult,x{{.Mult}}
+hud-stats,Lv {{.Level}}  Spd {{.Spd}}  Fire x{{.Fire}}  Nippers {{.Nippers}}
+hud-hint,Space: pause & cut turret tiles
+hud-time-kills,Time {{.Min}}:{{.Sec}}  Kills {{.Kills}}
+
+# --- Game over / victory ---
+game-over,GAME OVER
+click-continue,Click to continue
+mission-complete,MISSION COMPLETE
+victory-detail,The Disconnector is destroyed. Click to continue.
+
+# --- Level-up offers ---
+levelup-title,LEVEL UP — Lv {{.Level}}
+levelup-instruction,Three doctors approach. Choose one (click a card or press 1/2/3).
+card-doctor,Dr. {{.Name}}
+offer-add,Add
+offer-upgrade,Upgrade
+offer-nippers,+{{.N}} Nippers
+comp-capacitor,Capacitor
+
+# --- Pause / cut view ---
+pause-title,PAUSED — click a tile to cut  (Nippers {{.Nippers}})
+pause-help,Cutting disconnects the tile and everything downstream. Space resumes.
+junk-desc,A useless gadget a doctor bolted on. It conducts power but does nothing — a prime tile to cut.
+junk-desc-tall,A giant useless fixture a doctor bolted on. It does nothing but dilute power — a prime tile to cut.
+comp-capacitor-desc,Equipment that raises the turret's fire rate while it stays connected.
+comp-wire-name,Wire
+comp-wire-desc,A bare conductor: it carries power but does nothing on its own. Cut it to reshape the layout.
+
+# --- Result screen ---
+result-win,You defeated the aliens and won your freedom
+result-lose-1,"Defeated by the aliens, you lost your freedom."
+result-lose-2,"We toil four hours a day, with only four days off a week"
+btn-return,Back to Opening
+btn-retry,Retry
+btn-accept,Accept the outcome
+
+# --- Language switcher ---
+lang-current,Current Language: {{.Lang}}
+
+# --- Weapon names ---
+weapon-cannon-name,Cannon
+weapon-shotgun-name,Shotgun
+weapon-sniper-name,Sniper
+weapon-laser-name,Laser
+weapon-gatling-name,Gatling
+weapon-grenade-name,Grenade
+weapon-ciws-name,CIWS
+weapon-missile-name,Missile
+
+# --- Weapon descriptions ---
+weapon-cannon-desc,Fires a balanced shell at the nearest enemy.
+weapon-shotgun-desc,Sprays a short-range spread of pellets at the nearest enemy.
+weapon-sniper-desc,"Fires a fast, long-range round that hits hard."
+weapon-laser-desc,"Fires a sustained beam at the nearest enemy, piercing everything in its path."
+weapon-gatling-desc,Streams a rapid burst of pellets straight ahead.
+weapon-grenade-desc,Lobs a shell outward that explodes where it lands.
+weapon-ciws-desc,"Point defence: holds fire until an enemy is close, then unleashes a burst."
+weapon-missile-desc,Launches a homing missile that explodes on impact.
+
+# --- Doctor names ---
+doctor-volt,Volt
+doctor-sprocket,Sprocket
+doctor-fizz,Fizz
+doctor-cogsworth,Cogsworth
+doctor-ohm,Ohm
+doctor-wattson,Wattson
+doctor-pixel,Pixel
+doctor-gizmo,Gizmo
+doctor-tinker,Tinker
+doctor-bolt,Bolt
+
+# --- Junk device names (inert novelties) ---
+junk-unusual-banana,Unusual Banana
+junk-electric-fan,Electric Fan
+junk-calculator,Calculator
+junk-wi-fi-antenna,Wi-Fi Antenna
+junk-sagrada-familia,Sagrada Familia
+junk-fax-machine,Fax Machine
+junk-lava-lamp,Lava Lamp
+junk-oil-heater,Oil Heater
+junk-rice-cooker,Rice Cooker
+junk-modern-art-fountain,Modern Art Fountain
+junk-invisible-cannon,Invisible Cannon
+junk-nft-nuclear-missile,NFT Nuclear Missile
+junk-horns,Horns
+junk-ai-targeting-device,AI Targeting Device
+
+# --- Junk device names (will emit something later) ---
+junk-balloon-service-unit,Balloon Service Unit
+junk-coffee-maker,Coffee Maker
+junk-toaster,Toaster
+junk-music-box,Music Box
+junk-rubber-duck-dispenser,Rubber Duck Dispenser
+junk-fireworks,Fireworks
+
+# --- Boss names ---
+boss-prototype-hauler,Prototype Hauler
+boss-siege-engine,Siege Engine
+boss-the-disconnector,The Disconnector

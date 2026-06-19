@@ -1,0 +1,113 @@
+# UIテキストとコンテンツ文字列 (key,value)。'#' で始まる行はコメント。
+# value 内の '\n' は改行になる。テンプレートは Go text/template ({{.Field}})。
+
+# --- タイトル ---
+story-1,博士たちが戦車に武装を付けすぎて砲塔が巨大化してしまった。\n不要なタイルを切り離し、電力を再集中させろ。
+title-start,クリックでスタート
+
+# --- オープニング ---
+op-aliens,エイリアンが攻めてきたぞ！
+op-doctor,一人では危険じゃ、これを授けよう
+click-skip,クリックでスキップ
+
+# --- ゲーム中HUD ---
+hud-pwr,電力
+hud-pwr-mult,x{{.Mult}}
+hud-stats,Lv {{.Level}}  速度 {{.Spd}}  発射 x{{.Fire}}  ニッパー {{.Nippers}}
+hud-hint,Space：ポーズしてタイルを切断
+hud-time-kills,時間 {{.Min}}:{{.Sec}}  撃破 {{.Kills}}
+
+# --- ゲームオーバー / 勝利 ---
+game-over,ゲームオーバー
+click-continue,クリックで続行
+mission-complete,ミッション達成
+victory-detail,ディスコネクターを破壊した。クリックで続行。
+
+# --- レベルアップ提案 ---
+levelup-title,レベルアップ — Lv {{.Level}}
+levelup-instruction,3人の博士が近づいてきた。1人を選べ（カードをクリック、または1/2/3キー）。
+card-doctor,{{.Name}}博士
+offer-add,追加
+offer-upgrade,強化
+offer-nippers,ニッパー +{{.N}}
+comp-capacitor,キャパシタ
+
+# --- ポーズ / 切断ビュー ---
+pause-title,ポーズ中 — タイルをクリックして切断  (ニッパー {{.Nippers}})
+pause-help,切断するとそのタイルと下流すべてが外れる。Spaceで再開。
+junk-desc,博士が勝手に付けた無意味なガジェット。電力は通すが何もしない——切る筆頭候補。
+junk-desc-tall,博士が勝手に付けた巨大で無意味な装置。電力を薄めるだけで何もしない——切る筆頭候補。
+comp-capacitor-desc,接続している間だけ砲塔の発射速度を上げる設備。
+comp-wire-name,ワイヤー
+comp-wire-desc,電力を通すだけで単体では何もしない導線。切って配置を組み替えよう。
+
+# --- リザルト画面 ---
+result-win,エイリアンを倒し、自由を手に入れた
+result-lose-1,エイリアンに敗北し、自由を失った。
+result-lose-2,我々は毎日4時間も労働し、週の休みは4日しかない
+btn-return,オープニングに戻る
+btn-retry,リトライ
+btn-accept,結果を受け入れる
+
+# --- 言語切替 ---
+lang-current,現在の言語: {{.Lang}}
+
+# --- 武器名 ---
+weapon-cannon-name,キャノン
+weapon-shotgun-name,ショットガン
+weapon-sniper-name,スナイパー
+weapon-laser-name,レーザー
+weapon-gatling-name,ガトリング
+weapon-grenade-name,グレネード
+weapon-ciws-name,CIWS
+weapon-missile-name,ミサイル
+
+# --- 武器説明 ---
+weapon-cannon-desc,最も近い敵にバランス型の砲弾を撃つ。
+weapon-shotgun-desc,最も近い敵に近距離の散弾をばらまく。
+weapon-sniper-desc,高速・長射程の一撃で大ダメージを与える。
+weapon-laser-desc,最も近い敵に持続ビームを照射し、経路上のすべてを貫通する。
+weapon-gatling-desc,前方へ高速の弾幕を連射する。
+weapon-grenade-desc,外側へ砲弾を放り、着弾点で爆発する。
+weapon-ciws-desc,近接防御：敵が近づくまで撃たず、一気に連射する。
+weapon-missile-desc,着弾で爆発する誘導ミサイルを発射する。
+
+# --- 博士名 ---
+doctor-volt,ボルト
+doctor-sprocket,スプロケット
+doctor-fizz,フィズ
+doctor-cogsworth,コグスワース
+doctor-ohm,オーム
+doctor-wattson,ワットソン
+doctor-pixel,ピクセル
+doctor-gizmo,ギズモ
+doctor-tinker,ティンカー
+doctor-bolt,ボルト
+# --- ジャンク装置名（何も出ない） ---
+junk-unusual-banana,ヘンテコバナナ
+junk-electric-fan,扇風機
+junk-calculator,電卓
+junk-wi-fi-antenna,Wi-Fiアンテナ
+junk-sagrada-familia,サグラダ・ファミリア
+junk-fax-machine,FAX
+junk-lava-lamp,ラバランプ
+junk-oil-heater,オイルヒーター
+junk-rice-cooker,炊飯器
+junk-modern-art-fountain,泉（現代アート）
+junk-invisible-cannon,愚か者には見えないキャノン砲
+junk-nft-nuclear-missile,NFT核ミサイル
+junk-horns,ツノ
+junk-ai-targeting-device,AI照準装置
+
+# --- ジャンク装置名（あとで何かが出る） ---
+junk-balloon-service-unit,風船サービス装置
+junk-coffee-maker,コーヒーメーカー
+junk-toaster,トースター
+junk-music-box,オルゴール
+junk-rubber-duck-dispenser,ラバーダック設置装置
+junk-fireworks,花火
+
+# --- ボス名 ---
+boss-prototype-hauler,試作運搬機
+boss-siege-engine,攻城機
+boss-the-disconnector,ザ・ディスコネクター

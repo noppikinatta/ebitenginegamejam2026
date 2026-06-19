@@ -27,15 +27,17 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 )
 
-const (
-	bgmLength int64 = 21054898
-)
-
-//go:embed sound/bgm.ogg
+//go:embed sound/bgm.wav
 var bgm []byte
+
+//go:embed sound/fire.wav
+var seFire []byte
 
 //go:embed sound/explosion.wav
 var seExplosion []byte
+
+//go:embed sound/hit.wav
+var seHit []byte
 
 const sampleRate int = 48000
 
@@ -43,40 +45,19 @@ var context *audio.Context
 
 func init() {
 	context = audio.NewContext(sampleRate)
-	soundCache = map[Sound]*audio.Player{}
+	seBytes = map[Sound][]byte{}
 }
 
+// Sound identifies a loadable sound. BGM loops; the SE* values are one-shot
+// effects that may overlap (each Play spins up a fresh, cheap player).
 type Sound int
 
 const (
 	BGM Sound = iota
+	SEFire
 	SEExplosion
+	SEPlayerHit
 )
-
-func LoadSounds() error {
-	ss := []struct {
-		Resource []byte
-		Sound    Sound
-		FileType fileType
-		Volume   float64
-	}{
-		{seExplosion, SEExplosion, fileTypeWav, 0.125},
-		{bgm, BGM, fileTypeOgg, 0.25},
-	}
-
-	for _, s := range ss {
-		err := load(s.Resource, s.Sound, s.FileType, s.Volume)
-		if err != nil {
-			// Tolerate placeholder/missing audio so a broken single track
-			// does not take down the whole game. Replace placeholder assets
-			// (e.g. sound/bgm.ogg) with real ones to enable playback.
-			log.Printf("skip loading sound %d: %v", s.Sound, err)
-			continue
-		}
-	}
-
-	return nil
-}
 
 type fileType int
 
@@ -86,63 +67,118 @@ const (
 	fileTypeOgg
 )
 
-func load(resource []byte, sound Sound, ftype fileType, vol float64) error {
-	var s io.ReadSeeker
-	var err error
+// soundSpec describes how to load one sound.
+type soundSpec struct {
+	resource []byte
+	sound    Sound
+	fileType fileType
+	volume   float64
+}
 
-	switch ftype {
-	case fileTypeWav:
-		s, err = wav.DecodeWithSampleRate(sampleRate, bytes.NewReader(resource))
-		if err != nil {
-			return err
+var soundSpecs = []soundSpec{
+	{seFire, SEFire, fileTypeWav, 0.2},
+	{seExplosion, SEExplosion, fileTypeWav, 0.3},
+	{seHit, SEPlayerHit, fileTypeWav, 0.4},
+	{bgm, BGM, fileTypeWav, 0.25},
+}
+
+// seBytes holds the decoded PCM for each one-shot effect so PlaySound can create
+// a fresh player per play (allowing the same SE to overlap). bgmPlayer is the
+// single looping player reused via Rewind.
+var (
+	seBytes   map[Sound][]byte
+	seVolume  = map[Sound]float64{}
+	bgmPlayer *audio.Player
+)
+
+// LoadSounds decodes the embedded sounds. A failed track is logged and skipped
+// so a single bad asset does not take down the whole game (placeholder audio
+// still decodes, but real assets can be swapped in freely).
+func LoadSounds() error {
+	for _, s := range soundSpecs {
+		if err := load(s); err != nil {
+			log.Printf("skip loading sound %d: %v", s.sound, err)
+			continue
 		}
-	case fileTypeMp3:
-		s, err = mp3.DecodeWithSampleRate(sampleRate, bytes.NewReader(resource))
-		if err != nil {
-			return err
-		}
-	case fileTypeOgg:
-		s, err = vorbis.DecodeWithSampleRate(sampleRate, bytes.NewReader(resource))
-		if err != nil {
-			return err
-		}
-	default:
-		return errors.New("not supported filetype")
 	}
-
-	// BGM loops
-	if sound == BGM {
-		s = audio.NewInfiniteLoop(s, bgmLength) //int64(len(resource)))
-	}
-
-	p, err := context.NewPlayer(s)
-	if err != nil {
-		return err
-	}
-	p.SetVolume(vol)
-	soundCache[sound] = p
-
 	return nil
 }
 
-var soundCache map[Sound]*audio.Player
-
-func PlaySound(s Sound) {
-	p := soundCache[s]
-	if p == nil {
-		return
+func decode(resource []byte, ftype fileType) (io.ReadSeeker, error) {
+	switch ftype {
+	case fileTypeWav:
+		return wav.DecodeWithSampleRate(sampleRate, bytes.NewReader(resource))
+	case fileTypeMp3:
+		return mp3.DecodeWithSampleRate(sampleRate, bytes.NewReader(resource))
+	case fileTypeOgg:
+		return vorbis.DecodeWithSampleRate(sampleRate, bytes.NewReader(resource))
+	default:
+		return nil, errors.New("not supported filetype")
 	}
-	err := p.Rewind()
-	if err != nil {
-		log.Println(err)
-	}
-	p.Play()
 }
 
-func StopSound(s Sound) {
-	p := soundCache[s]
-	if p == nil {
+func load(s soundSpec) error {
+	stream, err := decode(s.resource, s.fileType)
+	if err != nil {
+		return err
+	}
+
+	if s.sound == BGM {
+		// One reusable looping player; the loop spans the whole decoded stream.
+		var loopLen int64
+		if l, ok := stream.(interface{ Length() int64 }); ok {
+			loopLen = l.Length()
+		}
+		p, err := context.NewPlayer(audio.NewInfiniteLoop(stream, loopLen))
+		if err != nil {
+			return err
+		}
+		p.SetVolume(s.volume)
+		bgmPlayer = p
+		return nil
+	}
+
+	// One-shot SE: keep the decoded PCM so each play gets its own player.
+	pcm, err := io.ReadAll(stream)
+	if err != nil {
+		return err
+	}
+	seBytes[s.sound] = pcm
+	seVolume[s.sound] = s.volume
+	return nil
+}
+
+// PlaySound plays a sound. BGM (re)starts the looping track; SE* play a fresh
+// overlapping one-shot. Unloaded sounds are a no-op.
+func PlaySound(s Sound) {
+	if s == BGM {
+		PlayBGM()
 		return
 	}
-	p.Pause()
+	pcm := seBytes[s]
+	if pcm == nil {
+		return
+	}
+	p := context.NewPlayerFromBytes(pcm)
+	p.SetVolume(seVolume[s])
+	p.Play() // GC'd once playback finishes
+}
+
+// PlayBGM starts (or restarts) the looping background track.
+func PlayBGM() {
+	if bgmPlayer == nil {
+		return
+	}
+	if err := bgmPlayer.Rewind(); err != nil {
+		log.Println(err)
+	}
+	bgmPlayer.Play()
+}
+
+// StopBGM pauses the background track.
+func StopBGM() {
+	if bgmPlayer == nil {
+		return
+	}
+	bgmPlayer.Pause()
 }
