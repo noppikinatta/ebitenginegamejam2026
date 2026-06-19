@@ -1,8 +1,6 @@
 package scene
 
 import (
-	"fmt"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
@@ -75,5 +73,5 @@ func (s *langSwitcher) Draw(screen *ebiten.Image) {
 	topt := ebiten.DrawImageOptions{}
 	topt.GeoM.Translate(0, 8)
 	topt.ColorScale.Scale(s.alpha, s.alpha, s.alpha, s.alpha)
-	drawing.DrawText(screen, fmt.Sprintf("Current Language: %s", s.currentLang), 16, &topt)
+	drawing.DrawTextTemplate(screen, "lang-current", map[string]any{"Lang": s.currentLang}, 16, &topt)
 }

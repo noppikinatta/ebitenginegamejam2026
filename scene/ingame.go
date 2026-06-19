@@ -17,6 +17,7 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
+	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
@@ -362,18 +363,18 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.55)
 		opt := &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(520, 300)
-		drawing.DrawText(screen, "GAME OVER", 48, opt)
+		drawing.DrawTextByKey(screen, "game-over", 48, opt)
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(500, 380)
-		drawing.DrawText(screen, "Click to continue", 24, opt)
+		drawing.DrawTextByKey(screen, "click-continue", 24, opt)
 	case core.StateCleared:
 		drawing.DrawRect(screen, 0, 0, screenW, screenH, 0.02, 0.10, 0.06, 0.6)
 		opt := &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(430, 290)
-		drawing.DrawText(screen, "MISSION COMPLETE", 48, opt)
+		drawing.DrawTextByKey(screen, "mission-complete", 48, opt)
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(430, 360)
-		drawing.DrawText(screen, "The Disconnector is destroyed. Click to continue.", 22, opt)
+		drawing.DrawTextByKey(screen, "victory-detail", 22, opt)
 	}
 
 	// Power-per-tile gauge on the left edge, drawn last so it stays visible above
@@ -420,10 +421,10 @@ func (g *InGame) drawPowerGauge(screen *ebiten.Image) {
 	// Label above the bar plus the exact fire-rate multiplier below it.
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(powerGaugeX-4, powerGaugeTop-26)
-	drawing.DrawText(screen, "PWR", 14, opt)
+	drawing.DrawTextByKey(screen, "hud-pwr", 14, opt)
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(powerGaugeX-6, powerGaugeBottom+4)
-	drawing.DrawText(screen, fmt.Sprintf("x%.2f", g.world.FireRateMultiplier()), 14, opt)
+	drawing.DrawTextTemplate(screen, "hud-pwr-mult", map[string]any{"Mult": fmt.Sprintf("%.2f", g.world.FireRateMultiplier())}, 14, opt)
 }
 
 func (g *InGame) drawLevelUp(screen *ebiten.Image) {
@@ -431,11 +432,11 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW/2-180, 120)
-	drawing.DrawText(screen, fmt.Sprintf("LEVEL UP — Lv %d", g.world.Player.Level), 30, opt)
+	drawing.DrawTextTemplate(screen, "levelup-title", map[string]any{"Level": g.world.Player.Level}, 30, opt)
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW/2-270, 166)
-	drawing.DrawText(screen, "Three doctors approach. Choose one (click a card or press 1/2/3).", 16, opt)
+	drawing.DrawTextByKey(screen, "levelup-instruction", 16, opt)
 
 	n := len(g.world.Choices)
 	mx, my := ebiten.CursorPosition()
@@ -457,7 +458,7 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 		drawing.DrawText(screen, fmt.Sprintf("%d", i+1), 22, opt)
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(x+46, cardY+16)
-		drawing.DrawText(screen, "Dr. "+c.Doctor, 20, opt)
+		drawing.DrawTextTemplate(screen, "card-doctor", map[string]any{"Name": doctorNameL(c.Doctor)}, 20, opt)
 
 		// One line per item: label, icon, then name.
 		itemY := cardY + 62.0
@@ -491,18 +492,18 @@ func drawOfferItem(screen *ebiten.Image, it core.OfferItem, x, y float64) {
 
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(x+114, y+5)
-	drawing.DrawText(screen, it.Text, 18, opt)
+	drawing.DrawText(screen, offerItemText(it), 18, opt)
 }
 
 // offerLabel is the prefix shown for a proposal line ("" for nippers).
 func offerLabel(k core.OfferKind) string {
 	switch k {
 	case core.OfferUpgrade:
-		return "Upgrade"
+		return lang.Text("offer-upgrade")
 	case core.OfferNippers:
 		return ""
 	default: // adds
-		return "Add"
+		return lang.Text("offer-add")
 	}
 }
 
@@ -668,10 +669,10 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW/2-280, 56)
-	drawing.DrawText(screen, fmt.Sprintf("PAUSED — click a tile to cut  (Nippers %d)", g.world.Player.Nippers), 24, opt)
+	drawing.DrawTextTemplate(screen, "pause-title", map[string]any{"Nippers": g.world.Player.Nippers}, 24, opt)
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW/2-280, 96)
-	drawing.DrawText(screen, "Cutting disconnects the tile and everything downstream. Space resumes.", 16, opt)
+	drawing.DrawTextByKey(screen, "pause-help", 16, opt)
 
 	cx, cy := pauseCenter()
 	zoom := pauseTileSize / combatTileSize
@@ -761,42 +762,20 @@ func (g *InGame) drawPauseTileInfo(screen *ebiten.Image, idx hexmap.Index) {
 func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool) {
 	switch c := comp.(type) {
 	case core.WeaponComponent:
-		name := c.Weapon.Name
+		name := weaponName(c.Weapon.Kind)
 		if c.Weapon.Level > 0 {
 			name = fmt.Sprintf("%s  +%d", name, c.Weapon.Level)
 		}
-		return name, weaponDesc(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
+		return name, weaponDescL(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
 		if c.Tall {
-			return c.Name(), "A giant useless fixture a doctor bolted on. It does nothing but dilute power — a prime tile to cut.", asset.ImgJunkTower, true
+			return junkNameL(c.Name()), lang.Text("junk-desc-tall"), asset.ImgJunkTower, true
 		}
-		return c.Name(), "A useless gadget a doctor bolted on. It conducts power but does nothing — a prime tile to cut.", asset.ImgTileJunk, false
+		return junkNameL(c.Name()), lang.Text("junk-desc"), asset.ImgTileJunk, false
 	case core.Capacitor:
-		return "Capacitor", "Equipment that raises the turret's fire rate while it stays connected.", asset.ImgTileCapacitor, false
+		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor, false
 	default: // Wire (or empty)
-		return "Wire", "A bare conductor: it carries power but does nothing on its own. Cut it to reshape the layout.", asset.ImgTileWire, false
-	}
-}
-
-// weaponDesc returns a short explanation of a weapon kind for the info panel.
-func weaponDesc(k core.WeaponKind) string {
-	switch k {
-	case core.KindShotgun:
-		return "Sprays a short-range spread of pellets at the nearest enemy."
-	case core.KindSniper:
-		return "Fires a fast, long-range round that hits hard."
-	case core.KindLaser:
-		return "Fires a sustained beam at the nearest enemy, piercing everything in its path."
-	case core.KindGatling:
-		return "Streams a rapid burst of pellets straight ahead."
-	case core.KindGrenade:
-		return "Lobs a shell outward that explodes where it lands."
-	case core.KindCIWS:
-		return "Point defence: holds fire until an enemy is close, then unleashes a burst."
-	case core.KindMissile:
-		return "Launches a homing missile that explodes on impact."
-	default: // KindCannon
-		return "Fires a balanced shell at the nearest enemy."
+		return lang.Text("comp-wire-name"), lang.Text("comp-wire-desc"), asset.ImgTileWire, false
 	}
 }
 
@@ -906,17 +885,26 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(20, 64)
-	drawing.DrawText(screen, fmt.Sprintf("Lv %d  Spd %.1f  Fire x%.2f  Nippers %d", p.Level, p.Speed, g.world.FireRateMultiplier(), p.Nippers), 18, opt)
+	drawing.DrawTextTemplate(screen, "hud-stats", map[string]any{
+		"Level":   p.Level,
+		"Spd":     fmt.Sprintf("%.1f", p.Speed),
+		"Fire":    fmt.Sprintf("%.2f", g.world.FireRateMultiplier()),
+		"Nippers": p.Nippers,
+	}, 18, opt)
 
 	// Cut hint.
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(20, 88)
-	drawing.DrawText(screen, "Space: pause & cut turret tiles", 14, opt)
+	drawing.DrawTextByKey(screen, "hud-hint", 14, opt)
 
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(screenW-220, 20)
 	secs := g.world.Tick / 60
-	drawing.DrawText(screen, fmt.Sprintf("Time %d:%02d  Kills %d", secs/60, secs%60, g.world.Kills), 18, opt)
+	drawing.DrawTextTemplate(screen, "hud-time-kills", map[string]any{
+		"Min":   secs / 60,
+		"Sec":   fmt.Sprintf("%02d", secs%60),
+		"Kills": g.world.Kills,
+	}, 18, opt)
 }
 
 func (g *InGame) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -959,7 +947,7 @@ func (g *InGame) drawBossBar(screen *ebiten.Image) {
 
 	opt := &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(bx, by-22)
-	drawing.DrawText(screen, b.Name, 18, opt)
+	drawing.DrawText(screen, bossNameL(b.Name), 18, opt)
 
 	drawing.DrawRect(screen, bx, by, bw, bh, 0.15, 0.05, 0.08, 1)
 	frac := 0.0

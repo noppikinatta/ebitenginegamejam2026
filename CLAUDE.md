@@ -67,7 +67,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 - **音声はダミー（差し替え前提）だが配線済み・実際に鳴る**。`asset/sound/*.wav`（`bgm`/`fire`/`explosion`/`hit`）はサイン波等で生成した**デコード可能な仮音源**（`go run tools/gensound/main.go asset/sound` で再生成可能）。`asset.LoadSounds()` は `app/main.go` 起動時に呼ばれ、デコード失敗は握りつぶす（ログして継続）。本物の音源に差し替えれば即鳴る。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMは単一プレイヤーを `Rewind` で使い回しループ（`InGame.OnStart` で再生／`OnEnd` で停止）
 - **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
-- **言語CSVが空**。`asset/lang/english.csv` / `japanese.csv` は存在するが中身が無い。`scene/title.go` は `story-1` キーを参照（現状フォールバック表示）
+- **言語CSVは整備済み**。`asset/lang/english.csv` / `japanese.csv` に scene の全UI文言・武器名/説明・博士/ジャンク/ボス名をキーで定義（両言語キー集合一致、`lang/csv_test.go` で検証）。scene は `drawing.DrawTextByKey`/`DrawTextTemplate` で描画し、core由来の名前は scene の `loc.go`（`weaponName`/`doctorNameL`/`junkNameL`/`bossNameL`、未定義キーは `lang.TextWithDefault` で元文字列にフォールバック）でキー解決。デフォルト言語は english（L キーで日本語へ切替）。カード番号など語を含まない純数値のみ `fmt.Sprintf` のまま
 - **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity/JunkDensity）、電力量、ニッパー入手率、燭台周期、`maxTurretTiles` 等は初期値のまま。プレイテストで要調整
 
 ### Build/Verify この環境での注意
@@ -157,7 +157,7 @@ go test ./lang/... -run TestName -v
 
 - `asset/lang/<language>.csv` を `<言語名>` として読み込む（ファイル名 = 言語名。現状 `english` / `japanese`）。デフォルトは **english**
 - CSV は `key,value` の2列。`#` 始まりはコメント、value 内の `\n` リテラルは改行に変換される
-- 取得は `lang.Text("key")`。プレースホルダ入りは `lang.ExecuteTemplate("key", data)` で Go `text/template` として評価（テンプレートはキャッシュされる）。キーが無ければ `NO_TMPL: ...` を返す
+- 取得は `lang.Text("key")`。プレースホルダ入りは `lang.ExecuteTemplate("key", data)` で Go `text/template` として評価（テンプレートはキャッシュされる）。キーが無ければ `NO_TMPL: ...` を返す。`lang.Has("key")` でキー有無を判定、`lang.TextWithDefault("key", def)` は未定義時に `def` を返す（core由来の英語名をCSV移行する際のフォールバックに使用）
 - `lang.Switch()` で言語を循環切替（戻り値は表示用に先頭大文字化した言語名）
 
 ### asset パッケージ

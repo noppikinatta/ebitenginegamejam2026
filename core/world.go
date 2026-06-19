@@ -581,7 +581,7 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
 		return Upgrade{
 			Doctor: doc,
-			Items:  []OfferItem{{Kind: OfferNippers, Text: fmt.Sprintf("+%d Nippers", n)}},
+			Items:  []OfferItem{{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)}},
 			Apply:  func(world *World) { world.Player.Nippers += n },
 		}
 	}

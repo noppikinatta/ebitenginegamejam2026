@@ -13,12 +13,14 @@ const (
 )
 
 // OfferItem is one line of a doctor's proposal. Weapon is meaningful for
-// OfferAddWeapon and OfferUpgrade (it drives both the icon and the name); Text is
-// the display name shown after the icon (weapon/junk name, "Capacitor", or
-// "+N Nippers").
+// OfferAddWeapon and OfferUpgrade (it drives both the icon and the name); Amount
+// carries the nipper count for OfferNippers. Text is a display-name fallback
+// (weapon/junk name); the scene prefers to localise via the structured fields
+// and only falls back to Text when no key is defined.
 type OfferItem struct {
 	Kind   OfferKind
 	Weapon WeaponKind
+	Amount int
 	Text   string
 }
 
