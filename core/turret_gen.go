@@ -127,32 +127,64 @@ func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 	return NewTurret(tiles, genPositions, genPower)
 }
 
-// junkDeviceNames are the absurd useless gadgets various doctors bolted on.
-var junkDeviceNames = []string{
-	"Espresso Machine",
-	"Balloon Launcher",
-	"Rubber Duck",
-	"Disco Ball",
-	"Toaster",
-	"Lava Lamp",
-	"Wind Chime",
-	"Snow Globe",
-	"Sagrada Familia",
+// junkSpec defines one absurd device a doctor might bolt on. Name is the English
+// display string (also the localisation slug source); Tall marks junk drawn as a
+// tall, always-upright fixture rather than a flat tile. Emits is reserved for the
+// "things that come out" junk (projectile behaviour, planned) and is currently
+// unused, so every junk is inert.
+type junkSpec struct {
+	Name  string
+	Tall  bool
+	Emits bool
 }
 
-// tallJunkNames are junk that render as a tall, always-upright fixture (Tall).
-var tallJunkNames = map[string]bool{
-	"Sagrada Familia": true,
+// junkSpecs is the pool of junk devices. The first group is purely cosmetic
+// novelties; the second group is intended to eventually emit projectiles but is
+// inert for now (Emits is not yet wired to any behaviour).
+var junkSpecs = []junkSpec{
+	// Inert novelties.
+	{Name: "Unusual Banana"},
+	{Name: "Electric Fan"},
+	{Name: "Calculator"},
+	{Name: "Wi-Fi Antenna"},
+	{Name: "Sagrada Familia", Tall: true},
+	{Name: "Fax Machine"},
+	{Name: "Lava Lamp"},
+	{Name: "Oil Heater"},
+	{Name: "Rice Cooker"},
+	{Name: "Modern Art Fountain"},
+	{Name: "Invisible Cannon"},
+	{Name: "NFT Nuclear Missile"},
+	{Name: "Horns"},
+	{Name: "AI Targeting Device"},
+	// Devices that will emit something later (currently inert).
+	{Name: "Balloon Service Unit", Emits: true},
+	{Name: "Coffee Maker", Emits: true},
+	{Name: "Toaster", Emits: true},
+	{Name: "Music Box", Emits: true},
+	{Name: "Rubber Duck Dispenser", Emits: true},
+	{Name: "Fireworks", Emits: true},
+}
+
+// junkTall reports whether the named device renders as a tall fixture.
+func junkTall(name string) bool {
+	for _, s := range junkSpecs {
+		if s.Name == name {
+			return s.Tall
+		}
+	}
+	return false
 }
 
 // newJunk builds a Junk for the given device, setting Tall for the tall ones.
 func newJunk(name string) Junk {
-	return Junk{DeviceName: name, Tall: tallJunkNames[name]}
+	return Junk{DeviceName: name, Tall: junkTall(name)}
 }
 
-// randomJunk builds a Junk with a random device name.
+// randomJunk builds a Junk with a random device from the pool.
 func randomJunk(rng *rand.Rand) Junk {
-	return newJunk(junkDeviceNames[rng.Intn(len(junkDeviceNames))])
+	s := junkSpecs[rng.Intn(len(junkSpecs))]
+	return Junk{DeviceName: s.Name, Tall: s.Tall}
 }
 
 // pickComponent returns a tile whose Component is chosen probabilistically.

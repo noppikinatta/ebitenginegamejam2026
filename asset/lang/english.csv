@@ -84,16 +84,29 @@ doctor-gizmo,Gizmo
 doctor-tinker,Tinker
 doctor-bolt,Bolt
 
-# --- Junk device names ---
-junk-espresso-machine,Espresso Machine
-junk-balloon-launcher,Balloon Launcher
-junk-rubber-duck,Rubber Duck
-junk-disco-ball,Disco Ball
-junk-toaster,Toaster
-junk-lava-lamp,Lava Lamp
-junk-wind-chime,Wind Chime
-junk-snow-globe,Snow Globe
+# --- Junk device names (inert novelties) ---
+junk-unusual-banana,Unusual Banana
+junk-electric-fan,Electric Fan
+junk-calculator,Calculator
+junk-wi-fi-antenna,Wi-Fi Antenna
 junk-sagrada-familia,Sagrada Familia
+junk-fax-machine,Fax Machine
+junk-lava-lamp,Lava Lamp
+junk-oil-heater,Oil Heater
+junk-rice-cooker,Rice Cooker
+junk-modern-art-fountain,Modern Art Fountain
+junk-invisible-cannon,Invisible Cannon
+junk-nft-nuclear-missile,NFT Nuclear Missile
+junk-horns,Horns
+junk-ai-targeting-device,AI Targeting Device
+
+# --- Junk device names (will emit something later) ---
+junk-balloon-service-unit,Balloon Service Unit
+junk-coffee-maker,Coffee Maker
+junk-toaster,Toaster
+junk-music-box,Music Box
+junk-rubber-duck-dispenser,Rubber Duck Dispenser
+junk-fireworks,Fireworks
 
 # --- Boss names ---
 boss-prototype-hauler,Prototype Hauler

@@ -31,33 +31,37 @@
 - キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のタイルバンドルで `DoctorSpec.CapacitorChance`(=0.15) の確率で出現
   - 将来拡張: `Modifier` に `MaxHPAdd` 等を足せば増加装甲のような設備も同じ仕組みで追加可能
 
-## ジャンク（何かが出る物。弾の発射を応用して作る）
-- 風船サービス装置
-- コーヒーメーカー
-- トースター
-- オルゴール
-- ラバーダック設置装置
-- 花火
+> **実装状況**：全ジャンクは `core/turret_gen.go` の `junkSpecs` レジストリ（`junkSpec{Name, Tall, Emits}`）にデータ定義済み。現状は**すべて inert（何も出ない）＝サグラダファミリア同型の装飾ジャンク**で、電力を薄めるだけ。表示名は `asset/lang/*.csv` の `junk-<slug>` キーで多言語化。画像は `tile_junk` 共用（Tall のみ `junk_tower`）。`Emits` フラグは「何かが出る物」用の予約で、まだ挙動に未接続。
 
-## ジャンク（何も出ないもの）
-- unusual banana
-- 扇風機
-- 電卓
-- Wi-Fiアンテナ
-- サグラダファミリア
-- FAX
-- ラーバランプ
-- オイルヒーター
-- 炊飯器
-- 泉(現代アート)
-- 愚か者には見えないキャノン砲
-- NFT核ミサイル
-- ツノ
-- AI照準装置
+## ジャンク（何かが出る物。弾の発射を応用して作る）
+`Emits: true`。現状は inert。挙動は後述の計画で実装予定。
+- 風船サービス装置 (Balloon Service Unit)
+- コーヒーメーカー (Coffee Maker)
+- トースター (Toaster)
+- オルゴール (Music Box)
+- ラバーダック設置装置 (Rubber Duck Dispenser)
+- 花火 (Fireworks)
+
+## ジャンク（何も出ないもの）— 実装済（inert）
+- unusual banana (Unusual Banana)
+- 扇風機 (Electric Fan)
+- 電卓 (Calculator)
+- Wi-Fiアンテナ (Wi-Fi Antenna)
+- サグラダファミリア (Sagrada Familia) — `Tall`
+- FAX (Fax Machine)
+- ラーバランプ (Lava Lamp)
+- オイルヒーター (Oil Heater)
+- 炊飯器 (Rice Cooker)
+- 泉(現代アート) (Modern Art Fountain)
+- 愚か者には見えないキャノン砲 (Invisible Cannon)
+- NFT核ミサイル (NFT Nuclear Missile)
+- ツノ (Horns)
+- AI照準装置 (AI Targeting Device)
 
 ---
 
 ### 現状（実装済み・参考）
 - 武器: Cannon / Shotgun / Sniper / Laser（`core/weapon.go`、画像キー `tile_weapon_*`）
-- ジャンク: 機械的効果は同一・画像は `tile_junk` 1枚共用（`core/turret_gen.go` の `junkDeviceNames`）
-- 「設備」「弾が出るジャンク」「キャパシタ（電力ボーナス）」は**新カテゴリ**で未実装
+- ジャンク: 機械的効果は同一（inert）・画像は `tile_junk` 1枚共用（`core/turret_gen.go` の `junkSpecs`、20種）。Tall のみ `junk_tower`
+- キャパシタ（電力ボーナス）は実装済（設備カテゴリ）
+- 「弾が出るジャンク」は `Emits` フラグだけ用意済みで**挙動は未実装**（次の計画で着手）
