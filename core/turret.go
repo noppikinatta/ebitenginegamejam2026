@@ -75,8 +75,15 @@ func (w WeaponComponent) Mods() Modifier { return Modifier{} }
 // launcher, rubber duck...). It conducts power like a wire but does nothing,
 // adding to the tile count (which dilutes the fire-rate multiplier). The flavour
 // is the point.
+//
+// Tall marks a junk drawn as a tall, always-upright fixture (e.g. a cathedral
+// spire) rather than a flat tile — a rendering hint only, no gameplay effect.
+// It is a flag, not an AimMode: AimMode is a weapon's firing direction (it never
+// reaches non-firing junk) and is always tank/target-relative, whereas this is a
+// world-fixed rendering orientation.
 type Junk struct {
 	DeviceName string
+	Tall       bool
 }
 
 func (j Junk) Name() string {

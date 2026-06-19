@@ -133,6 +133,22 @@ var junkDeviceNames = []string{
 	"Lava Lamp",
 	"Wind Chime",
 	"Snow Globe",
+	"Sagrada Familia",
+}
+
+// tallJunkNames are junk that render as a tall, always-upright fixture (Tall).
+var tallJunkNames = map[string]bool{
+	"Sagrada Familia": true,
+}
+
+// newJunk builds a Junk for the given device, setting Tall for the tall ones.
+func newJunk(name string) Junk {
+	return Junk{DeviceName: name, Tall: tallJunkNames[name]}
+}
+
+// randomJunk builds a Junk with a random device name.
+func randomJunk(rng *rand.Rand) Junk {
+	return newJunk(junkDeviceNames[rng.Intn(len(junkDeviceNames))])
 }
 
 // pickComponent returns a tile whose Component is chosen probabilistically.
@@ -145,7 +161,7 @@ func pickComponent(cfg TurretGenConfig, rng *rand.Rand) *Tile {
 	}
 	r -= cfg.WeaponDensity
 	if r < cfg.JunkDensity {
-		return &Tile{Component: Junk{DeviceName: junkDeviceNames[rng.Intn(len(junkDeviceNames))]}}
+		return &Tile{Component: randomJunk(rng)}
 	}
 	return &Tile{Component: Wire{}}
 }

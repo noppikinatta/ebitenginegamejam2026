@@ -611,9 +611,9 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 			comps = append(comps, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})
 			items = append(items, OfferItem{Kind: OfferAddWeapon, Weapon: kind, Text: kind.String()})
 		default:
-			name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]
-			comps = append(comps, Junk{DeviceName: name})
-			items = append(items, OfferItem{Kind: OfferAddJunk, Text: name})
+			j := randomJunk(w.rng)
+			comps = append(comps, j)
+			items = append(items, OfferItem{Kind: OfferAddJunk, Text: j.DeviceName})
 		}
 	}
 

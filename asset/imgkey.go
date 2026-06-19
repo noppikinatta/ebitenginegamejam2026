@@ -21,6 +21,9 @@ const (
 	ImgTileJunk      = "tile_junk"
 	ImgTileCapacitor = "tile_capacitor"
 
+	// Tall junk fixtures, drawn as always-upright sprites (mount tile at bottom).
+	ImgJunkTower = "junk_tower"
+
 	// Weapon tiles, one per WeaponKind.
 	ImgTileWeaponCannon  = "tile_weapon_cannon"
 	ImgTileWeaponShotgun = "tile_weapon_shotgun"

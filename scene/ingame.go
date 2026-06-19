@@ -563,15 +563,18 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		drawing.DrawSprite(screen, drawing.Image(key), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
 	}
 
-	// Pass 2: weapon barrels. These are rectangular sprites taller than a tile,
-	// authored pointing "up" (= forward) with their mount tile as the bottom
-	// TurretTileSize×TurretTileSize block. We anchor at that mount-tile centre and
-	// scale uniformly by the tile zoom, so the barrel base sits on the socket and
-	// the barrel swings about it as the turret rotates. Drawn after all bases (and
-	// in Y order) so a front tile's barrel overlays the tiles behind it.
+	// Pass 2: tall fixtures (weapon barrels + tall junk). These are rectangular
+	// sprites taller than a tile, authored pointing "up" with their mount tile as
+	// the bottom TurretTileSize×TurretTileSize block. We anchor at that mount-tile
+	// centre and scale uniformly by the tile zoom, so the sprite's base sits on the
+	// socket. Drawn after all bases (and in Y order) so a front tile's sprite
+	// overlays the tiles behind it.
+	//   - Weapon barrels point where they fire (their aim angle) in combat, or the
+	//     grid rotation when paused.
+	//   - Tall junk (e.g. a cathedral spire) always points world-up (angle 0).
 	z := size / core.TurretTileSize
 	for _, p := range ps {
-		wc, ok := tiles[p.idx].Component.(core.WeaponComponent)
+		key, ok := tallTileSprite(tiles[p.idx].Component)
 		if !ok {
 			continue
 		}
@@ -579,18 +582,35 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		if power[p.idx] <= 0 {
 			dim = 0.5
 		}
-		img := drawing.Image(weaponTileKey(wc.Weapon.Kind))
+		spriteTheta := 0.0 // tall junk: always world-up
+		if wc, isWeapon := tiles[p.idx].Component.(core.WeaponComponent); isWeapon {
+			if aimBarrels {
+				spriteTheta = wc.Weapon.RenderAngle() + math.Pi/2
+			} else {
+				spriteTheta = theta
+			}
+		}
+		img := drawing.Image(key)
 		b := img.Bounds()
 		ax := float64(b.Dx()) / 2                     // mount tile is horizontally centred
 		ay := float64(b.Dy()) - core.TurretTileSize/2 // ...and is the bottom tile block
-		// Combat: each barrel points where it actually fires (source "up" = the aim
-		// direction, hence +pi/2). Pause: keep the grid rotation (upright).
-		barrelTheta := theta
-		if aimBarrels {
-			barrelTheta = wc.Weapon.RenderAngle() + math.Pi/2
-		}
-		drawing.DrawSpriteAnchored(screen, img, p.c.X, p.c.Y, z, barrelTheta, ax, ay, dim, dim, dim, 1)
+		drawing.DrawSpriteAnchored(screen, img, p.c.X, p.c.Y, z, spriteTheta, ax, ay, dim, dim, dim, 1)
 	}
+}
+
+// tallTileSprite returns the tall-sprite image key for a component that is drawn
+// as a fixture rising out of its tile (a weapon barrel or a tall junk), and
+// whether it has one.
+func tallTileSprite(comp core.Component) (key string, ok bool) {
+	switch c := comp.(type) {
+	case core.WeaponComponent:
+		return weaponTileKey(c.Weapon.Kind), true
+	case core.Junk:
+		if c.Tall {
+			return asset.ImgJunkTower, true
+		}
+	}
+	return "", false
 }
 
 // drawPause renders the zoomed, upright cut view over a dimmed world: the tank
@@ -700,6 +720,9 @@ func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool)
 		}
 		return name, weaponDesc(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
+		if c.Tall {
+			return c.Name(), "A giant useless fixture a doctor bolted on. It does nothing but dilute power — a prime tile to cut.", asset.ImgJunkTower, true
+		}
 		return c.Name(), "A useless gadget a doctor bolted on. It conducts power but does nothing — a prime tile to cut.", asset.ImgTileJunk, false
 	case core.Capacitor:
 		return "Capacitor", "Equipment that raises the turret's fire rate while it stays connected.", asset.ImgTileCapacitor, false
