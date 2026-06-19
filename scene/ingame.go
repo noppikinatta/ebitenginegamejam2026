@@ -579,8 +579,8 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 			continue
 		}
 		dim := float32(1)
-		if power[p.idx] <= 0 {
-			dim = 0.5
+		if power[p.idx] <= 0 && !tr.IsGenerator(p.idx) {
+			dim = 0.5 // unpowered (the generator reads as 0 power but is always live)
 		}
 		spriteTheta := 0.0 // tall junk: always world-up
 		if wc, isWeapon := tiles[p.idx].Component.(core.WeaponComponent); isWeapon {

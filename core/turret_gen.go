@@ -42,10 +42,14 @@ type TurretGenConfig struct {
 func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 	tiles := make(map[hexmap.Index]*Tile)
 
-	// Place generator tiles first.
+	// Place generator tiles first. The generator is the uncuttable connectivity
+	// root (the anchor the cut-cascade hangs from), but it also holds a real
+	// component (weapon / junk / wire) like any tile, so the central slot isn't
+	// wasted on an empty power tile. It is still excluded from the consumer count,
+	// so a central weapon is effectively a "free" main gun.
 	genPositions := make([]hexmap.Index, 0, len(cfg.Generators))
 	for _, gc := range cfg.Generators {
-		tiles[gc.Index] = &Tile{Component: Wire{}} // generator is treated as a wire (pass-through)
+		tiles[gc.Index] = pickComponent(cfg, rng)
 		genPositions = append(genPositions, gc.Index)
 	}
 

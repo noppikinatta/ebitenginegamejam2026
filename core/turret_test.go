@@ -368,6 +368,31 @@ func TestActiveWeapons_ReturnsConnectedWeapons(t *testing.T) {
 	}
 }
 
+// TestActiveWeapons_IncludesGeneratorWeapon: a weapon placed on the generator
+// (central) tile is active and fires, but the tile remains uncuttable.
+func TestActiveWeapons_IncludesGeneratorWeapon(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	nb := hexmap.IdxXY(1, 0)
+	tiles := map[hexmap.Index]*Tile{
+		gen: makeTile(WeaponComponent{Weapon: NewWeapon("Core", KindCannon)}),
+		nb:  wireT(), // a consumer so the turret has connected non-generator tiles
+	}
+	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
+
+	found := false
+	for _, w := range tr.ActiveWeapons() {
+		if w.TileIdx == gen {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("central (generator) weapon should be active and fire")
+	}
+	if tr.PurgeTile(gen) {
+		t.Error("the generator tile must stay uncuttable even when it holds a weapon")
+	}
+}
+
 // TestActiveWeapons_SetsTileIdx: ActiveWeapons records which tile each weapon
 // sits on, so firing can originate from the correct turret position.
 func TestActiveWeapons_SetsTileIdx(t *testing.T) {
