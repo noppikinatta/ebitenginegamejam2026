@@ -65,7 +65,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 ### 既知の暫定対応・残課題
 
-- **音声はプレースホルダ**。`asset/sound/bgm.ogg` は OggS ヘッダのみのダミー、`explosion.wav` は無音。`LoadSounds()` はデコード失敗を握りつぶす（ログして継続）よう変更済みなので落ちないが、本物の音源に差し替えるまで鳴らない。`LoadSounds()` はまだどこからも呼ばれていない
+- **音声はダミー（差し替え前提）だが配線済み・実際に鳴る**。`asset/sound/*.wav`（`bgm`/`fire`/`explosion`/`hit`）はサイン波等で生成した**デコード可能な仮音源**（`go run tools/gensound/main.go asset/sound` で再生成可能）。`asset.LoadSounds()` は `app/main.go` 起動時に呼ばれ、デコード失敗は握りつぶす（ログして継続）。本物の音源に差し替えれば即鳴る。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMは単一プレイヤーを `Rewind` で使い回しループ（`InGame.OnStart` で再生／`OnEnd` で停止）
 - **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
 - **言語CSVが空**。`asset/lang/english.csv` / `japanese.csv` は存在するが中身が無い。`scene/title.go` は `story-1` キーを参照（現状フォールバック表示）
 - **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity/JunkDensity）、電力量、ニッパー入手率、燭台周期、`maxTurretTiles` 等は初期値のまま。プレイテストで要調整
@@ -163,7 +163,7 @@ go test ./lang/... -run TestName -v
 ### asset パッケージ
 
 - `embed.go` — フォント（Mplus2-Regular）、`lang/*.csv`、`img/*.png` を埋め込み、`init()` で `FontFace(size)`（サイズ別キャッシュ）・言語テンプレート・画像マップを構築。`Images()` / `LoadTemplates()` / `FontFace()` を公開
-- `sound.go` — `bgm.ogg`（ループ）と `explosion.wav` を埋め込み、48000Hz の `audio.Context` を作る。`LoadSounds()`（明示呼び出し）/ `PlaySound(Sound)` / `StopSound(Sound)`。`Sound` は `BGM` / `SEExplosion` の enum
+- `sound.go` — `bgm.wav`（ループ）と SE（`fire`/`explosion`/`hit`）`.wav` を埋め込み、48000Hz の `audio.Context` を作る。`LoadSounds()`（`app/main.go` で起動時に呼ぶ）でSEは**デコード済みPCMを保持**し `PlaySound` ごとに `NewPlayerFromBytes` で多重再生、BGMは単一ループプレイヤー。`PlaySound(Sound)` / `PlayBGM()` / `StopBGM()`。`Sound` は `BGM` / `SEFire` / `SEExplosion` / `SEPlayerHit` の enum。**core はEbiten非依存のまま音を扱う**：`core.SoundEvent`（`SndFire`/`SndExplosion`/`SndPlayerHit`）を `World.Update` 中に `emit` で `World.SoundEvents` へ貯め、scene が毎フレーム `core.DispatchSounds(events, sink)`（同tick重複は1回に間引き）で `core.SoundSink` 実装（`scene.soundSink`→`asset.PlaySound`）へ流す。`SoundSink` がテスト用フェイクで差し替え可能な注入点
 
 ### Drawing / Performance Conventions
 

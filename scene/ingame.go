@@ -108,11 +108,33 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	g.paused = false
+	asset.PlayBGM()
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
 	g.turretRenderedAngle = g.world.Player.FacingAngle
 	// Snap the power gauge to its current value so it doesn't sweep up from empty.
 	g.powerGaugeFill = g.powerGaugeTarget()
+}
+
+// OnEnd is called by bamenn when the scene is left; stop the BGM so it doesn't
+// bleed into the result/title screens.
+func (g *InGame) OnEnd() {
+	asset.StopBGM()
+}
+
+// soundSink routes core sound events to the asset audio backend. It is the
+// Ebiten-side implementation of core.SoundSink injected each frame.
+type soundSink struct{}
+
+func (soundSink) PlaySound(e core.SoundEvent) {
+	switch e {
+	case core.SndFire:
+		asset.PlaySound(asset.SEFire)
+	case core.SndExplosion:
+		asset.PlaySound(asset.SEExplosion)
+	case core.SndPlayerHit:
+		asset.PlaySound(asset.SEPlayerHit)
+	}
 }
 
 // powerGaugeTarget returns the [0,1] fill the left-edge power gauge should ease
@@ -161,6 +183,7 @@ func (g *InGame) Update() error {
 			g.handlePauseCut()
 		} else {
 			g.world.Update(g.readMove())
+			core.DispatchSounds(g.world.SoundEvents, soundSink{})
 		}
 	}
 
