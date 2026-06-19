@@ -199,6 +199,45 @@ func TestRenderAngle_LockOnTracksForwardDoesnt(t *testing.T) {
 	}
 }
 
+// TestLockOn_HoldsAimRelativeToTankWhenTargetLost: once a lock-on weapon has
+// aimed at an enemy, losing that enemy must freeze the barrel pointing the same
+// way relative to the tank (so it turns with the tank), not snap back to forward.
+func TestLockOn_HoldsAimRelativeToTankWhenTargetLost(t *testing.T) {
+	w, cannon := buildWeaponWorld(KindCannon, hexmap.IdxXY(0, 0))
+	p := w.cfg.Weapons[KindCannon]
+
+	// Enemy to the right (world angle 0): tank faces up (-pi/2), so the aim is
+	// pi/2 to the right of forward.
+	enemy := &Enemy{Pos: geom.PointF{X: 100, Y: 0}, HP: 1000, Radius: 10, alive: true}
+	w.Enemies = []*Enemy{enemy}
+	if got := w.weaponAim(cannon, p); !angleClose(got, 0, 1e-9) {
+		t.Fatalf("aim with enemy = %.3f, want 0 (toward enemy)", got)
+	}
+
+	// Enemy leaves: aim must hold at world angle 0 (forward + stored offset),
+	// not revert to the tank's forward facing.
+	w.Enemies = nil
+	if got := w.weaponAim(cannon, p); !angleClose(got, 0, 1e-9) {
+		t.Errorf("aim after target lost = %.3f, want held at 0", got)
+	}
+
+	// Rotate the tank: the barrel offset is relative, so the held aim rotates too.
+	w.Player.FacingAngle = 0 // now facing right
+	if got := w.weaponAim(cannon, p); !angleClose(got, math.Pi/2, 1e-9) {
+		t.Errorf("held aim after tank turn = %.3f, want pi/2 (offset preserved)", got)
+	}
+
+	// A shot fired with no target goes out along the held direction, not forward.
+	cannon.fireProgress = p.BaseInterval
+	w.updateWeapons()
+	if len(w.Projectiles) == 0 {
+		t.Fatalf("expected a projectile to be fired")
+	}
+	if got := w.Projectiles[0].Vel.Angle(); !angleClose(got, math.Pi/2, 1e-9) {
+		t.Errorf("projectile angle = %.3f, want held aim pi/2", got)
+	}
+}
+
 // TestMissile_ExplodesOnExpiry: a contact (non-PassThrough) explosive shell that
 // flies past everything still detonates on expiry, dealing area damage (not the
 // 8 contact damage) to a nearby enemy it never touched.

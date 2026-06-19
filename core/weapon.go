@@ -71,6 +71,7 @@ type Weapon struct {
 	beamTicksLeft int          // KindLaser: ticks remaining in current beam burst
 	beamAngle     float64      // KindLaser: world angle the current burst points when no enemy is in range
 	aimRender     float64      // smoothed world aim angle, for drawing the barrel pointing where it fires
+	aimOffset     float64      // AimLockOn: last aim angle relative to the tank's facing; held when no target so the barrel freezes relative to the tank
 }
 
 func NewWeapon(name string, kind WeaponKind) *Weapon {
