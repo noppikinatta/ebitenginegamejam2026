@@ -612,6 +612,7 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 	// Tank upright, behind the turret.
 	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), cx, cy, tankDrawW*zoom, tankDrawH*zoom, 0, 1, 1, 1, 1)
 	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0, false)
+	g.drawTileLevels(screen, cx, cy)
 
 	// Highlight the tile under the cursor, plus a cut preview: the collateral
 	// tiles that would cascade-cut are framed in a dimmer white. The hovered
@@ -627,6 +628,28 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
 		drawTileFrame(screen, c.X, c.Y, pauseTileSize, 1, 1, 1, 1) // bright: target
 		g.drawPauseTileInfo(screen, idx)
+	}
+}
+
+// drawTileLevels draws a "+N" badge on each upgraded weapon tile in the upright
+// pause view, so the player can see how many times a weapon has been upgraded.
+// Drawn after the turret so the badges sit on top of the barrels.
+func (g *InGame) drawTileLevels(screen *ebiten.Image, cx, cy float64) {
+	for idx, tile := range g.world.Turret().Tiles() {
+		if tile.IsPurged() {
+			continue
+		}
+		wc, ok := tile.Component.(core.WeaponComponent)
+		if !ok || wc.Weapon.Level == 0 {
+			continue
+		}
+		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
+		label := fmt.Sprintf("+%d", wc.Weapon.Level)
+		sz := drawing.MeasureText(label, 16)
+		opt := &ebiten.DrawImageOptions{}
+		opt.ColorScale.Scale(1, 0.85, 0.30, 1) // gold
+		opt.GeoM.Translate(c.X+pauseTileSize/2-sz.X-4, c.Y+pauseTileSize/2-sz.Y-2)
+		drawing.DrawText(screen, label, 16, opt)
 	}
 }
 
@@ -671,7 +694,11 @@ func (g *InGame) drawPauseTileInfo(screen *ebiten.Image, idx hexmap.Index) {
 func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool) {
 	switch c := comp.(type) {
 	case core.WeaponComponent:
-		return c.Weapon.Name, weaponDesc(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
+		name := c.Weapon.Name
+		if c.Weapon.Level > 0 {
+			name = fmt.Sprintf("%s  +%d", name, c.Weapon.Level)
+		}
+		return name, weaponDesc(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
 		return c.Name(), "A useless gadget a doctor bolted on. It conducts power but does nothing — a prime tile to cut.", asset.ImgTileJunk, false
 	case core.Capacitor:
