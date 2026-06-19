@@ -23,11 +23,12 @@ func defaultTurretGen() core.TurretGenConfig {
 // defaultDoctor returns the standard level-up offer balance.
 func defaultDoctor() core.DoctorSpec {
 	return core.DoctorSpec{
-		NipperChance:   0.25,
-		UpgradeChance:  0.625,
-		NipperMin:      5,
-		NipperMax:      10,
-		MaxUpgrades:    3,
-		MaxBundleTiles: 3,
+		NipperChance:    0.25,
+		UpgradeChance:   0.625,
+		NipperMin:       5,
+		NipperMax:       10,
+		MaxUpgrades:     3,
+		MaxBundleTiles:  3,
+		CapacitorChance: 0.15, // per bundle tile, chance it is a Capacitor instead of weapon/junk
 	}
 }

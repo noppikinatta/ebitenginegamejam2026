@@ -25,7 +25,7 @@ func buildLaserWorld(enemies []*Enemy) *World {
 		rng:   nil,
 		cfg:   testConfig(),
 	}
-	weapon := NewWeapon("TestLaser", 5, KindLaser)
+	weapon := NewWeapon("TestLaser", KindLaser)
 	// beamTicksLeft > 0 makes the beam active immediately (bypass cooldown).
 	weapon.beamTicksLeft = 60
 	w.Player.Weapons = []*Weapon{weapon}
@@ -40,7 +40,7 @@ func TestBeamDPS_HitsEnemyInPath(t *testing.T) {
 	w := buildLaserWorld([]*Enemy{e})
 	weapon := w.Player.Weapons[0]
 
-	stats := weapon.StatsFromEnergy(testParams(KindLaser))
+	stats := weapon.Stats(testParams(KindLaser))
 	hpBefore := e.HP
 
 	w.updateBeams()

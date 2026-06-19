@@ -15,7 +15,8 @@ type State int
 const (
 	StatePlaying  State = iota
 	StateLevelUp        // awaiting the player's purge choice
-	StateGameOver       // run ended
+	StateGameOver       // run ended in defeat (player died)
+	StateCleared        // run won (final boss defeated)
 )
 
 // World holds all gameplay state for a single run. It has no Ebiten dependency
@@ -25,7 +26,8 @@ type World struct {
 	Enemies     []*Enemy
 	Projectiles []*Projectile
 	Gems        []*Gem
-	Pickups     []*Pickup // dropped nippers awaiting collection
+	Pickups     []*Pickup    // dropped nippers awaiting collection
+	Explosions  []*Explosion // active explosion visual effects
 
 	// Choices are the doctor offers shown while State==StateLevelUp.
 	Choices []Upgrade
@@ -38,12 +40,56 @@ type World struct {
 	pendingLevelUps  int
 	candlestickTimer int
 	spawnTimer       int
+	bossesSpawned    int // index of the next boss in cfg.Bosses to spawn
 	rng              *rand.Rand
 	cfg              Config
 }
 
+// ActiveBoss returns the first alive boss enemy, or nil if none is on the field.
+// The scene uses it to draw a boss health bar.
+func (w *World) ActiveBoss() *Enemy {
+	for _, e := range w.Enemies {
+		if e.alive && e.IsBoss {
+			return e
+		}
+	}
+	return nil
+}
+
 // Turret exposes the turret grid read-only so the scene layer can draw it.
 func (w *World) Turret() *Turret { return w.turret }
+
+// FireRateMultiplier is the turret-wide power multiplier applied to every
+// weapon's fire interval (interval = baseInterval / multiplier). It is derived
+// from the connected consumer tile count via the configured power curve, so
+// cutting tiles raises it. Used by the simulation and by the HUD/gauge.
+func (w *World) FireRateMultiplier() float64 {
+	if w.turret == nil {
+		return 1
+	}
+	base := PowerMultiplier(w.cfg.PowerCurve, w.turret.ConsumerTileCount())
+	return base + w.turret.Modifiers().FireRateAdd
+}
+
+// FireRateMultBounds returns the minimum and maximum fire-rate multiplier the
+// power curve can produce, so the HUD can normalise the multiplier into a [0,1]
+// gauge fill. Falls back to (1, 1) for an empty curve.
+func (w *World) FireRateMultBounds() (min, max float64) {
+	if len(w.cfg.PowerCurve) == 0 {
+		return 1, 1
+	}
+	min = w.cfg.PowerCurve[0].Mult
+	max = min
+	for _, p := range w.cfg.PowerCurve {
+		if p.Mult < min {
+			min = p.Mult
+		}
+		if p.Mult > max {
+			max = p.Mult
+		}
+	}
+	return min, max
+}
 
 // NewWorld builds a fresh run. seed makes enemy spawning and turret generation
 // deterministic for tests; pass time.Now().UnixNano() for real gameplay. cfg
@@ -80,11 +126,13 @@ func (w *World) Update(move geom.PointF) {
 	w.updatePlayer(move)
 	w.updateWeapons()
 	w.updateBeams()
+	w.updateExplosions() // age existing effects before new ones may spawn this tick
 	w.updateProjectiles()
 	w.updateEnemies()
 	w.updateGems()
 	w.updatePickups()
 	w.spawnEnemies()
+	w.spawnBosses()
 	w.spawnCandlestick()
 	w.compact()
 }
@@ -138,52 +186,119 @@ func (w *World) updatePlayer(move geom.PointF) {
 	}
 }
 
+// aimSmooth is the per-tick fraction the rendered barrel angle eases toward the
+// weapon's live aim, so barrels track targets without jittering on target swaps.
+const aimSmooth = 0.3
+
+// stepAngle eases a toward b by fraction t along the shortest angular path.
+func stepAngle(a, b, t float64) float64 {
+	return a + math.Atan2(math.Sin(b-a), math.Cos(b-a))*t
+}
+
 func (w *World) updateWeapons() {
+	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
-		if weapon.cooldown > 0 {
-			weapon.cooldown--
-			continue
+		params := w.cfg.Weapons[weapon.Kind]
+		stats := weapon.Stats(params)
+
+		// Smooth the rendered barrel angle toward where the weapon currently aims,
+		// so lock-on barrels visibly track their target (drawing only).
+		weapon.aimRender = stepAngle(weapon.aimRender, w.weaponAim(weapon, params), aimSmooth)
+
+		// Fire step: advance the accumulator; trigger a shot at BaseInterval.
+		weapon.fireProgress += fireIncrement(params, fireMult)
+		if weapon.fireProgress >= params.BaseInterval {
+			// Interception weapons (CIWS) hold a full charge until a target
+			// appears instead of firing into empty space; others fire regardless
+			// (forward/outward) so the player feels the cadence.
+			if params.HoldWhenNoTarget && w.nearestEnemy(w.Player.Pos, stats.Range) == nil {
+				weapon.fireProgress = params.BaseInterval
+			} else {
+				weapon.fireProgress -= params.BaseInterval
+				if weapon.Kind == KindLaser {
+					weapon.beamTicksLeft = stats.BeamDuration
+					weapon.beamAngle = w.weaponAim(weapon, params)
+				} else {
+					weapon.pelletsLeft = pelletCount(params) // queue this shot's pellets
+					weapon.pelletTimer = 0
+				}
+			}
 		}
 
-		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
-		target := w.nearestEnemy(w.Player.Pos, stats.Range)
-		if target == nil {
-			continue
+		// Emit any due pellets (handles both simultaneous shots and staggered bursts).
+		if weapon.Kind != KindLaser {
+			w.emitPellets(weapon, params, stats)
 		}
-
-		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-
-		if weapon.Kind == KindLaser {
-			weapon.beamTicksLeft = stats.BeamDuration
-			weapon.cooldown = stats.FireInterval
-			continue
-		}
-
-		// Projectiles aim from the turret tile muzzle toward the target.
-		dir := target.Pos.Subtract(muzzle)
-		d := dir.Abs()
-		if d == 0 {
-			continue
-		}
-		baseAngle := dir.Angle()
-
-		for _, offset := range weapon.ProjectileOffsets() {
-			vel := geom.PointFFromPolar(stats.ProjectileSpeed, baseAngle+offset)
-			w.Projectiles = append(w.Projectiles, &Projectile{
-				Pos:    muzzle,
-				Vel:    vel,
-				Damage: stats.Damage,
-				Radius: 5,
-				Life:   120,
-				alive:  true,
-			})
-		}
-		weapon.cooldown = stats.FireInterval
 	}
 }
 
-// updateBeams applies DPS from active laser beams each tick.
-// Beams track the nearest enemy each frame and penetrate all enemies in path.
+// emitPellets fires the projectiles owed for the weapon's current shot. With
+// BurstGap==0 all remaining pellets fire at once; otherwise one fires every
+// BurstGap ticks (a stream).
+func (w *World) emitPellets(weapon *Weapon, params WeaponParams, stats WeaponStats) {
+	if weapon.pelletsLeft <= 0 {
+		return
+	}
+	if weapon.pelletTimer > 0 {
+		weapon.pelletTimer--
+		return
+	}
+	n := weapon.pelletsLeft
+	if params.BurstGap > 0 {
+		n = 1
+	}
+	total := pelletCount(params)
+	muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+	aim := w.weaponAim(weapon, params)
+	for k := 0; k < n; k++ {
+		i := total - weapon.pelletsLeft + k // pellet index within the shot
+		offset := pelletOffset(params, i, total, w.rng)
+		vel := geom.PointFFromPolar(stats.ProjectileSpeed, aim+offset)
+		w.Projectiles = append(w.Projectiles, &Projectile{
+			Pos:           muzzle,
+			Vel:           vel,
+			Damage:        stats.Damage,
+			Radius:        stats.ProjRadius,
+			Life:          stats.ProjLife,
+			ExplodeRadius: stats.ExplodeRadius,
+			ExplodeDamage: stats.ExplodeDamage,
+			PassThrough:   params.PassThrough,
+			Mover:         params.Mover,
+			alive:         true,
+		})
+	}
+	weapon.pelletsLeft -= n
+	if weapon.pelletsLeft > 0 {
+		weapon.pelletTimer = params.BurstGap
+	}
+}
+
+// weaponAim returns the world angle a weapon fires along, per its AimMode:
+// toward the nearest in-range enemy (else forward) for lock-on, the tank's
+// forward facing for forward weapons, or radially outward through its tile.
+func (w *World) weaponAim(weapon *Weapon, params WeaponParams) float64 {
+	switch params.Aim {
+	case AimForward:
+		return w.Player.FacingAngle
+	case AimOutward:
+		if off := MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle); off.Abs() > 0 {
+			return off.Angle()
+		}
+		return w.Player.FacingAngle
+	default: // AimLockOn
+		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
+		if target := w.nearestEnemy(w.Player.Pos, params.BaseRange); target != nil {
+			if dir := target.Pos.Subtract(muzzle); dir.Abs() > 0 {
+				return dir.Angle()
+			}
+		}
+		return w.Player.FacingAngle
+	}
+}
+
+// updateBeams applies DPS from active laser beams each tick. A beam tracks the
+// nearest enemy in range, or fires along its captured forward angle when none is
+// locked, and penetrates all enemies in its path.
 func (w *World) updateBeams() {
 	for _, weapon := range w.Player.Weapons {
 		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
@@ -191,19 +306,9 @@ func (w *World) updateBeams() {
 		}
 		weapon.beamTicksLeft--
 
-		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
+		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-		target := w.nearestEnemy(muzzle, stats.Range)
-		if target == nil {
-			continue
-		}
-
-		dir := target.Pos.Subtract(muzzle)
-		d := dir.Abs()
-		if d == 0 {
-			continue
-		}
-		unitDir := dir.Multiply(1 / d)
+		unitDir := w.beamDir(weapon, muzzle, stats.Range)
 		end := muzzle.Add(unitDir.Multiply(stats.BeamLength))
 		halfWidth := stats.BeamWidth / 2
 
@@ -221,6 +326,19 @@ func (w *World) updateBeams() {
 	}
 }
 
+// beamDir returns the unit direction a laser burst points: toward the nearest
+// enemy within range (centred on the player), or the burst's captured forward
+// angle when no enemy is locked.
+func (w *World) beamDir(weapon *Weapon, muzzle geom.PointF, rng float64) geom.PointF {
+	if target := w.nearestEnemy(w.Player.Pos, rng); target != nil {
+		dir := target.Pos.Subtract(muzzle)
+		if d := dir.Abs(); d > 0 {
+			return dir.Multiply(1 / d)
+		}
+	}
+	return geom.PointFFromPolar(1, weapon.beamAngle)
+}
+
 // ActiveBeams returns snapshots of all currently firing laser beams for drawing.
 func (w *World) ActiveBeams() []BeamView {
 	var out []BeamView
@@ -228,20 +346,11 @@ func (w *World) ActiveBeams() []BeamView {
 		if weapon.Kind != KindLaser || weapon.beamTicksLeft <= 0 {
 			continue
 		}
-		stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
+		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-		target := w.nearestEnemy(muzzle, stats.Range)
-		if target == nil {
-			continue
-		}
-		dir := target.Pos.Subtract(muzzle)
-		d := dir.Abs()
-		if d == 0 {
-			continue
-		}
 		out = append(out, BeamView{
 			Origin: muzzle,
-			Dir:    dir.Multiply(1 / d),
+			Dir:    w.beamDir(weapon, muzzle, stats.Range),
 			Length: stats.BeamLength,
 			Width:  stats.BeamWidth,
 		})
@@ -269,10 +378,21 @@ func (w *World) updateProjectiles() {
 		if !p.alive {
 			continue
 		}
+		if p.Mover != nil {
+			p.Mover.Steer(p, w) // homing / drift: adjust velocity before moving
+		}
 		p.Pos = p.Pos.Add(p.Vel)
 		p.Life--
 		if p.Life <= 0 {
 			p.alive = false
+			if p.ExplodeRadius > 0 {
+				w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+			}
+			continue
+		}
+		// Pass-through shells (e.g. the grenade) ignore contact and only matter
+		// on expiry; contact projectiles fall through to the hit test below.
+		if p.PassThrough {
 			continue
 		}
 		for _, e := range w.Enemies {
@@ -291,6 +411,35 @@ func (w *World) updateProjectiles() {
 	}
 }
 
+// explosionLife is how many ticks an explosion effect stays visible (fading out).
+const explosionLife = 24
+
+// explode deals dmg to every alive enemy within radius of center (area damage)
+// and queues a visual explosion effect at that spot.
+func (w *World) explode(center geom.PointF, radius, dmg float64) {
+	w.Explosions = append(w.Explosions, &Explosion{Pos: center, Radius: radius, Life: explosionLife, MaxLife: explosionLife})
+	for _, e := range w.Enemies {
+		if !e.alive {
+			continue
+		}
+		if e.Pos.Distance(center) <= radius+e.Radius {
+			e.HP -= dmg
+			if e.HP <= 0 {
+				w.killEnemy(e)
+			}
+		}
+	}
+}
+
+// updateExplosions ages active explosion effects; compact() drops expired ones.
+func (w *World) updateExplosions() {
+	for _, e := range w.Explosions {
+		if e.Life > 0 {
+			e.Life--
+		}
+	}
+}
+
 func (w *World) killEnemy(e *Enemy) {
 	e.alive = false
 	w.Kills++
@@ -299,6 +448,9 @@ func (w *World) killEnemy(e *Enemy) {
 	}
 	if e.DropsNipper {
 		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, alive: true})
+	}
+	if e.Final && w.State == StatePlaying {
+		w.State = StateCleared // defeating the final boss wins the run
 	}
 }
 
@@ -323,7 +475,9 @@ func (w *World) damagePlayer(dmg float64) {
 	w.Player.invuln = 30
 	if w.Player.HP <= 0 {
 		w.Player.HP = 0
-		w.State = StateGameOver
+		if w.State == StatePlaying { // don't override a win decided earlier this tick
+			w.State = StateGameOver
+		}
 	}
 }
 
@@ -396,83 +550,80 @@ func (w *World) rollChoices() {
 	w.Choices = choices
 }
 
-// rollDoctorChoice produces a single doctor offer. There are three offer types:
-//   - Nippers (~25%): 5-10 spare nippers to fund future cuts.
-//   - Weapon upgrade (~37.5%): 1-3 existing weapons each gain +1 Level (+20% damage).
-//   - Tile bundle (~37.5%): 1-3 new tiles added; each is 50% weapon, 50% junk.
+// rollDoctorChoice produces a single doctor proposal. A proposal is either:
+//   - a Nippers offer (~NipperChance, also forced when capped with no weapons to
+//     upgrade): spare nippers to fund future cuts; or
+//   - a "build" offer: 1-MaxBundleTiles items, each independently a weapon
+//     upgrade or a new tile (weapon / junk / capacitor). Adds and upgrades are
+//     mixed freely within the one proposal.
 //
-// atCap forces non-tile offers (upgrade or nippers) so the turret doesn't exceed
-// maxTurretTiles.
+// atCap forces every build item to be an upgrade (no new tiles) so the turret
+// doesn't exceed maxTurretTiles.
 func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	doc := doctorNames[w.rng.Intn(len(doctorNames))]
 	r := w.rng.Float64()
 	activeWeapons := w.turret.ActiveWeapons()
 	dd := w.cfg.Doctor
 
-	// ~25%: nippers. Also forced when atCap and no weapons exist to upgrade.
+	// Nippers proposal. Also the only option when capped with nothing to upgrade.
 	if r < dd.NipperChance || (atCap && len(activeWeapons) == 0) {
 		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
 		return Upgrade{
-			Name: fmt.Sprintf("Dr. %s: spare nippers (+%d)", doc, n),
-			Desc: "Plastic-model nippers to cut tiles mid-battle.",
-			Apply: func(world *World) {
-				world.Player.Nippers += n
-			},
+			Doctor: doc,
+			Items:  []OfferItem{{Kind: OfferNippers, Text: fmt.Sprintf("+%d Nippers", n)}},
+			Apply:  func(world *World) { world.Player.Nippers += n },
 		}
 	}
 
-	// atCap or ~37.5% of remaining: weapon upgrade (1-3 existing weapons +1 Level).
-	if atCap || (len(activeWeapons) > 0 && r < dd.UpgradeChance) {
-		maxCount := len(activeWeapons)
-		if maxCount > dd.MaxUpgrades {
-			maxCount = dd.MaxUpgrades
-		}
-		count := 1 + w.rng.Intn(maxCount)
-		perm := w.rng.Perm(len(activeWeapons))
-		selected := make([]*Weapon, count)
-		for i := 0; i < count; i++ {
-			selected[i] = activeWeapons[perm[i]]
-		}
-		nameStr := ""
-		for i, wp := range selected {
-			if i > 0 {
-				nameStr += ", "
-			}
-			nameStr += wp.Name
-		}
-		return Upgrade{
-			Name: fmt.Sprintf("Dr. %s upgrades: %s", doc, nameStr),
-			Desc: "Each upgraded weapon deals 20% more damage per level (multiplicative).",
-			Apply: func(world *World) {
-				for _, wp := range selected {
-					wp.Level++
-				}
-			},
-		}
+	// Build proposal: a mix of upgrades and tile additions.
+	itemCount := 1 + w.rng.Intn(dd.MaxBundleTiles)
+	// Shuffled pool of existing weapons so upgrade items target distinct weapons.
+	perm := w.rng.Perm(len(activeWeapons))
+	upIdx := 0
+	if atCap && itemCount > len(activeWeapons) {
+		itemCount = len(activeWeapons) // every item must be an upgrade
 	}
 
-	// Tile bundle: 1-MaxBundleTiles tiles, each independently 50% weapon / 50% junk.
-	tileCount := 1 + w.rng.Intn(dd.MaxBundleTiles)
-	comps := make([]Component, tileCount)
-	bundleDesc := ""
-	for i := range comps {
-		if i > 0 {
-			bundleDesc += " + "
+	pUpgrade := upgradeShare(dd)
+	items := make([]OfferItem, 0, itemCount)
+	var upgrades []*Weapon // existing weapons to level on Apply
+	var comps []Component  // new tiles to add on Apply
+
+	for k := 0; k < itemCount; k++ {
+		canUpgrade := upIdx < len(activeWeapons)
+		if canUpgrade && (atCap || w.rng.Float64() < pUpgrade) {
+			wp := activeWeapons[perm[upIdx]]
+			upIdx++
+			upgrades = append(upgrades, wp)
+			items = append(items, OfferItem{Kind: OfferUpgrade, Weapon: wp.Kind, Text: wp.Name})
+			continue
 		}
-		if w.rng.Float64() < 0.5 {
+		if atCap {
+			continue // out of distinct weapons and can't add tiles
+		}
+		// Otherwise add a new tile: capacitor / weapon / junk.
+		switch {
+		case w.rng.Float64() < dd.CapacitorChance:
+			comps = append(comps, Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus})
+			items = append(items, OfferItem{Kind: OfferAddCapacitor, Text: "Capacitor"})
+		case w.rng.Float64() < 0.5:
 			kind := pickWeaponKind(w.rng)
-			comps[i] = WeaponComponent{Weapon: NewWeapon(kind.String(), 0, kind)}
-			bundleDesc += kind.String()
-		} else {
-			name := junkDeviceNames[w.rng.Intn(len(junkDeviceNames))]
-			comps[i] = Junk{DeviceName: name}
-			bundleDesc += name
+			comps = append(comps, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})
+			items = append(items, OfferItem{Kind: OfferAddWeapon, Weapon: kind, Text: kind.String()})
+		default:
+			j := randomJunk(w.rng)
+			comps = append(comps, j)
+			items = append(items, OfferItem{Kind: OfferAddJunk, Text: j.DeviceName})
 		}
 	}
+
 	return Upgrade{
-		Name: fmt.Sprintf("Dr. %s: %s", doc, bundleDesc),
-		Desc: fmt.Sprintf("Adds %d tile(s) — dilutes power for all, but may bring new weapons.", tileCount),
+		Doctor: doc,
+		Items:  items,
 		Apply: func(world *World) {
+			for _, wp := range upgrades {
+				wp.Level++
+			}
 			for _, comp := range comps {
 				world.turret.AddTile(comp, world.rng)
 			}
@@ -481,32 +632,146 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	}
 }
 
+// upgradeShare is the probability a build item is an upgrade (vs a new tile),
+// derived from the doctor probabilities: the upgrade mass over the non-nipper
+// mass. Falls back to 0.5 when the masses are degenerate.
+func upgradeShare(dd DoctorSpec) float64 {
+	upMass := dd.UpgradeChance - dd.NipperChance
+	tileMass := 1 - dd.UpgradeChance
+	if upMass < 0 {
+		upMass = 0
+	}
+	if tileMass < 0 {
+		tileMass = 0
+	}
+	if total := upMass + tileMass; total > 0 {
+		return upMass / total
+	}
+	return 0.5
+}
+
+// defaultSpawnInterval is used only if the active phase has no Interval set.
+const defaultSpawnInterval = 60
+
 func (w *World) spawnEnemies() {
 	if w.spawnTimer > 0 {
 		w.spawnTimer--
 		return
 	}
-	sp := w.cfg.Spawn
-	interval := sp.EnemyBaseInterval - w.Tick/sp.EnemyIntervalDecay
-	if interval < sp.EnemyMinInterval {
-		interval = sp.EnemyMinInterval
+	ph := w.currentPhase()
+	interval := defaultSpawnInterval
+	if ph != nil && ph.Interval > 0 {
+		interval = ph.Interval
 	}
 	w.spawnTimer = interval
 
-	angle := w.rng.Float64() * 2 * math.Pi
-	pos := w.Player.Pos.Add(geom.PointFFromPolar(sp.EnemyDist, angle))
+	kind := EnemyGrunt
+	if ph != nil {
+		kind = w.pickKind(ph.Weights)
+	}
+	w.spawnPackOf(kind)
+}
 
-	// HP scales linearly with time so enemies get tankier as the run goes on.
-	sc := w.cfg.EnemyScaling
-	w.Enemies = append(w.Enemies, &Enemy{
-		Pos:     pos,
-		HP:      sc.HPBase + float64(w.Tick)*sc.HPPerTick,
-		Speed:   sc.Speed,
-		Radius:  sc.Radius,
-		Damage:  sc.Damage,
-		XPValue: sc.XPValue,
-		alive:   true,
-	})
+// spawnPackOf spawns a cluster (pack) of one zako kind around a single bearing,
+// so swarmers arrive as a group while grunts/brutes come one at a time. Pack
+// size is PackMin..PackMax.
+func (w *World) spawnPackOf(kind EnemyKind) {
+	stats := w.cfg.EnemyKinds[kind]
+	n := stats.PackMin
+	if n < 1 {
+		n = 1
+	}
+	if stats.PackMax > n {
+		n += w.rng.Intn(stats.PackMax - n + 1)
+	}
+	base := w.rng.Float64() * 2 * math.Pi
+	for i := 0; i < n; i++ {
+		a := base + (w.rng.Float64()-0.5)*0.6 // small spread so the pack isn't a single point
+		pos := w.Player.Pos.Add(geom.PointFFromPolar(w.cfg.Spawn.EnemyDist, a))
+		w.Enemies = append(w.Enemies, w.makeEnemy(kind, stats, pos))
+	}
+}
+
+// makeEnemy builds a zako enemy of the given kind, applying time-based HP
+// scaling: HP = HPBase × 2^(tick / HPDoublingTicks).
+func (w *World) makeEnemy(kind EnemyKind, s EnemyStats, pos geom.PointF) *Enemy {
+	hp := s.HPBase
+	if w.cfg.HPDoublingTicks > 0 {
+		hp = s.HPBase * math.Pow(2, float64(w.Tick)/w.cfg.HPDoublingTicks)
+	}
+	return &Enemy{
+		Pos: pos, Kind: kind, HP: hp, MaxHP: hp,
+		Speed: s.Speed, Radius: s.Radius, Damage: s.Damage, XPValue: s.XPValue,
+		alive: true,
+	}
+}
+
+// pickSpawnKind chooses an enemy kind using the weights of the current spawn
+// phase. Returns EnemyGrunt if there is no phase.
+func (w *World) pickSpawnKind() EnemyKind {
+	ph := w.currentPhase()
+	if ph == nil {
+		return EnemyGrunt
+	}
+	return w.pickKind(ph.Weights)
+}
+
+// pickKind does a weighted random pick over an ordered weight slice. Iteration
+// order is fixed (slice, not map) so the choice is deterministic for a given RNG
+// state.
+func (w *World) pickKind(weights []KindWeight) EnemyKind {
+	total := 0
+	for _, kw := range weights {
+		if kw.Weight > 0 {
+			total += kw.Weight
+		}
+	}
+	if total <= 0 {
+		return EnemyGrunt
+	}
+	r := w.rng.Intn(total)
+	for _, kw := range weights {
+		if kw.Weight <= 0 {
+			continue
+		}
+		if r < kw.Weight {
+			return kw.Kind
+		}
+		r -= kw.Weight
+	}
+	return EnemyGrunt
+}
+
+// currentPhase returns the spawn band for the current tick: the first phase whose
+// UntilTick hasn't been passed, else the last phase, else nil.
+func (w *World) currentPhase() *SpawnPhase {
+	for i := range w.cfg.SpawnPhases {
+		if w.Tick < w.cfg.SpawnPhases[i].UntilTick {
+			return &w.cfg.SpawnPhases[i]
+		}
+	}
+	if n := len(w.cfg.SpawnPhases); n > 0 {
+		return &w.cfg.SpawnPhases[n-1]
+	}
+	return nil
+}
+
+// spawnBosses spawns each scheduled boss once, when its AtTick is reached.
+func (w *World) spawnBosses() {
+	for w.bossesSpawned < len(w.cfg.Bosses) {
+		b := w.cfg.Bosses[w.bossesSpawned]
+		if w.Tick < b.AtTick {
+			break
+		}
+		w.bossesSpawned++
+		angle := w.rng.Float64() * 2 * math.Pi
+		pos := w.Player.Pos.Add(geom.PointFFromPolar(w.cfg.Spawn.EnemyDist, angle))
+		w.Enemies = append(w.Enemies, &Enemy{
+			Pos: pos, HP: b.HP, MaxHP: b.HP,
+			Speed: b.Speed, Radius: b.Radius, Damage: b.Damage, XPValue: b.XPValue,
+			IsBoss: true, Final: b.Final, Name: b.Name, alive: true,
+		})
+	}
 }
 
 // spawnCandlestick periodically drops a stationary, harmless candlestick the
@@ -534,6 +799,7 @@ func (w *World) compact() {
 	w.Projectiles = filterAlive(w.Projectiles, func(p *Projectile) bool { return p.alive })
 	w.Gems = filterAlive(w.Gems, func(g *Gem) bool { return g.alive })
 	w.Pickups = filterAlive(w.Pickups, func(p *Pickup) bool { return p.alive })
+	w.Explosions = filterAlive(w.Explosions, func(e *Explosion) bool { return e.Life > 0 })
 }
 
 func filterAlive[T any](s []T, alive func(T) bool) []T {

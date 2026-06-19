@@ -42,10 +42,14 @@ type TurretGenConfig struct {
 func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 	tiles := make(map[hexmap.Index]*Tile)
 
-	// Place generator tiles first.
+	// Place generator tiles first. The generator is the uncuttable connectivity
+	// root (the anchor the cut-cascade hangs from), but it also holds a real
+	// component (weapon / junk / wire) like any tile, so the central slot isn't
+	// wasted on an empty power tile. It is still excluded from the consumer count,
+	// so a central weapon is effectively a "free" main gun.
 	genPositions := make([]hexmap.Index, 0, len(cfg.Generators))
 	for _, gc := range cfg.Generators {
-		tiles[gc.Index] = &Tile{Component: Wire{}} // generator is treated as a wire (pass-through)
+		tiles[gc.Index] = pickComponent(cfg, rng)
 		genPositions = append(genPositions, gc.Index)
 	}
 
@@ -133,6 +137,22 @@ var junkDeviceNames = []string{
 	"Lava Lamp",
 	"Wind Chime",
 	"Snow Globe",
+	"Sagrada Familia",
+}
+
+// tallJunkNames are junk that render as a tall, always-upright fixture (Tall).
+var tallJunkNames = map[string]bool{
+	"Sagrada Familia": true,
+}
+
+// newJunk builds a Junk for the given device, setting Tall for the tall ones.
+func newJunk(name string) Junk {
+	return Junk{DeviceName: name, Tall: tallJunkNames[name]}
+}
+
+// randomJunk builds a Junk with a random device name.
+func randomJunk(rng *rand.Rand) Junk {
+	return newJunk(junkDeviceNames[rng.Intn(len(junkDeviceNames))])
 }
 
 // pickComponent returns a tile whose Component is chosen probabilistically.
@@ -140,24 +160,32 @@ func pickComponent(cfg TurretGenConfig, rng *rand.Rand) *Tile {
 	r := rng.Float64()
 	if r < cfg.WeaponDensity {
 		kind := pickWeaponKind(rng)
-		w := NewWeapon(kind.String(), 0, kind)
+		w := NewWeapon(kind.String(), kind)
 		return &Tile{Component: WeaponComponent{Weapon: w}}
 	}
 	r -= cfg.WeaponDensity
 	if r < cfg.JunkDensity {
-		return &Tile{Component: Junk{DeviceName: junkDeviceNames[rng.Intn(len(junkDeviceNames))]}}
+		return &Tile{Component: randomJunk(rng)}
 	}
 	return &Tile{Component: Wire{}}
 }
 
 func pickWeaponKind(rng *rand.Rand) WeaponKind {
-	switch rng.Intn(4) {
+	switch rng.Intn(8) {
 	case 0:
 		return KindShotgun
 	case 1:
 		return KindSniper
 	case 2:
 		return KindLaser
+	case 3:
+		return KindGatling
+	case 4:
+		return KindGrenade
+	case 5:
+		return KindCIWS
+	case 6:
+		return KindMissile
 	default:
 		return KindCannon
 	}

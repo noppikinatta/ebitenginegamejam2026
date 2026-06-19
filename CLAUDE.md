@@ -58,8 +58,8 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 - [x] **H4：クリックUI** — `scene/ingame.go` に砲塔オーバーレイ（後に再設計）
 - [x] **レーザー武装** — `KindLaser`。砲塔タイルに固定された持続ビーム（毎フレーム最近接敵を追尾、経路上の敵を貫通DPS）。`geom.PointSegmentDistance` でカプセル判定。`World.ActiveBeams()` で描画用スナップショット
 - [x] **再設計A：電力フラット化** — BFS距離リングソルバーを撤廃し `発電量/接続タイル数` の均等配分へ。`Component` を `Name()` のみに簡略化、`ProportionalWeapon`→`WeaponComponent` 改名、`Junk`（無意味ガジェット）追加。`Capacitor`/`ThresholdWeapon`/`PurgeWeapon` 削除。HUD に Pwr/Tile 表示
-- [x] **再設計B：ポーズ画面でクリック切断** — `Player.Nippers`、`World.CutTile`（ニッパー消費＋カスケード）。当初は Shift+WASD+Space の戦闘中カーソル切断だったが難しすぎたため再設計：**Space でポーズ**（`InGame.paused`、シミュレーション停止）→ 砲塔をズーム・上向き描画 → **タイルをクリックで切断**。切断してもポーズ継続で連続カット可、マウスのみ。砲塔描画は `InGame.drawTurretTiles(cx,cy,size,theta)` に共通化し戦闘ミニチュアと共用
-- [x] **再設計C：レベルアップ＝タイル追加** — `Turret.AddTile`（空き隣接にランダム配置）/`TileCount`。`rollChoices` を博士3人提案（武装/ジャンク/ニッパー）に置換、ソフトキャップ `maxTurretTiles`。scene はカード式UIに置換
+- [x] **再設計B：ポーズ画面でクリック切断** — `Player.Nippers`、`World.CutTile`（ニッパー消費＋カスケード）。当初は Shift+WASD+Space の戦闘中カーソル切断だったが難しすぎたため再設計：**Space でポーズ**（`InGame.paused`、シミュレーション停止）→ 砲塔をズーム・上向き描画 → **タイルをクリックで切断**。切断してもポーズ継続で連続カット可、マウスのみ。砲塔描画は `InGame.drawTurretTiles(cx,cy,size,theta)` に共通化し戦闘ミニチュアと共用。**ホバー中タイルの説明**を画面下パネルに表示（`drawPauseTileInfo`／`pauseTileInfo`＋`weaponDesc`：プレビュー画像＋名前＋一行説明、切る対象を把握できる）
+- [x] **再設計C：レベルアップ＝タイル追加** — `Turret.AddTile`（空き隣接にランダム配置）/`TileCount`。`rollChoices` を博士3人提案に置換、ソフトキャップ `maxTurretTiles`。scene はカード式UIに置換。**提案は `OfferItem` のリスト**（`Upgrade{Doctor, Items, Apply}`／`OfferKind`＝AddWeapon/AddJunk/AddCapacitor/Upgrade/Nippers）：1提案内に**追加とアップグレードが混在**可能（ニッパー提案のみ単独）。scene は1行＝アイコン＋ラベル(Add/Upgrade)＋名前で描画（`drawOfferItem`/`offerIcon`/`offerLabel`）。`upgradeShare(DoctorSpec)` で項目ごとのupgrade確率を算出、`atCap` では全項目upgrade化
 - [x] **再設計D：燭台ドロップ** — `Enemy.DropsNipper`/`Pickup`。`spawnCandlestick`（停止・無害・周期スポーン）、`updatePickups`（収集で+1ニッパー）
 - [ ] **H5：複数ジェネレータ対応** — 初版は中央1基のみ。後続バージョンで追加予定
 
@@ -104,11 +104,13 @@ go test ./lang/... -run TestName -v
 
 ### Scene System
 
-`scene/sequence.go` — `bamenn.Sequence` でシーン遷移を構成。順序は **Title → InGame → Result → (Title)** のループ。各シーンは `Init(nextScene, sequence, transition)` で次シーンへの参照を受け取り、`SwitchWithTransition` でフェード遷移する。
+`scene/sequence.go` — `bamenn.Sequence` でシーン遷移を構成。順序は **Opening → Title → InGame → Result** で、Result から勝利時=Opening / 敗北時=InGame(リトライ)・Opening(受容) へ分岐ループ。各シーンは `Init(...)` で次シーン参照を受け取り `SwitchWithTransition` でフェード遷移。`Result.Init` だけ `(inGame, opening, seq, tran)` と特殊（勝敗判定元＋分岐先のため）。
 
 `CreateSequence` は `wrapperGame` を返す。これは `langSwitcher`（後述）を `Sequence` にかぶせ、全シーン共通で言語切替の入力と表示を処理するラッパー。
 
+- `scene/opening.go` — オープニング・シネマティック。エイリアン徘徊＋テロップ→自機（武装なし）が下から登場し中央へ→博士のセリフで武装が画面外から1つずつ飛来して装着→完成でタイトルへ自動遷移（クリックでスキップ）。`OnStart` で毎回リセット。タイムラインは tick ベース、装飾用の固定砲塔配置 `openingWeapons`（実runの生成砲塔とは無関係）
 - `scene/title.go` — タイトル画面。タイトル画像とストーリーテキスト（`lang.Text("story-1")`）を表示し、左クリックで次シーンへ。シーン実装の参考パターンになる（`Title` 構造体 + `NewTitle` + `Init`/`Update`/`Draw`/`Layout`）
+- `scene/result.go` — 勝敗で分岐。勝利＝「エイリアンを倒し、自由を手に入れた」＋『オープニングに戻る』。敗北＝「…自由を失った。…」＋『リトライ』(InGame)／『結果を受け入れる』(Opening)。勝敗は `InGame.Outcome()`（`StateCleared`/`StateGameOver`）から取得。`sceneButton` で簡易クリックボタン
 - `scene/lang.go` — `langSwitcher`。**L キー**で言語をトグルし、`DrawTriangles` のグラデ矩形＋テキストで現在言語を一時表示（alpha フェードアウト）
 
 ### Packages
@@ -128,11 +130,11 @@ go test ./lang/... -run TestName -v
 
 **Ebiten に依存しない**ので単体テストできるのが要点。シーン層（`scene/ingame.go`）は入力を `geom.PointF` の移動ベクトルに変換して `World.Update(move)` を毎フレーム呼び、`World` の状態を読んで描画するだけ。
 
-- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems/Pickups、Choices、State、Tick、RNG、turret、各種タイマー）を保持。`NewWorld(seed, cfg)` は RNG → `GenerateTurret` → `ActiveWeapons` で初期化（`cfg` はバランス値；後述の data 注入）。`Update` は移動・武装・ビーム・弾・敵・ジェム・ニッパー収集・スポーン・燭台スポーンを毎tick回す。`CutTile(idx)` がニッパー消費のタイル切断（シーン側のポーズ中にクリックで呼ぶ）、`rollChoices`/`rollDoctorChoice` がレベルアップの博士提案
+- `world.go` — `World` が全状態（Player/Enemies/Projectiles/Gems/Pickups/Explosions、Choices、State、Tick、RNG、turret、各種タイマー、bossesSpawned）を保持。`NewWorld(seed, cfg)` は RNG → `GenerateTurret` → `ActiveWeapons` で初期化（`cfg` はバランス値；後述の data 注入）。`Update` は移動・武装・ビーム・爆発・弾・敵・ジェム・ニッパー収集・スポーン・ボススポーン・燭台スポーンを毎tick回す。`CutTile(idx)` がニッパー消費のタイル切断（シーン側のポーズ中にクリックで呼ぶ）、`rollChoices`/`rollDoctorChoice` がレベルアップの博士提案。**敵スポーンはディレクタ方式**：`currentPhase()` が現在の時間帯（`SpawnPhase`＝`UntilTick`/`Interval`/`Weights`）を選び、**インターバルも種類重みも時間帯ごと**に切替（`spawnEnemies` がそのバンドの `Interval` で `spawnTimer` を設定、`pickKind` で重み抽選）→ `spawnPackOf`（`EnemyStats.PackMin/Max` のパック生成）。HPは `makeEnemy` で `HPBase×2^(tick/HPDoublingTicks)` の時間スケール。バンドは `data/spawnPhases()` で調整。`spawnBosses` は `Config.Bosses` を時刻 `AtTick` で1体ずつ生成、`Final` ボス撃破で `killEnemy` が `State=StateCleared`（勝利）。`State` は `StatePlaying/StateLevelUp/StateGameOver/StateCleared`、終了状態はスティッキー（`damagePlayer` は Playing 時のみ GameOver 化）。`ActiveBoss()` がHUDのボスHPバー用スナップショット
 - `entity.go` — `Player`（戦車：FacingAngle/Nippers 含む）/ `Enemy`（DropsNipper で燭台）/ `Projectile` / `Gem` / `Pickup`（ニッパー）。位置は `geom.PointF`、当たり判定は円（半径）
-- `weapon.go` — `WeaponKind`（Cannon/Shotgun/Sniper/Laser）+ `Weapon` と `StatsFromEnergy()`。**`energy` から戦闘数値（ダメージ/連射間隔/射程、レーザーはビーム長/幅/持続）を導出する関数がソルバー統合の唯一の接点**。`beamTicksLeft` でビーム照射状態を保持
-- `turret.go` — ヘックスグリッド砲塔。電力は**フラット配分**（`発電量/接続タイル数`、`ComputePower`/`PowerPerTile`）。`Component` インターフェースは `Name()` のみ（Wire/WeaponComponent/Junk）。`distancesFrom` は接続判定・カスケード用。`PurgeTile`（+`propagatePurge` カスケード）、`AddTile`（ランダム隣接配置）、`TileCount`、`ActiveWeapons`、`MuzzleOffset`
-- `turret_gen.go` — `GenerateTurret()` フロンティア成長アルゴリズム、`DefaultTurretGenConfig`、`pickComponent`（武装/Junk/Wire）、`junkDeviceNames`
+- `weapon.go` — `WeaponKind`（Cannon/Shotgun/Sniper/Laser/Gatling/Grenade/CIWS/Missile）+ `Weapon` と `Stats(p)`。**発射はアキュムレータ方式**：各 `Weapon.fireProgress` が毎tick `fireIncrement(p, fireMult)`（＝発射倍率、`BaseInterval/MinInterval` で上限クランプ）ぶん進み、`BaseInterval` に達したら発射。平均間隔 = `BaseInterval/fireMult`（`MinInterval` 下限）。**照準と発射は独立**：`AimMode`（`AimLockOn`＝圏内最近接へ/CIWS・Missile／`AimForward`＝常に前方/Gatling／`AimOutward`＝タイルから放射状/Grenade）。**CIWS以外は敵不在でも発射**（`HoldWhenNoTarget` の武器＝CIWSだけ圏内に敵が入るまで満タン保持）。1ショットの弾数は `Pellets`＋`SpreadRad`（`SpreadRandom`＝乱数拡散/Gatling・CIWS、固定均等/Shotgun）、`BurstGap>0` で時間差連射（`pelletsLeft`/`pelletTimer`：Gatling10発3tick間隔、CIWS10発2tick間隔ストリーム）。ダメージは `BaseDamage × LevelMult^Level`。**爆発弾** `ExplodeRadius>0` は寿命切れ時に範囲 `ExplodeDamage`（`Projectile.PassThrough`＝接触無視/Grenade、接触ありで未命中時のみ爆発/Missile）。**ホーミング等の弾移動は `ProjectileMover`（`projectile_mover.go`）で差し替え**：`Steer(p, w)` が毎tick速度を操舵、`Projectile.Mover`（`WeaponParams.Mover` 由来、nil=直進）。`NewHomingMover(turn, maxSpeed)`＝最近接敵へ旋回力制限付きで操舵（seek）。将来の弾系ジャンク（揺れて登る風船等）も別 Mover として追加可能。弾の生存は `ProjLife = round(ProjMaxDist / ProjSpeed)`、当たり半径 `ProjRadius`。`beamTicksLeft`/`beamAngle` でビーム照射状態を保持。**バレル描画の向き**は `Weapon.aimRender`（毎tick `weaponAim` へ `stepAngle` で平滑化、`RenderAngle()` で公開）：戦闘ミニチュアは各バレルが自分の照準方向を向く（`drawTurretTiles` の `aimBarrels`、ポーズ表示は上向き固定）
+- `turret.go` — ヘックスグリッド砲塔。電力は**接続消費タイル数→発射倍率の区分線形補間**（`PowerMultiplier(curve, ConsumerTileCount())`、`Config.PowerCurve` の `PowerPoint{Tiles,Mult}` 列を両端クランプで補間）。`ComputePower`/`WeaponPower` は各タイルの**接続判定**として存続（値は描画の減光のみで参照）。`Component` インターフェースは `Name()` ＋ `Mods() Modifier`（戦車/砲塔への加算修飾子；Wire/WeaponComponent/Junk はゼロ、`Capacitor` は `FireRateAdd`）。接続中タイルの `Mods()` を合算した `Turret.Modifiers()` をタイル追加/削除時にキャッシュ再計算し、`World.FireRateMultiplier()` がカーブ値に加算（`Capacitor` ＝発射倍率 +0.1）。`Modifier` は将来 MaxHP 等の設備へ拡張可能。`distancesFrom` は接続判定・カスケード用。**ジェネレータ（中央タイル）は切断不可の接続ルートだが、武器/ジャンク等のコンポーネントを普通に載せる**（`ConsumerTileCount` からは除外＝薄めないので中央武器は実質「無料の主砲」。`ActiveWeapons` には含まれ発射、`MuzzleOffset` は中央=戦車中心）。`PurgeTile`（+`propagatePurge` カスケード）、`AddTile`（ランダム隣接配置）、`TileCount`/`ConsumerTileCount`、`ActiveWeapons`、`MuzzleOffset`
+- `turret_gen.go` — `GenerateTurret()` フロンティア成長アルゴリズム（中央ジェネレータタイルも `pickComponent` で武装/Junk/Wire を載せる）、`DefaultTurretGenConfig`、`pickComponent`（武装/Junk/Wire）、`junkDeviceNames`/`tallJunkNames`/`newJunk`
 - `upgrade.go` — `type Upgrade struct { Name, Desc string; Apply func(*World) }` (軽量選択肢モデル)
 - `State`：`StatePlaying` / `StateLevelUp` / `StateGameOver`
 - シーン再入場時の世界リセットは `InGame.OnStart()`（bamenn の `OnStarter`）で行う
@@ -147,7 +149,7 @@ go test ./lang/... -run TestName -v
 ### drawing パッケージ
 
 - `text.go` — `DrawText` / `DrawTextByKey` / `DrawTextTemplate` / `MeasureText`。`(文字列, フォントサイズ)` をキーに**描画済みテキスト画像をキャッシュ**する（影付き）。フレーム毎に `ebiten.Image` を作らないこと
-- `img.go` — `drawing.Image("key")` で `asset` 側のロード済み画像マップから取得。見つからなければ赤い "IMAGE NOT FOUND" のフォールバック画像を返す。`WhitePixel` は `DrawTriangles` で塗り図形を描くための1px白テクスチャ
+- `img.go` — `drawing.Image("key")` で `asset` 側のロード済み画像マップから取得。見つからなければ赤い "IMAGE NOT FOUND" のフォールバック画像を返す。`WhitePixel` は `DrawTriangles` で塗り図形を描くための1px白テクスチャ。`DrawSprite`＝中心 pivot で w×h ボックスに合わせて描画（縦横独立スケール）。`DrawSpriteAnchored`＝**ソースpx基準の任意 pivot (ax,ay) を中心に一様スケール＋回転**して `(cx,cy)` へ配置（アスペクト維持）。砲塔バレルのような「タイルより縦長の長方形スプライト」を土台タイル中心で旋回させるために使う
 - `rect.go` — `DrawRect`（`DrawTriangles` で矩形塗り）と `ColorF32` ヘルパー
 - `gauge.go` — `GaugeDrawer`。`Current/Max` の割合でバー幅と色（Min→Max 補間）を描く HP/エネルギーゲージ用
 

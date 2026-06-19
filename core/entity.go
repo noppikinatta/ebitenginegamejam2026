@@ -18,16 +18,32 @@ type Player struct {
 	invuln      int     // i-frame ticks remaining after taking contact damage
 }
 
+// EnemyKind identifies a zako (trash) enemy spawn template, used both to pick
+// stats at spawn and to choose a sprite when drawing.
+type EnemyKind int
+
+const (
+	EnemyGrunt   EnemyKind = iota // balanced chaser
+	EnemySwarmer                  // fast, fragile, spawns in packs
+	EnemyBrute                    // slow, tanky, big, hits hard
+)
+
 // Enemy chases the player and deals contact damage. A candlestick is a special
 // stationary enemy (Speed 0, no contact damage) that drops a nipper when broken.
+// Bosses are large scheduled enemies; killing the Final boss clears the run.
 type Enemy struct {
 	Pos         geom.PointF
+	Kind        EnemyKind
 	HP          float64
+	MaxHP       float64 // spawn HP, for boss health bars
 	Speed       float64
 	Radius      float64
 	Damage      float64
 	XPValue     float64
-	DropsNipper bool // candlestick: spawns a nipper pickup on death
+	DropsNipper bool   // candlestick: spawns a nipper pickup on death
+	IsBoss      bool   // scheduled boss: drawn large, shows a health bar
+	Final       bool   // final boss: killing it clears the run
+	Name        string // boss display name
 	alive       bool
 }
 
@@ -38,7 +54,29 @@ type Projectile struct {
 	Damage float64
 	Radius float64
 	Life   int // ticks remaining before it expires
-	alive  bool
+	// ExplodeRadius>0 makes the projectile deal ExplodeDamage to every enemy
+	// within ExplodeRadius of its position when it expires.
+	ExplodeRadius float64
+	ExplodeDamage float64
+	// PassThrough projectiles ignore contact with enemies (they only matter on
+	// expiry, e.g. the grenade shell that detonates where it lands). Contact
+	// projectiles (including missiles) die on the first enemy they touch.
+	PassThrough bool
+	// Mover steers the projectile each tick (homing, drifting). nil flies straight.
+	Mover ProjectileMover
+	alive bool
+}
+
+// Explosion is a short-lived visual effect queued where an explosive shell
+// detonates. It has no gameplay effect (the area damage is applied at spawn
+// time); the scene draws it as a fading circle. Life counts down each tick, and
+// alpha = Life/MaxLife. It is queued in World because the projectile that
+// spawned it is gone by the time it should be drawn.
+type Explosion struct {
+	Pos     geom.PointF
+	Radius  float64
+	Life    int // ticks remaining
+	MaxLife int // initial Life, for alpha = Life/MaxLife
 }
 
 // Gem drops from a dead enemy and grants XP when collected.

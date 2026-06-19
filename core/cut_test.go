@@ -52,8 +52,8 @@ func TestCutTile_SpendsNipperAndPurges(t *testing.T) {
 }
 
 func TestCutTile_ReconcentratesRemainingPower(t *testing.T) {
-	// gen → a(1,0); gen → c(0,1). Cutting c leaves a as the sole consumer,
-	// doubling its power.
+	// gen → a(1,0); gen → c(0,1). Cutting c leaves a as the sole consumer, so
+	// the connected tile count drops and the fire-rate multiplier rises.
 	gen := hexmap.IdxXY(0, 0)
 	a := hexmap.IdxXY(1, 0)
 	c := hexmap.IdxXY(0, 1)
@@ -75,8 +75,8 @@ func TestCutTile_ReconcentratesRemainingPower(t *testing.T) {
 	if len(w.Player.Weapons) != 1 {
 		t.Fatalf("weapons after cut = %d, want 1", len(w.Player.Weapons))
 	}
-	if got := w.Player.Weapons[0].Energy; got != 100 {
-		t.Errorf("remaining weapon energy = %v, want 100 (reconcentrated)", got)
+	if n := w.turret.ConsumerTileCount(); n != 1 {
+		t.Errorf("consumer tiles after cut = %d, want 1 (reconcentrated)", n)
 	}
 }
 

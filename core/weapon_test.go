@@ -1,126 +1,99 @@
 package core
 
 import (
+	"math"
 	"testing"
 )
 
-func TestStatsFromEnergy_TableDriven(t *testing.T) {
+// TestFireIncrement_ScalesAndClamps: the accumulator advances by the fire-rate
+// multiplier each tick, capped to BaseInterval/MinInterval so the effective
+// interval never drops below MinInterval. Non-positive multipliers yield 0.
+func TestFireIncrement_ScalesAndClamps(t *testing.T) {
+	p := testParams(KindCannon) // BaseInterval 720, MinInterval 6 -> maxInc 120
+
 	tests := []struct {
-		name              string
-		energy            float64
-		wantDamageMin     float64 // Damage must be >= this
-		wantRangeMin      float64 // Range must be >= this
-		wantIntervalMax   int     // FireInterval must be <= this
-		wantIntervalFloor int     // FireInterval must be >= this (clamp floor)
+		name     string
+		fireMult float64
+		want     float64
 	}{
-		{
-			name:              "zero energy",
-			energy:            0,
-			wantDamageMin:     5,   // 5 + 0*3
-			wantRangeMin:      220, // 220 + 0*20
-			wantIntervalMax:   45,  // 45 - 0*4
-			wantIntervalFloor: 6,
-		},
-		{
-			name:              "small energy (3)",
-			energy:            3,
-			wantDamageMin:     14,  // 5 + 3*3
-			wantRangeMin:      280, // 220 + 3*20
-			wantIntervalMax:   33,  // 45 - 3*4
-			wantIntervalFloor: 6,
-		},
-		{
-			name:              "medium energy (9)",
-			energy:            9,
-			wantDamageMin:     32,  // 5 + 9*3
-			wantRangeMin:      400, // 220 + 9*20
-			wantIntervalMax:   9,   // 45 - 9*4 = 9
-			wantIntervalFloor: 6,
-		},
-		{
-			name:              "high energy hits fire-interval floor",
-			energy:            20,
-			wantDamageMin:     65,  // 5 + 20*3
-			wantRangeMin:      620, // 220 + 20*20
-			wantIntervalMax:   6,   // clamped to 6
-			wantIntervalFloor: 6,
-		},
-		{
-			name:              "very high energy still clamped",
-			energy:            100,
-			wantDamageMin:     305,  // 5 + 100*3
-			wantRangeMin:      2220, // 220 + 100*20
-			wantIntervalMax:   6,    // clamped to 6
-			wantIntervalFloor: 6,
-		},
+		{"1x", 1, 1},
+		{"2.5x", 2.5, 2.5},
+		{"caps at BaseInterval/MinInterval", 200, 120}, // 720/6
+		{"zero -> 0", 0, 0},
+		{"negative -> 0", -2, 0},
 	}
-
-	// Also verify that damage and range strictly increase with energy.
-	energyLevels := []float64{0, 1, 2, 5, 10, 20}
-	for i := 1; i < len(energyLevels); i++ {
-		lo := NewWeapon("w", energyLevels[i-1], KindCannon).StatsFromEnergy(testParams(KindCannon))
-		hi := NewWeapon("w", energyLevels[i], KindCannon).StatsFromEnergy(testParams(KindCannon))
-		if hi.Damage <= lo.Damage {
-			t.Errorf("Damage should increase: energy %.0f => %.2f, energy %.0f => %.2f",
-				energyLevels[i-1], lo.Damage, energyLevels[i], hi.Damage)
-		}
-		if hi.Range <= lo.Range {
-			t.Errorf("Range should increase: energy %.0f => %.2f, energy %.0f => %.2f",
-				energyLevels[i-1], lo.Range, energyLevels[i], hi.Range)
-		}
-	}
-
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			w := NewWeapon("Cannon", tc.energy, KindCannon)
-			stats := w.StatsFromEnergy(testParams(KindCannon))
-
-			if stats.Damage < tc.wantDamageMin {
-				t.Errorf("Damage = %.2f, want >= %.2f", stats.Damage, tc.wantDamageMin)
-			}
-			if stats.Range < tc.wantRangeMin {
-				t.Errorf("Range = %.2f, want >= %.2f", stats.Range, tc.wantRangeMin)
-			}
-			if stats.FireInterval > tc.wantIntervalMax {
-				t.Errorf("FireInterval = %d, want <= %d", stats.FireInterval, tc.wantIntervalMax)
-			}
-			if stats.FireInterval < tc.wantIntervalFloor {
-				t.Errorf("FireInterval = %d, want >= %d (floor)", stats.FireInterval, tc.wantIntervalFloor)
-			}
-		})
+		if got := fireIncrement(p, tc.fireMult); math.Abs(got-tc.want) > eps {
+			t.Errorf("%s: fireIncrement = %v, want %v", tc.name, got, tc.want)
+		}
 	}
 }
 
-func TestStatsFromEnergy_NegativeEnergyTreatedAsZero(t *testing.T) {
-	wNeg := NewWeapon("Cannon", -5, KindCannon)
-	wZero := NewWeapon("Cannon", 0, KindCannon)
-
-	sNeg := wNeg.StatsFromEnergy(testParams(KindCannon))
-	sZero := wZero.StatsFromEnergy(testParams(KindCannon))
-
-	if sNeg.Damage != sZero.Damage {
-		t.Errorf("negative energy: Damage %.2f != zero energy Damage %.2f", sNeg.Damage, sZero.Damage)
+// TestStats_DamageAndRange: damage and range come straight from the params (no
+// fire-rate coupling); the fire cadence lives in the accumulator, not Stats.
+func TestStats_DamageAndRange(t *testing.T) {
+	p := testParams(KindCannon)
+	stats := NewWeapon("Cannon", KindCannon).Stats(p)
+	if stats.Damage != p.BaseDamage {
+		t.Errorf("Damage = %.2f, want %.2f", stats.Damage, p.BaseDamage)
 	}
-	if sNeg.FireInterval != sZero.FireInterval {
-		t.Errorf("negative energy: FireInterval %d != zero energy FireInterval %d", sNeg.FireInterval, sZero.FireInterval)
-	}
-	if sNeg.Range != sZero.Range {
-		t.Errorf("negative energy: Range %.2f != zero energy Range %.2f", sNeg.Range, sZero.Range)
+	if stats.Range != p.BaseRange {
+		t.Errorf("Range = %.2f, want %.2f", stats.Range, p.BaseRange)
 	}
 }
 
-func TestStatsFromEnergy_FireIntervalFloorAt6(t *testing.T) {
-	// energy=10 would give interval = 45 - 10*4 = 5, which should be clamped to 6.
-	w := NewWeapon("Cannon", 10, KindCannon)
-	stats := w.StatsFromEnergy(testParams(KindCannon))
-	if stats.FireInterval != 6 {
-		t.Errorf("FireInterval = %d, want 6 (floor clamp)", stats.FireInterval)
+// TestStats_ProjectileLifeFromMaxDist: projectile lifetime is derived from the
+// data-driven max travel distance (ProjLife = round(ProjMaxDist/ProjSpeed)), and
+// the collision radius passes through.
+func TestStats_ProjectileLifeFromMaxDist(t *testing.T) {
+	p := testParams(KindCannon) // ProjSpeed 6, ProjMaxDist 260, ProjRadius 6
+	stats := NewWeapon("Cannon", KindCannon).Stats(p)
+	if stats.ProjLife != 43 { // round(260/6) = 43
+		t.Errorf("ProjLife = %d, want 43", stats.ProjLife)
+	}
+	if stats.ProjRadius != 6 {
+		t.Errorf("ProjRadius = %v, want 6", stats.ProjRadius)
+	}
+}
+
+// TestStats_LevelScalesDamage: doctor upgrade Level multiplies damage by
+// LevelMult^Level.
+func TestStats_LevelScalesDamage(t *testing.T) {
+	p := testParams(KindCannon) // BaseDamage 20, LevelMult 1.2
+	w := NewWeapon("Cannon", KindCannon)
+	w.Level = 2
+
+	stats := w.Stats(p)
+	want := p.BaseDamage * math.Pow(1.2, 2)
+	if math.Abs(stats.Damage-want) > eps {
+		t.Errorf("Damage = %.4f, want %.4f", stats.Damage, want)
+	}
+}
+
+// TestPowerMultiplier_Interpolation covers clamping below/above the curve and
+// linear interpolation between breakpoints.
+func TestPowerMultiplier_Interpolation(t *testing.T) {
+	curve := testPowerCurve() // {10,4.0} {32,1.0} {40,0.5}
+
+	tests := []struct {
+		tiles int
+		want  float64
+	}{
+		{5, 4.0},   // below first point clamps to first Mult
+		{10, 4.0},  // exactly first point
+		{21, 2.5},  // 4 + (1-4)*((21-10)/(32-10)) = 2.5
+		{32, 1.0},  // exactly middle point
+		{36, 0.75}, // 1 + (0.5-1)*((36-32)/(40-32)) = 0.75
+		{40, 0.5},  // exactly last point
+		{50, 0.5},  // above last point clamps to last Mult
+	}
+	for _, tc := range tests {
+		if got := PowerMultiplier(curve, tc.tiles); math.Abs(got-tc.want) > eps {
+			t.Errorf("PowerMultiplier(%d) = %.4f, want %.4f", tc.tiles, got, tc.want)
+		}
 	}
 
-	// energy=9 gives 45 - 36 = 9, which is above the floor.
-	w9 := NewWeapon("Cannon", 9, KindCannon)
-	stats9 := w9.StatsFromEnergy(testParams(KindCannon))
-	if stats9.FireInterval != 9 {
-		t.Errorf("FireInterval = %d, want 9", stats9.FireInterval)
+	if got := PowerMultiplier(nil, 20); got != 1 {
+		t.Errorf("empty curve: PowerMultiplier = %.4f, want 1", got)
 	}
 }

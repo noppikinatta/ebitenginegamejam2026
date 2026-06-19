@@ -107,17 +107,16 @@ func TestUpdate_TickIncrements(t *testing.T) {
 func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 
-	// Place weapon at energy=0: stats give FireInterval=45, Damage=5, Range=220.
-	weapon := w.Player.Weapons[0]
-	weapon.Energy = 0
-	weapon.cooldown = 0
-
-	stats := weapon.StatsFromEnergy(w.cfg.Weapons[weapon.Kind])
+	// Use an explicit lock-on cannon so the test doesn't depend on which weapon
+	// kinds the random turret generated (some never aim at a target).
+	weapon := NewWeapon("Cannon", KindCannon)
+	w.Player.Weapons = []*Weapon{weapon}
+	stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
 
 	// Place a weak enemy just within range.
 	enemy := &Enemy{
 		Pos:     geom.PointF{X: 50, Y: 0},
-		HP:      4, // will die on first hit (Damage=5)
+		HP:      4, // dies on first cannon hit (Damage 20)
 		Speed:   0, // stationary so it doesn't wander
 		Radius:  12,
 		Damage:  0,
@@ -132,9 +131,9 @@ func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 		t.Fatalf("enemy distance %.2f > range %.2f; adjust test setup", dist, stats.Range)
 	}
 
-	// projectile speed is 6 px/tick, enemy is 50px away.
-	// It should reach the enemy (radius 12) within ceil((50-12)/6)+1 ≈ 8 ticks.
-	const maxTicks = 200
+	// Fire intervals are long (BaseInterval ~720 ÷ fireMult), so allow plenty of
+	// ticks for at least one weapon to charge, fire, and the shot to connect.
+	const maxTicks = 1500
 	killed := false
 	for i := 0; i < maxTicks; i++ {
 		w.Update(noMove())
@@ -164,9 +163,6 @@ func TestUpdate_WeaponFiresAndKillsEnemy(t *testing.T) {
 
 func TestUpdate_ProjectileCreatedBeforeHit(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
-	weapon := w.Player.Weapons[0]
-	weapon.Energy = 0
-	weapon.cooldown = 0
 
 	// Place a far-away enemy so the projectile is in-flight for several ticks.
 	enemy := &Enemy{
@@ -180,7 +176,7 @@ func TestUpdate_ProjectileCreatedBeforeHit(t *testing.T) {
 	}
 	w.Enemies = append(w.Enemies, enemy)
 
-	const maxTicks = 200
+	const maxTicks = 1500
 	fired := false
 	for i := 0; i < maxTicks; i++ {
 		w.Update(noMove())
@@ -417,11 +413,23 @@ func TestDoctorChoices_HaveValidOutcome(t *testing.T) {
 		gaveNippers := w.Player.Nippers > beforeNippers
 		upgradedWeapon := totalWeaponLevel(w) > beforeLevel
 		if !grewTurret && !gaveNippers && !upgradedWeapon {
-			t.Errorf("choice %d (%q) had no effect: tiles=%d nippers=%d levels=%d",
-				i, c.Name, w.turret.TileCount()-beforeTiles,
+			t.Errorf("choice %d (%s) had no effect: tiles=%d nippers=%d levels=%d",
+				i, offerText(c), w.turret.TileCount()-beforeTiles,
 				w.Player.Nippers-beforeNippers, totalWeaponLevel(w)-beforeLevel)
 		}
 	}
+}
+
+// offerText summarises a proposal's items for test failure messages.
+func offerText(c Upgrade) string {
+	s := ""
+	for i, it := range c.Items {
+		if i > 0 {
+			s += " + "
+		}
+		s += it.Text
+	}
+	return s
 }
 
 // totalWeaponLevel sums the Level field of all active weapons in the turret.
@@ -449,7 +457,7 @@ func TestRollChoices_AtCapNeverAddsTiles(t *testing.T) {
 		beforeTiles := w.turret.TileCount()
 		c.Apply(w)
 		if w.turret.TileCount() > beforeTiles {
-			t.Errorf("offer %d (%q) grew the turret past the cap", i, c.Name)
+			t.Errorf("offer %d (%s) grew the turret past the cap", i, offerText(c))
 		}
 	}
 }

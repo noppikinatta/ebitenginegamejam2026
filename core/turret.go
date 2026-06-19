@@ -34,31 +34,56 @@ func MuzzleOffset(idx hexmap.Index, facingAngle float64) geom.PointF {
 	return geom.PointFFromPolar(off.Abs(), off.Angle()+theta)
 }
 
+// Modifier holds the additive adjustments a connected turret component
+// contributes to the tank/turret-wide stats. The zero value is "no effect".
+// Modifiers from every connected component are summed (see Turret.Modifiers),
+// which is the extension point for equipment: the Capacitor raises the fire-rate
+// multiplier today, and e.g. armour could add MaxHP here in future.
+type Modifier struct {
+	FireRateAdd float64 // added to the turret-wide fire-rate multiplier
+}
+
+// Add returns the sum of two modifiers.
+func (m Modifier) Add(o Modifier) Modifier {
+	return Modifier{FireRateAdd: m.FireRateAdd + o.FireRateAdd}
+}
+
 // Component is what occupies a single hex tile on the turret. Power is shared
-// flatly across all connected tiles, so a component's only job is to identify
-// itself and (for weapons) carry the mounted Weapon.
+// flatly across all connected tiles, so a component identifies itself (Name) and
+// reports any tank/turret stat modifiers it contributes while connected (Mods).
 type Component interface {
 	Name() string
+	Mods() Modifier
 }
 
 // Wire is a passive conductor: it carries power but does nothing with it.
 type Wire struct{}
 
-func (Wire) Name() string { return "Wire" }
+func (Wire) Name() string   { return "Wire" }
+func (Wire) Mods() Modifier { return Modifier{} }
 
-// WeaponComponent mounts a weapon on a tile. The weapon's Energy is set to the
-// tile's share of generator power by ActiveWeapons.
+// WeaponComponent mounts a weapon on a tile. Power is a turret-wide fire-rate
+// multiplier rather than a per-weapon value (see Weapon.Stats).
 type WeaponComponent struct {
 	Weapon *Weapon
 }
 
-func (w WeaponComponent) Name() string { return w.Weapon.Name }
+func (w WeaponComponent) Name() string   { return w.Weapon.Name }
+func (w WeaponComponent) Mods() Modifier { return Modifier{} }
 
 // Junk is a useless device a doctor bolted on (espresso machine, balloon
 // launcher, rubber duck...). It conducts power like a wire but does nothing,
-// diluting the per-tile power share. The flavour is the point.
+// adding to the tile count (which dilutes the fire-rate multiplier). The flavour
+// is the point.
+//
+// Tall marks a junk drawn as a tall, always-upright fixture (e.g. a cathedral
+// spire) rather than a flat tile — a rendering hint only, no gameplay effect.
+// It is a flag, not an AimMode: AimMode is a weapon's firing direction (it never
+// reaches non-firing junk) and is always tank/target-relative, whereas this is a
+// world-fixed rendering orientation.
 type Junk struct {
 	DeviceName string
+	Tall       bool
 }
 
 func (j Junk) Name() string {
@@ -67,6 +92,19 @@ func (j Junk) Name() string {
 	}
 	return j.DeviceName
 }
+
+func (j Junk) Mods() Modifier { return Modifier{} }
+
+// Capacitor is an equipment tile that raises the turret-wide fire-rate
+// multiplier by a flat FireRateBonus while it is connected. Like any tile it
+// also adds to the tile count, so the bonus is weighed against the dilution.
+type Capacitor struct {
+	FireRateBonus float64
+}
+
+func (Capacitor) Name() string { return "Capacitor" }
+
+func (c Capacitor) Mods() Modifier { return Modifier{FireRateAdd: c.FireRateBonus} }
 
 // ---- Tile ----
 
@@ -96,15 +134,43 @@ func (t *Tile) IsPurged() bool {
 // Data model is generator-list-friendly for future multi-generator expansion,
 // but the current version uses a single central generator.
 type Turret struct {
-	tiles      map[hexmap.Index]*Tile
-	generators []hexmap.Index
-	genPower   float64 // total power output of the generator
+	tiles         map[hexmap.Index]*Tile
+	generators    []hexmap.Index
+	genPower      float64  // total power output of the generator
+	connectedMods Modifier // cached sum of modifiers over connected tiles; recomputed on tile add/remove
 }
 
 // NewTurret creates a Turret with the given generator positions and generator
 // power output. Tiles map is shared (caller should not mutate it externally).
 func NewTurret(tiles map[hexmap.Index]*Tile, generators []hexmap.Index, genPower float64) *Turret {
-	return &Turret{tiles: tiles, generators: generators, genPower: genPower}
+	t := &Turret{tiles: tiles, generators: generators, genPower: genPower}
+	t.recomputeMods()
+	return t
+}
+
+// Modifiers returns the cached sum of stat modifiers contributed by all
+// connected components (e.g. capacitors). Recomputed only when tiles are added
+// or removed, since connectivity changes only then.
+func (t *Turret) Modifiers() Modifier { return t.connectedMods }
+
+// recomputeMods recalculates the aggregate modifier over all connected
+// non-generator tiles. Call after any change to the tile set or connectivity.
+func (t *Turret) recomputeMods() {
+	var sum Modifier
+	if len(t.generators) == 0 {
+		t.connectedMods = sum
+		return
+	}
+	reachable := t.distancesFrom(t.generators[0])
+	for idx := range reachable {
+		if t.IsGenerator(idx) {
+			continue
+		}
+		if tile := t.tiles[idx]; tile != nil && !tile.purged && tile.Component != nil {
+			sum = sum.Add(tile.Component.Mods())
+		}
+	}
+	t.connectedMods = sum
 }
 
 // Tiles returns the internal tiles map (read-only use expected).
@@ -134,20 +200,48 @@ func (t *Turret) connectedConsumers() (reachable map[hexmap.Index]int, n int) {
 	return reachable, n
 }
 
-// PowerPerTile returns the power each connected non-generator tile receives:
-// the generator's output divided evenly among all connected consumer tiles.
-// Returns 0 when there are no consumer tiles.
-func (t *Turret) PowerPerTile() float64 {
+// ConsumerTileCount returns the number of connected non-generator tiles (the
+// tiles that draw power). This is the value fed into the power curve to derive
+// the fire-rate multiplier: cutting tiles lowers it, raising the multiplier.
+func (t *Turret) ConsumerTileCount() int {
 	_, n := t.connectedConsumers()
-	if n == 0 {
-		return 0
-	}
-	return t.genPower / float64(n)
+	return n
 }
 
-// ComputePower returns the power delivered to each connected tile. Every
-// connected non-generator tile gets PowerPerTile; the generator gets 0.
-// Disconnected (unreachable) and purged tiles are omitted.
+// PowerMultiplier interpolates the fire-rate multiplier for a given connected
+// tile count over the curve. The curve is a list of PowerPoint sorted ascending
+// by Tiles; below the first point the first Mult is used, above the last the
+// last Mult, and in between it is linear. An empty curve yields 1.
+func PowerMultiplier(curve []PowerPoint, tiles int) float64 {
+	if len(curve) == 0 {
+		return 1
+	}
+	if tiles <= curve[0].Tiles {
+		return curve[0].Mult
+	}
+	last := curve[len(curve)-1]
+	if tiles >= last.Tiles {
+		return last.Mult
+	}
+	for i := 1; i < len(curve); i++ {
+		a, b := curve[i-1], curve[i]
+		if tiles <= b.Tiles {
+			span := float64(b.Tiles - a.Tiles)
+			if span <= 0 {
+				return b.Mult
+			}
+			f := float64(tiles-a.Tiles) / span
+			return a.Mult + (b.Mult-a.Mult)*f
+		}
+	}
+	return last.Mult
+}
+
+// ComputePower returns a connectivity map: every connected non-generator tile
+// gets a positive value, the generator gets 0, and disconnected (unreachable)
+// or purged tiles are omitted. The actual value is no longer used for combat
+// (power is a turret-wide multiplier); callers only check presence / > 0 to know
+// whether a tile is powered, e.g. for render dimming.
 func (t *Turret) ComputePower() map[hexmap.Index]float64 {
 	reachable, n := t.connectedConsumers()
 	result := map[hexmap.Index]float64{}
@@ -256,6 +350,7 @@ func (t *Turret) AddTile(comp Component, rng *rand.Rand) (hexmap.Index, bool) {
 	})
 	chosen := candidates[rng.Intn(len(candidates))]
 	t.tiles[chosen] = &Tile{Component: comp}
+	t.recomputeMods()
 	return chosen, true
 }
 
@@ -280,6 +375,7 @@ func (t *Turret) PurgeTile(idx hexmap.Index) bool {
 	}
 	tile.purged = true
 	t.propagatePurge()
+	t.recomputeMods()
 	return true
 }
 
@@ -357,19 +453,20 @@ func (t *Turret) reachableExcluding(excluded hexmap.Index) map[hexmap.Index]bool
 	return visited
 }
 
-// ActiveWeapons returns all weapon instances on active, powered tiles, with each
-// weapon's Energy set to its tile's flat power share. Call this each tick (or
-// after purging/adding tiles) to get the current armed weapon list.
+// ActiveWeapons returns all weapon instances on connected (powered) tiles, with
+// each weapon's TileIdx set to its turret position. Call this each tick (or
+// after purging/adding tiles) to get the current armed weapon list. Power no
+// longer scales per weapon; it is expressed as a turret-wide fire-rate
+// multiplier (see PowerMultiplier) applied in Weapon.Stats.
 func (t *Turret) ActiveWeapons() []*Weapon {
 	power := t.WeaponPower()
 	var weapons []*Weapon
-	for idx, p := range power {
+	for idx := range power {
 		tile := t.tiles[idx]
 		if tile == nil {
 			continue
 		}
 		if c, ok := tile.Component.(WeaponComponent); ok {
-			c.Weapon.Energy = p
 			c.Weapon.TileIdx = idx
 			weapons = append(weapons, c.Weapon)
 		}
