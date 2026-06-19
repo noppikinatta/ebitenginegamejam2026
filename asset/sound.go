@@ -25,19 +25,17 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
 	"github.com/hajimehoshi/ebiten/v2/audio/vorbis"
 	"github.com/hajimehoshi/ebiten/v2/audio/wav"
+	"github.com/noppikinatta/ebitenginegamejam2026/sndpak"
 )
 
-//go:embed sound/bgm.wav
-var bgm []byte
-
-//go:embed sound/fire.wav
-var seFire []byte
-
-//go:embed sound/explosion.wav
-var seExplosion []byte
-
-//go:embed sound/hit.wav
-var seHit []byte
+// soundPak is the obfuscated bundle of every sound, keyed by base name (e.g.
+// "fire"). The loose source files live in asset/sound/raw (gitignored) and are
+// packed into this file by `make sound-pak`; only the pak is committed, so raw,
+// directly-playable assets are not exposed in the repository. See package
+// sndpak — this is light obfuscation to respect asset licenses, not encryption.
+//
+//go:embed sound/sounds.pak
+var soundPak []byte
 
 const sampleRate int = 48000
 
@@ -67,19 +65,21 @@ const (
 	fileTypeOgg
 )
 
-// soundSpec describes how to load one sound.
+// soundSpec describes how to load one sound. pakName is the entry name inside
+// soundPak (the base name of the source file, e.g. "fire"); fileType selects the
+// decoder for that entry's bytes.
 type soundSpec struct {
-	resource []byte
+	pakName  string
 	sound    Sound
 	fileType fileType
 	volume   float64
 }
 
 var soundSpecs = []soundSpec{
-	{seFire, SEFire, fileTypeWav, 0.2},
-	{seExplosion, SEExplosion, fileTypeWav, 0.3},
-	{seHit, SEPlayerHit, fileTypeWav, 0.4},
-	{bgm, BGM, fileTypeWav, 0.25},
+	{"fire", SEFire, fileTypeWav, 0.2},
+	{"explosion", SEExplosion, fileTypeWav, 0.3},
+	{"hit", SEPlayerHit, fileTypeWav, 0.4},
+	{"bgm", BGM, fileTypeWav, 0.25},
 }
 
 // seBytes holds the decoded PCM for each one-shot effect so PlaySound can create
@@ -91,13 +91,25 @@ var (
 	bgmPlayer *audio.Player
 )
 
-// LoadSounds decodes the embedded sounds. A failed track is logged and skipped
-// so a single bad asset does not take down the whole game (placeholder audio
-// still decodes, but real assets can be swapped in freely).
+// LoadSounds unpacks the embedded sound bundle and decodes each track. A failed
+// track (missing pak entry or undecodable bytes) is logged and skipped so a
+// single bad asset does not take down the whole game; real assets can be swapped
+// in by repacking asset/sound/raw. If the whole pak is unreadable the game runs
+// silently rather than crashing.
 func LoadSounds() error {
+	blobs, err := sndpak.Unpack(soundPak)
+	if err != nil {
+		log.Printf("cannot read sound pak (running without audio): %v", err)
+		return nil
+	}
 	for _, s := range soundSpecs {
-		if err := load(s); err != nil {
-			log.Printf("skip loading sound %d: %v", s.sound, err)
+		resource := blobs[s.pakName]
+		if resource == nil {
+			log.Printf("skip loading sound %q: not present in pak", s.pakName)
+			continue
+		}
+		if err := load(s, resource); err != nil {
+			log.Printf("skip loading sound %q: %v", s.pakName, err)
 			continue
 		}
 	}
@@ -117,8 +129,8 @@ func decode(resource []byte, ftype fileType) (io.ReadSeeker, error) {
 	}
 }
 
-func load(s soundSpec) error {
-	stream, err := decode(s.resource, s.fileType)
+func load(s soundSpec, resource []byte) error {
+	stream, err := decode(resource, s.fileType)
 	if err != nil {
 		return err
 	}

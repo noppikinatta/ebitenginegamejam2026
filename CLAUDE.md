@@ -65,7 +65,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 ### 既知の暫定対応・残課題
 
-- **音声はダミー（差し替え前提）だが配線済み・実際に鳴る**。`asset/sound/*.wav`（`bgm`/`fire`/`explosion`/`hit`）はサイン波等で生成した**デコード可能な仮音源**（`go run tools/gensound/main.go asset/sound` で再生成可能）。`asset.LoadSounds()` は `app/main.go` 起動時に呼ばれ、デコード失敗は握りつぶす（ログして継続）。本物の音源に差し替えれば即鳴る。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMは単一プレイヤーを `Rewind` で使い回しループ（`InGame.OnStart` で再生／`OnEnd` で停止）
+- **音声はダミー（差し替え前提）だが配線済み・実際に鳴る**。音源は**個別wavではなく難読化した1ファイル `asset/sound/sounds.pak` に同梱**してコミット（`bgm`/`fire`/`explosion`/`hit` をエントリ名で格納）。**生のwavはコミットしない**：素材は `asset/sound/raw/`（gitignore）に置き、`make sound-pak`（=`go run tools/sndpak/main.go asset/sound/raw asset/sound/sounds.pak`）で pak に固める。仮音源はサイン波生成（`make sound-gen` が `gensound`→`raw/`→`sound-pak` を実行）。pak は `sndpak` パッケージのXORキーストリームで軽く難読化されており（RIFFヘッダも隠れる）、**リネームしてそのまま再生はできない**＝フリー素材サイト等のSEを生のまま公開リポジトリに置かないための配慮（暗号ではなく速度バンプ。キーはソース内）。`asset.LoadSounds()`（`app/main.go` 起動時）が `sndpak.Unpack` で展開→各エントリをデコード。デコード/欠落は握りつぶす（ログして継続、pak全体が壊れていても無音で起動）。本物の音源は `raw/` に入れて再パックすれば差し替え可。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMは単一プレイヤーを `Rewind` で使い回しループ（`InGame.OnStart` で再生／`OnEnd` で停止）
 - **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
 - **言語CSVは整備済み**。`asset/lang/english.csv` / `japanese.csv` に scene の全UI文言・武器名/説明・博士/ジャンク/ボス名をキーで定義（両言語キー集合一致、`lang/csv_test.go` で検証）。scene は `drawing.DrawTextByKey`/`DrawTextTemplate` で描画し、core由来の名前は scene の `loc.go`（`weaponName`/`doctorNameL`/`junkNameL`/`bossNameL`、未定義キーは `lang.TextWithDefault` で元文字列にフォールバック）でキー解決。デフォルト言語は english（L キーで日本語へ切替）。カード番号など語を含まない純数値のみ `fmt.Sprintf` のまま
 - **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity/JunkDensity）、電力量、ニッパー入手率、燭台周期、`maxTurretTiles` 等は初期値のまま。プレイテストで要調整
