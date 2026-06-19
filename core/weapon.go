@@ -70,11 +70,19 @@ type Weapon struct {
 	pelletTimer   int          // ticks until the next staggered pellet
 	beamTicksLeft int          // KindLaser: ticks remaining in current beam burst
 	beamAngle     float64      // KindLaser: world angle the current burst points when no enemy is in range
+	aimRender     float64      // smoothed world aim angle, for drawing the barrel pointing where it fires
 }
 
 func NewWeapon(name string, kind WeaponKind) *Weapon {
-	return &Weapon{Name: name, Kind: kind}
+	// Rest the barrel pointing "up" (forward) so it doesn't swing in from angle 0
+	// on the first tick.
+	return &Weapon{Name: name, Kind: kind, aimRender: -math.Pi / 2}
 }
+
+// RenderAngle is the smoothed world-space angle the weapon's barrel should be
+// drawn pointing along (toward its target for lock-on weapons, forward/outward
+// otherwise). Updated each tick by the simulation; used by the scene only.
+func (w *Weapon) RenderAngle() float64 { return w.aimRender }
 
 // IsBeamActive reports whether this weapon is currently emitting a laser beam.
 func (w *Weapon) IsBeamActive() bool { return w.beamTicksLeft > 0 }

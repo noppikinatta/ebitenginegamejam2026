@@ -171,6 +171,34 @@ func TestHomingMover_CurvesTowardEnemy(t *testing.T) {
 	}
 }
 
+// TestRenderAngle_LockOnTracksForwardDoesnt: a lock-on weapon's barrel eases
+// toward its target, while a forward weapon's barrel stays pointing forward.
+func TestRenderAngle_LockOnTracksForwardDoesnt(t *testing.T) {
+	// Lock-on cannon: barrel should swing from forward (-pi/2) toward the enemy
+	// sitting at world angle 0 (to the right of the muzzle).
+	w, cannon := buildWeaponWorld(KindCannon, hexmap.IdxXY(0, 0))
+	w.Enemies = []*Enemy{{Pos: geom.PointF{X: 100, Y: 0}, HP: 1000, Radius: 10, alive: true}}
+	if !angleClose(cannon.RenderAngle(), -math.Pi/2, 1e-9) {
+		t.Fatalf("initial RenderAngle %.3f, want forward -pi/2", cannon.RenderAngle())
+	}
+	for i := 0; i < 80; i++ {
+		w.updateWeapons()
+	}
+	if !angleClose(cannon.RenderAngle(), 0, 0.05) {
+		t.Errorf("lock-on barrel angle %.3f did not track the enemy at angle 0", cannon.RenderAngle())
+	}
+
+	// Forward gatling: ignores the enemy and stays pointing forward.
+	w2, gat := buildWeaponWorld(KindGatling, hexmap.IdxXY(1, 0))
+	w2.Enemies = []*Enemy{{Pos: geom.PointF{X: 100, Y: 0}, HP: 1000, Radius: 10, alive: true}}
+	for i := 0; i < 80; i++ {
+		w2.updateWeapons()
+	}
+	if !angleClose(gat.RenderAngle(), -math.Pi/2, 0.02) {
+		t.Errorf("forward barrel angle %.3f, want forward -pi/2", gat.RenderAngle())
+	}
+}
+
 // TestMissile_ExplodesOnExpiry: a contact (non-PassThrough) explosive shell that
 // flies past everything still detonates on expiry, dealing area damage (not the
 // 8 contact damage) to a nearby enemy it never touched.

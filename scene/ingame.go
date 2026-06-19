@@ -516,14 +516,18 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 	// Rotate so that -pi/2 (default facing = up) maps to 0 rotation on screen.
 	// Use the smoothed angle so the turret eases into new headings.
 	theta := g.turretRenderedAngle + math.Pi/2
-	g.drawTurretTiles(screen, psx, psy, combatTileSize, theta)
+	g.drawTurretTiles(screen, psx, psy, combatTileSize, theta, true)
 }
 
 // drawTurretTiles renders the turret centred at screen (cx, cy) with the given
 // tile size and rotation. Weapons are drawn in two layers: a wire socket base,
 // then the barrel on top. Used by both the combat miniature (small, rotated)
 // and the paused cut view (large, upright). theta=0 draws the turret upright.
-func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float64) {
+//
+// When aimBarrels is true each weapon barrel points along its own live aim angle
+// (so lock-on weapons face their target / firing direction) instead of the grid
+// rotation; the pause view passes false to keep barrels upright for clarity.
+func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float64, aimBarrels bool) {
 	tr := g.world.Turret()
 	if tr == nil {
 		return
@@ -579,7 +583,13 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		b := img.Bounds()
 		ax := float64(b.Dx()) / 2                     // mount tile is horizontally centred
 		ay := float64(b.Dy()) - core.TurretTileSize/2 // ...and is the bottom tile block
-		drawing.DrawSpriteAnchored(screen, img, p.c.X, p.c.Y, z, theta, ax, ay, dim, dim, dim, 1)
+		// Combat: each barrel points where it actually fires (source "up" = the aim
+		// direction, hence +pi/2). Pause: keep the grid rotation (upright).
+		barrelTheta := theta
+		if aimBarrels {
+			barrelTheta = wc.Weapon.RenderAngle() + math.Pi/2
+		}
+		drawing.DrawSpriteAnchored(screen, img, p.c.X, p.c.Y, z, barrelTheta, ax, ay, dim, dim, dim, 1)
 	}
 }
 
@@ -601,7 +611,7 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 
 	// Tank upright, behind the turret.
 	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), cx, cy, tankDrawW*zoom, tankDrawH*zoom, 0, 1, 1, 1, 1)
-	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0)
+	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0, false)
 
 	// Highlight the tile under the cursor, plus a cut preview: the collateral
 	// tiles that would cascade-cut are framed in a dimmer white. The hovered

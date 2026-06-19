@@ -186,11 +186,24 @@ func (w *World) updatePlayer(move geom.PointF) {
 	}
 }
 
+// aimSmooth is the per-tick fraction the rendered barrel angle eases toward the
+// weapon's live aim, so barrels track targets without jittering on target swaps.
+const aimSmooth = 0.3
+
+// stepAngle eases a toward b by fraction t along the shortest angular path.
+func stepAngle(a, b, t float64) float64 {
+	return a + math.Atan2(math.Sin(b-a), math.Cos(b-a))*t
+}
+
 func (w *World) updateWeapons() {
 	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
 		params := w.cfg.Weapons[weapon.Kind]
 		stats := weapon.Stats(params)
+
+		// Smooth the rendered barrel angle toward where the weapon currently aims,
+		// so lock-on barrels visibly track their target (drawing only).
+		weapon.aimRender = stepAngle(weapon.aimRender, w.weaponAim(weapon, params), aimSmooth)
 
 		// Fire step: advance the accumulator; trigger a shot at BaseInterval.
 		weapon.fireProgress += fireIncrement(params, fireMult)
