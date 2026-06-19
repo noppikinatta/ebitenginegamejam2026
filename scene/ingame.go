@@ -524,7 +524,7 @@ func offerIcon(it core.OfferItem) (key string, weapon bool) {
 	case core.OfferNippers:
 		return asset.ImgNipper, false
 	default: // OfferAddJunk
-		return asset.ImgTileJunk, false
+		return core.JunkImageKey(it.Text), false
 	}
 }
 
@@ -619,7 +619,7 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		key, dim := tileBase(tr, p.idx, tiles[p.idx], power[p.idx])
 		drawing.DrawSprite(screen, drawing.Image(key), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
 		if j, ok := tiles[p.idx].Component.(core.Junk); ok && !j.Tall {
-			drawing.DrawSprite(screen, drawing.Image(asset.ImgTileJunk), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
+			drawing.DrawSprite(screen, drawing.Image(core.JunkImageKey(j.DeviceName)), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
 		}
 	}
 
@@ -667,7 +667,7 @@ func tallTileSprite(comp core.Component) (key string, ok bool) {
 		return weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
 		if c.Tall {
-			return asset.ImgJunkTower, true
+			return core.JunkImageKey(c.DeviceName), true
 		}
 	}
 	return "", false
@@ -781,9 +781,9 @@ func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool)
 		return name, weaponDescL(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
 		if c.Tall {
-			return junkNameL(c.Name()), lang.Text("junk-desc-tall"), asset.ImgJunkTower, true
+			return junkNameL(c.Name()), lang.Text("junk-desc-tall"), core.JunkImageKey(c.DeviceName), true
 		}
-		return junkNameL(c.Name()), lang.Text("junk-desc"), asset.ImgTileJunk, false
+		return junkNameL(c.Name()), lang.Text("junk-desc"), core.JunkImageKey(c.DeviceName), false
 	case core.Capacitor:
 		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor, false
 	default: // plain tile (or empty)
