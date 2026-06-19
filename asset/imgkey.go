@@ -16,7 +16,7 @@ const (
 	ImgProjectile   = "projectile"
 
 	// Turret tiles (24x24).
-	ImgTileWire      = "tile_wire"
+	ImgTile          = "tile" // plain base tile every weapon/junk is drawn on top of
 	ImgTileGenerator = "tile_generator"
 	ImgTileJunk      = "tile_junk"
 	ImgTileCapacitor = "tile_capacitor"

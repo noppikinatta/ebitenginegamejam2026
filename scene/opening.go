@@ -200,7 +200,7 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 		}
 		target := geom.PointF{X: opCenterX + w.dx, Y: opCenterY + w.dy}
 		ang := math.Atan2(w.dy, w.dx) + math.Pi/2 // barrel points outward from the tank
-		drawing.DrawSprite(screen, drawing.Image(asset.ImgTileWire), target.X, target.Y, opTile, opTile, 0, 1, 1, 1, 1)
+		drawing.DrawSprite(screen, drawing.Image(asset.ImgTile), target.X, target.Y, opTile, opTile, 0, 1, 1, 1, 1)
 
 		pos := target
 		if o.t < arrive {
