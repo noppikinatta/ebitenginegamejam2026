@@ -58,6 +58,10 @@ type InGame struct {
 	popups []damagePopup
 	rng    *rand.Rand
 
+	// deaths are the fading enemy sprites left where enemies died (spawned from
+	// world.DeathEvents each tick).
+	deaths []deathFX
+
 	// hpShake counts down the HP bar's post-hit shake (set when the tank takes
 	// damage, decremented each tick).
 	hpShake int
@@ -106,6 +110,7 @@ func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	g.paused = false
 	g.popups = g.popups[:0]
+	g.deaths = g.deaths[:0]
 	g.hpShake = 0
 	if g.rng == nil {
 		g.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -199,6 +204,8 @@ func (g *InGame) Update() error {
 			core.DispatchSounds(g.world.SoundEvents, soundSink{})
 			g.spawnDamagePopups()
 			g.updateDamagePopups()
+			g.spawnDeathFX()
+			g.updateDeathFX()
 			if g.hpShake > 0 {
 				g.hpShake--
 			}
@@ -350,6 +357,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	for _, pk := range w.Pickups {
 		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 12, 12, 0, 1, 1, 1, 1)
 	}
+	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {
 		sz := e.Radius * 2 // sprite footprint follows the collision radius
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1)
@@ -984,14 +992,21 @@ func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.Poin
 // enemySpriteKey selects the sprite for an enemy: candlestick, boss, or the
 // per-kind zako sprite.
 func enemySpriteKey(e *core.Enemy) string {
+	return enemySpriteKeyFor(e.Kind, e.IsBoss, e.DropsNipper)
+}
+
+// enemySpriteKeyFor selects the sprite from the fields that distinguish enemies,
+// so the live draw (enemySpriteKey) and the death-fade effect (which only has a
+// DeathEvent, not the Enemy) share one mapping.
+func enemySpriteKeyFor(kind core.EnemyKind, isBoss, dropsNipper bool) string {
 	switch {
-	case e.DropsNipper:
+	case dropsNipper:
 		return asset.ImgCandlestick
-	case e.IsBoss:
+	case isBoss:
 		return asset.ImgBoss
-	case e.Kind == core.EnemySwarmer:
+	case kind == core.EnemySwarmer:
 		return asset.ImgEnemySwarmer
-	case e.Kind == core.EnemyBrute:
+	case kind == core.EnemyBrute:
 		return asset.ImgEnemyBrute
 	default:
 		return asset.ImgEnemy

@@ -66,6 +66,14 @@ const (
 	hudHintY  = 36.0 // cut hint, below the stats line
 )
 
+// --- Enemy death fade-out -------------------------------------------------
+// When an enemy dies the scene leaves a fading sprite where it fell (spawned
+// from world.DeathEvents), swelling slightly as it dissolves.
+const (
+	deathFadeTicks = 14   // ticks the dying sprite fades over (~0.23 s)
+	deathGrow      = 1.15 // sprite scale reached by the end of the fade
+)
+
 // --- HP bar ---------------------------------------------------------------
 // During play the HP bar sits bottom-centre (easier to read than a corner);
 // while paused it falls back to the top-left corner so it stays clear of the

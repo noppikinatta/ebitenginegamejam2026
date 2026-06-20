@@ -37,6 +37,10 @@ type World struct {
 	// damage numbers). Drained by the scene after Update; reset each tick.
 	DamageEvents []DamageEvent
 
+	// DeathEvents are the enemies that died this tick (for the scene's fade-out
+	// effect). Drained by the scene after Update; reset each tick.
+	DeathEvents []DeathEvent
+
 	// Choices are the doctor offers shown while State==StateLevelUp.
 	Choices []Upgrade
 
@@ -130,6 +134,7 @@ func (w *World) Update(move geom.PointF) {
 	// replays stale effects while the world is frozen (level-up, game over).
 	w.SoundEvents = w.SoundEvents[:0]
 	w.DamageEvents = w.DamageEvents[:0]
+	w.DeathEvents = w.DeathEvents[:0]
 
 	if w.State != StatePlaying {
 		return
@@ -469,6 +474,7 @@ func (w *World) updateExplosions() {
 
 func (w *World) killEnemy(e *Enemy) {
 	e.alive = false
+	w.emitDeath(e)
 	w.Kills++
 	if e.XPValue > 0 {
 		w.Gems = append(w.Gems, &Gem{Pos: e.Pos, Value: e.XPValue, alive: true})
