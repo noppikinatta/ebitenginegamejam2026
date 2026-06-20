@@ -1,5 +1,7 @@
 package scene
 
+import "math"
+
 // This file is the single place to tune the SCENE (Ebiten) layer's adjustable
 // numbers: rendering resolution, layout geometry, animation feel and scroll
 // speeds. It is the presentation-layer counterpart to the `data` package, which
@@ -78,4 +80,24 @@ const (
 var (
 	opCenterX = float64(screenW) / 2
 	opCenterY = 430.0
+)
+
+// --- Floating damage numbers ----------------------------------------------
+// Numbers spawn at the hit point, dart a short distance along a random
+// direction within an upward fan (so multi-hits scatter instead of stacking),
+// hold, then fade out.
+const (
+	dmgFontSize  = 16          // roughly the HUD power-label size (14)
+	dmgRise      = 24.0        // travel distance from the hit point (px)
+	dmgRiseTicks = 8.0         // ticks to reach full travel (quick dart)
+	dmgHoldTicks = 110         // ticks held in place before fading (~1.8 s)
+	dmgFadeTicks = 30          // fade-out duration in ticks (~0.5 s)
+	dmgFanRad    = math.Pi / 2 // total spread of the upward launch fan (90°)
+)
+
+// dmgEnemyRGB / dmgPlayerRGB tint the (white) glyph cache: enemies show white,
+// the tank shows red.
+var (
+	dmgEnemyRGB  = [3]float32{1, 1, 1}
+	dmgPlayerRGB = [3]float32{1, 0.25, 0.2}
 )

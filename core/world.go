@@ -33,6 +33,10 @@ type World struct {
 	// The scene layer drains this after Update; it is reset each tick.
 	SoundEvents []SoundEvent
 
+	// DamageEvents are the hits landed during the current tick (for floating
+	// damage numbers). Drained by the scene after Update; reset each tick.
+	DamageEvents []DamageEvent
+
 	// Choices are the doctor offers shown while State==StateLevelUp.
 	Choices []Upgrade
 
@@ -125,6 +129,7 @@ func (w *World) Update(move geom.PointF) {
 	// Clear last tick's sound events before the guard so the scene never
 	// replays stale effects while the world is frozen (level-up, game over).
 	w.SoundEvents = w.SoundEvents[:0]
+	w.DamageEvents = w.DamageEvents[:0]
 
 	if w.State != StatePlaying {
 		return
@@ -336,6 +341,7 @@ func (w *World) updateBeams() {
 			}
 			if geom.PointSegmentDistance(e.Pos, muzzle, end) <= halfWidth+e.Radius {
 				e.HP -= stats.Damage
+				w.emitDamage(e.Pos, stats.Damage, false)
 				if e.HP <= 0 {
 					w.killEnemy(e)
 				}
@@ -419,6 +425,7 @@ func (w *World) updateProjectiles() {
 			}
 			if p.Pos.Distance(e.Pos) <= p.Radius+e.Radius {
 				e.HP -= p.Damage
+				w.emitDamage(e.Pos, p.Damage, false)
 				p.alive = false
 				if e.HP <= 0 {
 					w.killEnemy(e)
@@ -443,6 +450,7 @@ func (w *World) explode(center geom.PointF, radius, dmg float64) {
 		}
 		if e.Pos.Distance(center) <= radius+e.Radius {
 			e.HP -= dmg
+			w.emitDamage(e.Pos, dmg, false)
 			if e.HP <= 0 {
 				w.killEnemy(e)
 			}
@@ -491,6 +499,7 @@ func (w *World) updateEnemies() {
 
 func (w *World) damagePlayer(dmg float64) {
 	w.Player.HP -= dmg
+	w.emitDamage(w.Player.Pos, dmg, true)
 	w.Player.invuln = 30
 	w.emit(SndPlayerHit)
 	if w.Player.HP <= 0 {

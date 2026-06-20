@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"math/rand"
 	"sort"
 	"strings"
 	"time"
@@ -51,6 +52,11 @@ type InGame struct {
 	// visibly rises when a tile is cut (power re-concentrates into faster fire)
 	// and falls when a doctor adds a tile.
 	powerGaugeFill float64
+
+	// popups are the active floating damage numbers (presentation only; spawned
+	// from world.DamageEvents each tick). rng scatters their launch directions.
+	popups []damagePopup
+	rng    *rand.Rand
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -95,6 +101,10 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	g.paused = false
+	g.popups = g.popups[:0]
+	if g.rng == nil {
+		g.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
 	asset.PlayBGM(asset.BGMGame)
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
@@ -160,6 +170,9 @@ func (g *InGame) Update() error {
 		g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 		g.turretRenderedAngle = g.world.Player.FacingAngle
 	}
+	if g.rng == nil {
+		g.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
 
 	switch g.world.State {
 	case core.StateGameOver, core.StateCleared:
@@ -179,6 +192,8 @@ func (g *InGame) Update() error {
 		} else {
 			g.world.Update(g.readMove())
 			core.DispatchSounds(g.world.SoundEvents, soundSink{})
+			g.spawnDamagePopups()
+			g.updateDamagePopups()
 		}
 	}
 
@@ -351,6 +366,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	g.drawTurretCombat(screen, cam)
 
 	g.drawExplosions(screen, cam)
+	g.drawDamagePopups(screen, cam)
 
 	g.drawHUD(screen)
 	g.drawBossBar(screen)
