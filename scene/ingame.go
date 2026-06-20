@@ -817,10 +817,7 @@ func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool)
 		}
 		return name, weaponDescL(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
-		if c.Tall {
-			return junkNameL(c.Name()), lang.Text("junk-desc-tall"), core.JunkImageKey(c.DeviceName), true
-		}
-		return junkNameL(c.Name()), lang.Text("junk-desc"), core.JunkImageKey(c.DeviceName), false
+		return junkNameL(c.Name()), junkDescL(c.Name(), c.Tall), core.JunkImageKey(c.DeviceName), c.Tall
 	case core.Capacitor:
 		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor, false
 	default: // plain tile (or empty)
