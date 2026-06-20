@@ -31,6 +31,9 @@ const dmgLife = int(dmgRiseTicks) + dmgHoldTicks + dmgFadeTicks
 // cone so several hits on the same spot scatter instead of overlapping.
 func (g *InGame) spawnDamagePopups() {
 	for _, ev := range g.world.DamageEvents {
+		if ev.ToPlayer {
+			g.hpShake = hpShakeTicks // a hit on the tank shakes its HP bar
+		}
 		n := int(math.Round(ev.Amount))
 		if n <= 0 {
 			continue

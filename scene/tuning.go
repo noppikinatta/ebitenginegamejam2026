@@ -56,6 +56,22 @@ const (
 	cardY   = 210.0
 )
 
+// --- HP bar ---------------------------------------------------------------
+// During play the HP bar sits bottom-centre (easier to read than a corner);
+// while paused it falls back to the top-left corner so it stays clear of the
+// pause view's bottom tile-info panel. A recent hit shakes it.
+const (
+	hpBarW            = 320.0 // bar width (px)
+	hpBarH            = 22.0  // bar height (px)
+	hpBarBottomMargin = 30.0  // gap from the screen bottom to the bar's bottom
+	hpBarPauseX       = 20.0  // top-left position used while paused
+	hpBarPauseY       = 20.0
+
+	hpShakeTicks = 18  // how long the shake lasts after a hit
+	hpShakeAmp   = 7.0 // peak shake amplitude (px)
+	hpShakeFreq  = 1.1 // oscillation rate (radians/tick)
+)
+
 // --- Left-edge power gauge geometry ---------------------------------------
 const (
 	powerGaugeX      = 24.0

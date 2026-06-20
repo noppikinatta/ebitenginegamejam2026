@@ -57,6 +57,10 @@ type InGame struct {
 	// from world.DamageEvents each tick). rng scatters their launch directions.
 	popups []damagePopup
 	rng    *rand.Rand
+
+	// hpShake counts down the HP bar's post-hit shake (set when the tank takes
+	// damage, decremented each tick).
+	hpShake int
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -102,6 +106,7 @@ func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	g.paused = false
 	g.popups = g.popups[:0]
+	g.hpShake = 0
 	if g.rng == nil {
 		g.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
@@ -194,6 +199,9 @@ func (g *InGame) Update() error {
 			core.DispatchSounds(g.world.SoundEvents, soundSink{})
 			g.spawnDamagePopups()
 			g.updateDamagePopups()
+			if g.hpShake > 0 {
+				g.hpShake--
+			}
 		}
 	}
 
@@ -904,11 +912,26 @@ func (g *InGame) drawGrid(screen *ebiten.Image, cam geom.PointF) {
 func (g *InGame) drawHUD(screen *ebiten.Image) {
 	p := g.world.Player
 
+	// HP bar: bottom-centre during play (easier to read than a corner); while
+	// paused it falls back to the top-left so it stays clear of the pause view's
+	// bottom tile-info panel. A recent hit shakes it (play only).
+	hpLeft, hpTop := hpBarPauseX, hpBarPauseY
+	if !g.paused {
+		hpLeft = (screenW - hpBarW) / 2
+		hpTop = screenH - hpBarBottomMargin - hpBarH
+		if g.hpShake > 0 {
+			frac := float64(g.hpShake) / hpShakeTicks
+			amp := hpShakeAmp * frac
+			ph := float64(g.hpShake) * hpShakeFreq
+			hpLeft += amp * math.Sin(ph)
+			hpTop += amp * 0.5 * math.Cos(ph*1.3)
+		}
+	}
 	hp := &drawing.GaugeDrawer{
 		Max:           int(p.MaxHP),
 		Current:       int(p.HP),
-		TopLeft:       geom.PointF{X: 20, Y: 20},
-		BottomRight:   geom.PointF{X: 320, Y: 44},
+		TopLeft:       geom.PointF{X: hpLeft, Y: hpTop},
+		BottomRight:   geom.PointF{X: hpLeft + hpBarW, Y: hpTop + hpBarH},
 		TextOffset:    geom.PointF{X: 6, Y: 2},
 		FontSize:      16,
 		ColorScaleMax: scale(0.2, 0.9, 0.3, 1),
