@@ -8,7 +8,8 @@ title-start,Click to Start
 # --- Opening cinematic ---
 op-aliens,The aliens are attacking!
 op-doctor,Too dangerous to go alone — take this!
-click-skip,Click to skip
+op-hint-advance,Click to continue
+op-hint-skip,Hold Space to skip
 
 # --- In-game HUD ---
 hud-pwr,PWR

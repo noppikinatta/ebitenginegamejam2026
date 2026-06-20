@@ -109,6 +109,9 @@ const (
 	opFlyDur      = 28  // ticks each weapon spends flying in
 	opTile        = 40.0
 	opZoom        = 2.2
+	// opSkipHoldTicks is how long Space must be held to skip the whole opening to
+	// the title (~1s at 60 TPS). A click only advances past the aliens scene.
+	opSkipHoldTicks = 60
 )
 
 var (

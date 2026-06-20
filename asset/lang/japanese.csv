@@ -8,7 +8,8 @@ title-start,クリックでスタート
 # --- オープニング ---
 op-aliens,エイリアンが攻めてきたぞ！
 op-doctor,一人では危険じゃ、これを授けよう
-click-skip,クリックでスキップ
+op-hint-advance,クリックで次へ
+op-hint-skip,Space長押しでスキップ
 
 # --- ゲーム中HUD ---
 hud-pwr,電力

@@ -136,14 +136,29 @@ func (o *Opening) Update() error {
 		}
 	}
 
-	// Click skips ahead (after a short lockout so a click carried over from the
-	// previous scene doesn't skip instantly); otherwise advance once assembly settles.
-	skip := o.t > 20 && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft)
-	if !o.switched && (o.t >= o.doneTick() || skip) {
+	// During the aliens scene a click ends it and jumps into the assembly demo
+	// (the tank rolls in and the doctors bolt on weapons). The lockout keeps a
+	// click carried over from the previous scene from skipping instantly.
+	if o.t > 20 && o.t < opAliensEnd && o.input.Mouse != nil && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {
+		o.t = opAliensEnd
+	}
+
+	// Holding Space skips the whole opening to the title; otherwise it advances on
+	// its own once the assembly settles.
+	if !o.switched && (o.t >= o.doneTick() || o.spaceHeld() >= opSkipHoldTicks) {
 		o.switched = true
 		o.sequence.SwitchWithTransition(o.nextScene, o.transition)
 	}
 	return nil
+}
+
+// spaceHeld returns how many ticks the Space key has been held (0 if released or
+// no keyboard), used to require a deliberate hold to skip to the title.
+func (o *Opening) spaceHeld() int {
+	if o.input.Keyboard == nil {
+		return 0
+	}
+	return o.input.Keyboard.PressDuration(ebiten.KeySpace)
 }
 
 func (o *Opening) Draw(screen *ebiten.Image) {
@@ -178,6 +193,10 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 	if o.t < opAliensEnd {
 		a := float32(clamp01(math.Min(float64(o.t)/30, float64(opAliensEnd-o.t)/30)))
 		drawTelopC(screen, lang.Text("op-aliens"), opCenterX, 150, 44, 1, 0.5, 0.45, a)
+		// Click advances out of the aliens scene; the prompt appears after the lockout.
+		if o.t > 20 {
+			drawTelopC(screen, lang.Text("op-hint-advance"), opCenterX, screenH-90, 22, 1, 1, 0.8, 0.8)
+		}
 		o.drawSkipHint(screen)
 		return
 	}
@@ -223,11 +242,30 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 	o.drawSkipHint(screen)
 }
 
+// drawSkipHint shows the "hold Space to skip" prompt bottom-right, brightening as
+// the hold fills, with a small progress bar so the deliberate hold reads clearly.
 func (o *Opening) drawSkipHint(screen *ebiten.Image) {
+	held := o.spaceHeld()
+	frac := clamp01(float64(held) / float64(opSkipHoldTicks))
+	bright := float32(0.6 + 0.4*frac) // text brightens while held
+
+	hint := lang.Text("op-hint-skip")
+	w := drawing.MeasureText(hint, 16)
+	x := float64(screenW) - w.X - 24
+	y := float64(screenH) - 36
+
 	opt := &ebiten.DrawImageOptions{}
-	opt.ColorScale.Scale(0.6, 0.6, 0.6, 0.6)
-	opt.GeoM.Translate(screenW-180, screenH-36)
-	drawing.DrawTextByKey(screen, "click-skip", 16, opt)
+	opt.ColorScale.Scale(bright, bright, bright, bright)
+	opt.GeoM.Translate(x, y)
+	drawing.DrawText(screen, hint, 16, opt)
+
+	// Progress bar under the hint, only while actually holding.
+	if held > 0 {
+		const bh = 4
+		by := y + 24
+		drawing.DrawRect(screen, x, by, w.X, bh, 0.3, 0.3, 0.3, 0.6)
+		drawing.DrawRect(screen, x, by, w.X*frac, bh, 0.9, 0.9, 0.6, 0.9)
+	}
 }
 
 func (o *Opening) Layout(outsideWidth, outsideHeight int) (int, int) { return screenW, screenH }
