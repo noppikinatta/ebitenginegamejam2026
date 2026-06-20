@@ -56,6 +56,16 @@ const (
 	cardY   = 210.0
 )
 
+// --- XP bar + stats -------------------------------------------------------
+// The XP bar is a thin full-width strip pinned to the very top edge (Vampire
+// Survivors style); the stats line and cut hint sit just below it, left-aligned.
+const (
+	xpBarH    = 6.0  // thin bar height (px)
+	hudTextX  = 20.0 // left margin for the stats line + cut hint
+	hudStatsY = 12.0 // stats line baseline-top, just under the XP bar
+	hudHintY  = 36.0 // cut hint, below the stats line
+)
+
 // --- HP bar ---------------------------------------------------------------
 // During play the HP bar sits bottom-centre (easier to read than a corner);
 // while paused it falls back to the top-left corner so it stays clear of the

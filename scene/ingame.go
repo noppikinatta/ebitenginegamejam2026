@@ -939,14 +939,15 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 	}
 	hp.Draw(screen)
 
-	// XP bar under the HP gauge.
-	drawing.DrawRect(screen, 20, 50, 300, 8, 0.2, 0.2, 0.3, 1)
+	// XP bar: a thin full-width strip along the very top edge (Vampire-Survivors
+	// style), with the stats line and cut hint just below-left.
+	drawing.DrawRect(screen, 0, 0, screenW, xpBarH, 0.2, 0.2, 0.3, 1)
 	if p.XPToNext > 0 {
-		drawing.DrawRect(screen, 20, 50, 300*float64(p.XP/p.XPToNext), 8, 0.4, 0.6, 1, 1)
+		drawing.DrawRect(screen, 0, 0, screenW*float64(p.XP/p.XPToNext), xpBarH, 0.4, 0.6, 1, 1)
 	}
 
 	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(20, 64)
+	opt.GeoM.Translate(hudTextX, hudStatsY)
 	drawing.DrawTextTemplate(screen, "hud-stats", map[string]any{
 		"Level":   p.Level,
 		"Spd":     fmt.Sprintf("%.1f", p.Speed),
@@ -956,7 +957,7 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 
 	// Cut hint.
 	opt = &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(20, 88)
+	opt.GeoM.Translate(hudTextX, hudHintY)
 	drawing.DrawTextByKey(screen, "hud-hint", 14, opt)
 
 	opt = &ebiten.DrawImageOptions{}
