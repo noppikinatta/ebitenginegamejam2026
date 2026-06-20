@@ -56,7 +56,7 @@
 - 扇風機 (Electric Fan)
 - 電卓 (Calculator)
 - Wi-Fiアンテナ (Wi-Fi Antenna)
-- サグラダファミリア (Sagrada Familia) — `Tall`
+- 五重塔 (Five-storied Pagoda) — `Tall`
 - FAX (Fax Machine)
 - ラーバランプ (Lava Lamp)
 - オイルヒーター (Oil Heater)

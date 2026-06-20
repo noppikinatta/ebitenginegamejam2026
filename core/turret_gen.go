@@ -147,7 +147,7 @@ var junkSpecs = []junkSpec{
 	{Name: "Electric Fan"},
 	{Name: "Calculator"},
 	{Name: "Wi-Fi Antenna"},
-	{Name: "Sagrada Familia", Tall: true},
+	{Name: "Five-storied Pagoda", Tall: true},
 	{Name: "Fax Machine"},
 	{Name: "Lava Lamp"},
 	{Name: "Oil Heater"},

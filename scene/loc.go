@@ -8,7 +8,7 @@ import (
 )
 
 // slug converts a display name into a CSV key fragment: lower-cased with spaces
-// turned into hyphens (e.g. "Sagrada Familia" -> "sagrada-familia").
+// turned into hyphens (e.g. "Five-storied Pagoda" -> "five-storied-pagoda").
 func slug(name string) string {
 	return strings.ReplaceAll(strings.ToLower(name), " ", "-")
 }

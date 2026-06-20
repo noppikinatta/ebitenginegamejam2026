@@ -23,7 +23,7 @@ const (
 
 	// Junk devices get one image per type, keyed by core.JunkImageKey(name)
 	// (e.g. "junk_unusual_banana"). Flat junk is a 24x24 tile overlay; tall junk
-	// (e.g. "junk_sagrada_familia") is a 24x72 always-upright fixture. Placeholder
+	// (e.g. "junk_five_storied_pagoda") is a 24x72 always-upright fixture. Placeholder
 	// art is produced by tools/genjunkimg; drop in real PNGs by overwriting the
 	// matching files. The scene resolves these keys via core.JunkImageKey, so they
 	// have no constants here.

@@ -57,7 +57,7 @@
 
 ## ジャンク（種類ごとに1枚）
 
-> 平型は 24x24 で土台 `tile.png` の上に重ねて描画。**Sagrada Familia のみ縦長 24x72**（土台から立ち上がる背の高いフィクスチャ。バレル同様、最下段24x24＝土台で authoring）。
+> 平型は 24x24 で土台 `tile.png` の上に重ねて描画。**Five-storied Pagoda のみ縦長 24x72**（土台から立ち上がる背の高いフィクスチャ。バレル同様、最下段24x24＝土台で authoring）。
 > ファイル名は `core.JunkImageKey(デバイス名)` のスラッグ。`make junk-img` でプレースホルダ再生成。
 
 | ファイル | 寸法 | デバイス名 |
@@ -66,7 +66,7 @@
 | `junk_electric_fan.png` | 24x24 | Electric Fan（扇風機） |
 | `junk_calculator.png` | 24x24 | Calculator（電卓） |
 | `junk_wi_fi_antenna.png` | 24x24 | Wi-Fi Antenna |
-| `junk_sagrada_familia.png` | **24x72** | Sagrada Familia（サグラダファミリア・**Tall**） |
+| `junk_five_storied_pagoda.png` | **24x72** | Five-storied Pagoda（五重塔・**Tall**） |
 | `junk_fax_machine.png` | 24x24 | Fax Machine（FAX） |
 | `junk_lava_lamp.png` | 24x24 | Lava Lamp |
 | `junk_oil_heater.png` | 24x24 | Oil Heater（オイルヒーター） |
