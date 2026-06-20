@@ -55,6 +55,56 @@ func TestJunkEmitter_FiresOnInterval(t *testing.T) {
 	}
 }
 
+// TestJunkEmitter_AllEmittersFireCosmetic: every junk wired with an emitter
+// spits out exactly one cosmetic (0-damage, pass-through) projectile carrying
+// the spec's sprite once its interval elapses.
+func TestJunkEmitter_AllEmittersFireCosmetic(t *testing.T) {
+	cases := []struct {
+		device string
+		spec   EmitterSpec
+	}{
+		{"Balloon Service Unit", balloonEmitter},
+		{"Coffee Maker", coffeeEmitter},
+		{"Toaster", toasterEmitter},
+		{"Music Box", musicBoxEmitter},
+		{"Rubber Duck Dispenser", duckEmitter},
+		{"Fireworks", fireworksEmitter},
+	}
+	for _, tc := range cases {
+		t.Run(tc.device, func(t *testing.T) {
+			w := buildEmitterWorld(newJunk(tc.device))
+			for i := 0; i < tc.spec.Interval-1; i++ {
+				w.updateJunkEmitters()
+			}
+			if len(w.Projectiles) != 0 {
+				t.Fatalf("emitted before interval %d: %d projectiles", tc.spec.Interval, len(w.Projectiles))
+			}
+			w.updateJunkEmitters() // interval-th tick fires
+			if len(w.Projectiles) != 1 {
+				t.Fatalf("want 1 projectile after %d ticks, got %d", tc.spec.Interval, len(w.Projectiles))
+			}
+			p := w.Projectiles[0]
+			if p.Damage != 0 || p.ExplodeDamage != 0 || !p.PassThrough {
+				t.Errorf("junk projectile must be cosmetic: damage=%v explode=%v passthrough=%v", p.Damage, p.ExplodeDamage, p.PassThrough)
+			}
+			if p.Sprite != tc.spec.Sprite {
+				t.Errorf("sprite = %q, want %q", p.Sprite, tc.spec.Sprite)
+			}
+		})
+	}
+}
+
+// TestGravityMover_PullsDown: the gravity mover accelerates a projectile toward
+// the bottom of the screen (positive Y).
+func TestGravityMover_PullsDown(t *testing.T) {
+	w := &World{}
+	p := &Projectile{}
+	NewGravityMover(0.05, 0).Steer(p, w)
+	if p.Vel.Y <= 0 {
+		t.Errorf("gravity mover should push down (positive Y), got Vel.Y=%v", p.Vel.Y)
+	}
+}
+
 // TestJunkEmitter_InertNoFire: junk without an emitter never spawns projectiles.
 func TestJunkEmitter_InertNoFire(t *testing.T) {
 	w := buildEmitterWorld(newJunk("Calculator"))

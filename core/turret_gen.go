@@ -157,14 +157,13 @@ var junkSpecs = []junkSpec{
 	{Name: "NFT Nuclear Missile"},
 	{Name: "Horns"},
 	{Name: "AI Targeting Device"},
-	// Devices that emit something. Wired emitters fire; the rest are inert until
-	// their behaviour is implemented.
+	// Devices that emit something. Each is wired to a cosmetic emitter.
 	{Name: "Balloon Service Unit", Emitter: &balloonEmitter},
-	{Name: "Coffee Maker"},
-	{Name: "Toaster"},
-	{Name: "Music Box"},
-	{Name: "Rubber Duck Dispenser"},
-	{Name: "Fireworks"},
+	{Name: "Coffee Maker", Emitter: &coffeeEmitter},
+	{Name: "Toaster", Emitter: &toasterEmitter},
+	{Name: "Music Box", Emitter: &musicBoxEmitter},
+	{Name: "Rubber Duck Dispenser", Emitter: &duckEmitter},
+	{Name: "Fireworks", Emitter: &fireworksEmitter},
 }
 
 // junkBySpec finds the spec for a device name (nil if not in the pool).

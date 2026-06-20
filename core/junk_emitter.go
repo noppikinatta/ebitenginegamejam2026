@@ -19,7 +19,14 @@ const (
 // Projectile sprite keys for junk emitters. Core stays Ebiten-free, so these are
 // plain strings; the asset layer provides matching images and the scene draws
 // Projectile.Sprite directly.
-const SpriteBalloon = "proj_balloon"
+const (
+	SpriteBalloon  = "proj_balloon"
+	SpriteCoffee   = "proj_coffee"
+	SpriteToast    = "proj_toast"
+	SpriteNote     = "proj_note"
+	SpriteDuck     = "proj_duck"
+	SpriteFirework = "proj_firework"
+)
 
 // EmitterSpec is the firing configuration of a junk device that periodically
 // spits out a projectile. The projectiles are intentionally useless: zero
@@ -56,6 +63,67 @@ var balloonEmitter = EmitterSpec{
 	Radius:   8,
 	Sprite:   SpriteBalloon,
 	Mover:    NewRiseMover(0.03, 0.02, 1.6),
+}
+
+// coffeeEmitter sprays a jet of coffee radially outward that arcs back down
+// under gravity.
+var coffeeEmitter = EmitterSpec{
+	Interval: 70,
+	Aim:      EmitOutward,
+	Speed:    1.4,
+	Life:     150,
+	Radius:   6,
+	Sprite:   SpriteCoffee,
+	Mover:    NewGravityMover(0.03, 3),
+}
+
+// toasterEmitter pops a slice of toast straight up that arcs back down under
+// gravity.
+var toasterEmitter = EmitterSpec{
+	Interval: 120,
+	Aim:      EmitUp,
+	Speed:    2.2,
+	Life:     160,
+	Radius:   7,
+	Sprite:   SpriteToast,
+	Mover:    NewGravityMover(0.04, 4),
+}
+
+// musicBoxEmitter drifts musical notes outward with a gentle sway (a riseMover
+// with no lift, so the note keeps its outward drift while wobbling).
+var musicBoxEmitter = EmitterSpec{
+	Interval: 60,
+	Aim:      EmitOutward,
+	Speed:    0.5,
+	Life:     200,
+	Radius:   8,
+	Sprite:   SpriteNote,
+	Mover:    NewRiseMover(0, 0.015, 1.2),
+}
+
+// duckEmitter scatters short-lived rubber ducks in random directions that drop
+// to the ground around the tank.
+var duckEmitter = EmitterSpec{
+	Interval: 100,
+	Aim:      EmitRandom,
+	Speed:    1.0,
+	Life:     90,
+	Radius:   8,
+	Sprite:   SpriteDuck,
+	Mover:    NewGravityMover(0.05, 4),
+}
+
+// fireworksEmitter launches a shell straight up that bursts into a cosmetic
+// (0-damage) explosion when it expires.
+var fireworksEmitter = EmitterSpec{
+	Interval:      150,
+	Aim:           EmitUp,
+	Speed:         2.5,
+	Life:          70,
+	Radius:        6,
+	Sprite:        SpriteFirework,
+	Mover:         NewGravityMover(0.02, 4),
+	ExplodeRadius: 40,
 }
 
 // updateJunkEmitters advances every connected emitting junk and spawns its

@@ -47,6 +47,31 @@ func NewRiseMover(lift, wobble, maxSpeed float64) ProjectileMover {
 	return riseMover{lift: lift, wobble: wobble, maxSpeed: maxSpeed}
 }
 
+// gravityMover pulls a projectile down the screen (toward world +Y) with a
+// constant per-tick acceleration, so anything launched outward or upward arcs
+// back down like a thrown object. Used by cosmetic junk emitters (coffee spray,
+// popped toast, dropped rubber ducks, firework shells); it ignores enemies.
+type gravityMover struct {
+	gravity  float64 // downward acceleration per tick (toward +Y)
+	maxSpeed float64 // speed cap (0 = uncapped)
+}
+
+// NewGravityMover returns a mover that accelerates a projectile downward each
+// tick. gravity is the per-tick downward acceleration, maxSpeed the cap (0 =
+// none).
+func NewGravityMover(gravity, maxSpeed float64) ProjectileMover {
+	return gravityMover{gravity: gravity, maxSpeed: maxSpeed}
+}
+
+func (m gravityMover) Steer(p *Projectile, w *World) {
+	p.Vel.Y += m.gravity
+	if m.maxSpeed > 0 {
+		if s := p.Vel.Abs(); s > m.maxSpeed {
+			p.Vel = p.Vel.Multiply(m.maxSpeed / s)
+		}
+	}
+}
+
 func (m riseMover) Steer(p *Projectile, w *World) {
 	p.Vel.Y -= m.lift
 	// Phase the sway by the projectile's spawn X so balloons don't sway in unison.

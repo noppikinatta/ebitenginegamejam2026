@@ -43,13 +43,13 @@
 
 **実装状況**
 - 風船サービス装置 (Balloon Service Unit) — **実装済**。`NewRiseMover`（上昇＋サイン横揺れ）で画面上へ漂う。Interval 90tick、Sprite `proj_balloon`（プレースホルダ＝赤丸）。
-- コーヒーメーカー (Coffee Maker) — 未。案：外側へ噴出→`gravityMover`（下向き加速）で落下。Sprite `proj_coffee`
-- トースター (Toaster) — 未。案：上へポン→`gravityMover` でアーチ落下。Sprite `proj_toast`
-- オルゴール (Music Box) — 未。案：外側へ漂う音符（drift/fade）。Sprite `proj_note`
-- ラバーダック設置装置 (Rubber Duck Dispenser) — 未。案：周囲に落とす（`gravityMover` 短寿命）。Sprite `proj_duck`
-- 花火 (Fireworks) — 未。案：上へ→寿命切れで `ExplodeRadius>0` の**0ダメージ爆発**演出。Sprite `proj_firework`
+- コーヒーメーカー (Coffee Maker) — **実装済**。外側へ噴出→`NewGravityMover`（下向き加速）で落下。Interval 70tick、Sprite `proj_coffee`
+- トースター (Toaster) — **実装済**。上へポン→`NewGravityMover` でアーチ落下。Interval 120tick、Sprite `proj_toast`
+- オルゴール (Music Box) — **実装済**。外側へ漂う音符（`NewRiseMover(lift=0)` で横揺れドリフト）。Interval 60tick、Sprite `proj_note`
+- ラバーダック設置装置 (Rubber Duck Dispenser) — **実装済**。ランダム方向に短寿命のダックを撒く（`NewGravityMover`）。Interval 100tick、Sprite `proj_duck`
+- 花火 (Fireworks) — **実装済**。上へ→寿命切れで `ExplodeRadius>0` の**0ダメージ爆発**演出（`SndExplosion` も鳴る）。Interval 150tick、Sprite `proj_firework`
 
-> 次フェーズ（残り5種）の追加点：①共通 `gravityMover` 実装 ②各 `proj_*` プレースホルダ画像 ③`asset/lang` の説明は共通 `junk-desc` を流用（個別説明は任意）。各 `EmitterSpec` を `junkSpecs` の該当エントリに紐付けるだけで有効化。
+> 共通 `gravityMover`（`core/projectile_mover.go` の `NewGravityMover`）と各 `proj_*` プレースホルダ画像（`tools/genprojimg` ＝ `make proj-img` で生成）を追加し、各 `EmitterSpec` を `junkSpecs` に紐付けて全6種が稼働。説明は共通 `junk-desc` を流用（個別説明は任意）。
 
 ## ジャンク（何も出ないもの）— 実装済（inert）
 - unusual banana (Unusual Banana)
@@ -73,4 +73,4 @@
 - 武器: Cannon / Shotgun / Sniper / Laser（`core/weapon.go`、画像キー `tile_weapon_*`）
 - ジャンク: 機械的効果は同一（inert）・画像は `tile_junk` 1枚共用（`core/turret_gen.go` の `junkSpecs`、20種）。Tall のみ `junk_tower`
 - キャパシタ（電力ボーナス）は実装済（設備カテゴリ）
-- 「弾が出るジャンク」はエミッタ系（`core/junk_emitter.go`）実装済み。**風船サービス装置のみ稼働**、残り5種は `EmitterSpec` 紐付け待ち
+- 「弾が出るジャンク」はエミッタ系（`core/junk_emitter.go`）実装済み。**全6種（風船・コーヒー・トースター・オルゴール・ラバーダック・花火）が稼働**

@@ -1,4 +1,4 @@
-.PHONY: gen run test test-cov build sound-gen sound-pak junk-img
+.PHONY: gen run test test-cov build sound-gen sound-pak junk-img proj-img
 
 gen:
 	go generate ./...
@@ -24,6 +24,10 @@ sound-pak:
 # Regenerate the per-type junk placeholder images into asset/img.
 junk-img:
 	go run tools/genjunkimg/main.go asset/img
+
+# Regenerate the cosmetic junk-projectile placeholder sprites into asset/img.
+proj-img:
+	go run tools/genprojimg/main.go asset/img
 
 run:
 	go run app/main.go

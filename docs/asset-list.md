@@ -24,6 +24,11 @@
 | `nipper.png` | 12x12 | ニッパー（切断回数アイテム） |
 | `projectile.png` | 8x8 | 既定の弾 |
 | `proj_balloon.png` | 16x16 | 風船ジャンクが出すコミカル弾 |
+| `proj_coffee.png` | 16x16 | コーヒーメーカーが噴出するコーヒー |
+| `proj_toast.png` | 16x16 | トースターが飛ばすトースト |
+| `proj_note.png` | 16x16 | オルゴールが漂わせる音符 |
+| `proj_duck.png` | 16x16 | ラバーダック設置装置が撒くダック |
+| `proj_firework.png` | 16x16 | 花火ジャンクが打ち上げる花火玉 |
 
 ## 砲塔タイル（土台 24x24）
 
@@ -132,5 +137,4 @@
 
 ## 将来・未実装（今は不要）
 
-弾を出すジャンクの残り5種（`docs/asset-plan.md` 参照）。エミッタ実装時に追加で必要になる弾スプライト案：
-`proj_coffee` / `proj_toast` / `proj_note` / `proj_duck` / `proj_firework`（各16x16目安）。現状コードに未配線なので**今回の制作対象外**。
+弾を出すジャンク全6種は配線済み（`docs/asset-plan.md` 参照）。弾スプライト `proj_coffee` / `proj_toast` / `proj_note` / `proj_duck` / `proj_firework` はプレースホルダ（`make proj-img` ＝ `tools/genprojimg` で生成した色付き円）。本番アートに差し替える場合は該当 PNG を上書きするだけ。
