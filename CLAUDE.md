@@ -116,6 +116,8 @@ go test ./lang/... -run TestName -v
 - `scene/title.go` — タイトル画面。タイトル画像とストーリーテキスト（`lang.Text("story-1")`）を表示し、左クリックで次シーンへ。シーン実装の参考パターンになる（`Title` 構造体 + `NewTitle` + `Init`/`Update`/`Draw`/`Layout`）
 - `scene/result.go` — 勝敗で分岐。勝利＝「エイリアンを倒し、自由を手に入れた」＋『オープニングに戻る』。敗北＝「…自由を失った。…」＋『リトライ』(InGame)／『結果を受け入れる』(Opening)。勝敗は `InGame.Outcome()`（`StateCleared`/`StateGameOver`）から取得。`sceneButton` で簡易クリックボタン
 - `scene/lang.go` — `langSwitcher`。**L キー**で言語をトグルし、`DrawTriangles` のグラデ矩形＋テキストで現在言語を一時表示（alpha フェードアウト）
+- `scene/tuning.go` — **scene（Ebiten）層の調整可能パラメータの集約先**。描画解像度（`screenW`/`screenH`）、背景スクロール速度（`bgScrollMul`/`opScrollSpeed`）、ワールド描画・カードレイアウト・パワーゲージ・オープニング演出のタイムライン等の数値をここで一元管理。`data` パッケージ（core のバランス＝`core.Config`）の presentation 版カウンターパート。`combatTileSize` のような「自由に変えられない（`core.TurretTileSize` と一致必須）」定数は使用箇所に残す
+- スクロール背景：`drawScrollBG(screen, ox, oy)`（`scene/ingame.go`）がレイアウト同寸の `asset.ImgBackground`（上下左右シームレス想定）を 2×2 タイルで敷き、`(ox,oy)` だけずらす。InGame はカメラに `bgScrollMul` 倍で追従、Opening は発進デモ中のみ `opScrollSpeed` で上→下スクロール。プレースホルダは `make bg-img`（`tools/genbgimg`）
 
 ### Packages
 

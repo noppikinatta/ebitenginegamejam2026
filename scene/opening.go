@@ -43,24 +43,8 @@ type openingBubble struct {
 	born int
 }
 
-// Cinematic timeline (ticks at 60 TPS).
-const (
-	opAliensEnd   = 200 // aliens telop + swarm
-	opTankStart   = 200 // tank starts rolling in
-	opTankEnd     = 320 // tank reaches centre
-	opFirstLine   = 330 // first doctor line appears
-	opFirstArrive = 386 // first weapon snaps into place
-	opStagger     = 20  // ticks between successive weapon arrivals
-	opFlyDur      = 28  // ticks each weapon spends flying in
-	opTile        = 40.0
-	opZoom        = 2.2
-	opScrollSpeed = 2.4 // bg px/tick during the launch demo (tank "drives up")
-)
-
-var (
-	opCenterX = float64(screenW) / 2
-	opCenterY = 430.0
-)
+// The opening cinematic timeline, scroll speed and centre points are tunable in
+// scene/tuning.go.
 
 // openingWeapons is a decorative battle-ready turret (offsets from the tank
 // centre + kind). It is intentionally fixed flavour, independent of the random

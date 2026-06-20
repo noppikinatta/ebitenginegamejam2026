@@ -21,25 +21,11 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
-const (
-	screenW = 1280
-	screenH = 720
-	gridGap = 64
-
-	combatTileSize = core.TurretTileSize // px per hex tile (combat miniature; matches muzzle world offsets)
-	pauseTileSize  = 56.0                // px per hex tile in the zoomed pause/cut view (upright)
-
-	// Sprite draw sizes (px at the 1:1 camera). These are the asset footprints
-	// and are intentionally independent of the core collision radii.
-	tankDrawW = 48.0 // tank is tall (portrait)
-	tankDrawH = 64.0
-
-	// Level-up doctor-card layout.
-	cardW   = 360.0
-	cardH   = 300.0
-	cardGap = 28.0
-	cardY   = 210.0
-)
+// combatTileSize is the px-per-hex tile for the combat miniature. It is NOT a
+// free knob: it must equal core.TurretTileSize so the drawn turret lines up with
+// the muzzle world offsets, so it lives here rather than in tuning.go. All other
+// scene rendering/layout knobs are in tuning.go.
+const combatTileSize = core.TurretTileSize
 
 // InGame is the main gameplay scene: a Vampire-Survivors-like run driven by the
 // Ebiten-free core.World simulation. This scene only handles input and drawing.
@@ -330,9 +316,9 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	// Camera keeps the player centred on screen.
 	cam := geom.PointF{X: w.Player.Pos.X - screenW/2, Y: w.Player.Pos.Y - screenH/2}
 
-	// Background scrolls 1:1 with the camera (world locked), so moving the tank
-	// scrolls the scenery underneath it.
-	drawScrollBG(screen, cam.X, cam.Y)
+	// Background scrolls with the camera (bgScrollMul = 1 locks the scenery 1:1
+	// to the world), so moving the tank scrolls the scenery underneath it.
+	drawScrollBG(screen, cam.X*bgScrollMul, cam.Y*bgScrollMul)
 	g.drawGrid(screen, cam)
 
 	for _, gem := range w.Gems {
@@ -400,14 +386,6 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		g.drawPowerGauge(screen)
 	}
 }
-
-// Left-edge power gauge geometry.
-const (
-	powerGaugeX      = 24.0
-	powerGaugeW      = 22.0
-	powerGaugeTop    = 132.0
-	powerGaugeBottom = screenH - 40.0
-)
 
 // drawPowerGauge draws a vertical bar on the left edge whose height encodes the
 // turret-wide fire-rate multiplier. It fills from the bottom up and brightens as
