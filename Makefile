@@ -1,4 +1,4 @@
-.PHONY: gen run test test-cov build sound-gen sound-pak junk-img proj-img
+.PHONY: gen run test test-cov build sound-gen sound-pak junk-img proj-img bg-img
 
 gen:
 	go generate ./...
@@ -28,6 +28,10 @@ junk-img:
 # Regenerate the cosmetic junk-projectile placeholder sprites into asset/img.
 proj-img:
 	go run tools/genprojimg/main.go asset/img
+
+# Regenerate the placeholder scrolling background (seamless 1280x720) into asset/img.
+bg-img:
+	go run tools/genbgimg/main.go asset/img/background.png
 
 run:
 	go run app/main.go

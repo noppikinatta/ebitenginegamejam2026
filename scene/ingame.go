@@ -330,6 +330,9 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	// Camera keeps the player centred on screen.
 	cam := geom.PointF{X: w.Player.Pos.X - screenW/2, Y: w.Player.Pos.Y - screenH/2}
 
+	// Background scrolls 1:1 with the camera (world locked), so moving the tank
+	// scrolls the scenery underneath it.
+	drawScrollBG(screen, cam.X, cam.Y)
 	g.drawGrid(screen, cam)
 
 	for _, gem := range w.Gems {
@@ -862,6 +865,35 @@ func hexLocalOffset(idx hexmap.Index, size float64) (dx, dy float64) {
 	dx = q * size * 0.866
 	dy = (r + q*0.5) * size
 	return
+}
+
+// drawScrollBG tiles the layout-sized background image across the screen,
+// scrolled by (ox, oy) in screen pixels. The art is authored to wrap seamlessly
+// on all four edges, so a 2x2 block of copies always covers the screen with the
+// seams falling off-screen. Only DrawImageOptions values are allocated per call
+// (no per-frame images), and every copy shares one source image so the draws
+// batch.
+func drawScrollBG(screen *ebiten.Image, ox, oy float64) {
+	img := drawing.Image(asset.ImgBackground)
+	b := img.Bounds()
+	iw, ih := b.Dx(), b.Dy()
+	if iw == 0 || ih == 0 {
+		return
+	}
+	tw, th := float64(screenW), float64(screenH)
+	// Wrap the scroll into [0, tile) so only the 2x2 block is needed.
+	sx := math.Mod(math.Mod(ox, tw)+tw, tw)
+	sy := math.Mod(math.Mod(oy, th)+th, th)
+	sclX, sclY := tw/float64(iw), th/float64(ih)
+	for _, dx := range [2]float64{-sx, -sx + tw} {
+		for _, dy := range [2]float64{-sy, -sy + th} {
+			opt := &ebiten.DrawImageOptions{}
+			opt.Filter = ebiten.FilterNearest
+			opt.GeoM.Scale(sclX, sclY)
+			opt.GeoM.Translate(dx, dy)
+			screen.DrawImage(img, opt)
+		}
+	}
 }
 
 func (g *InGame) drawGrid(screen *ebiten.Image, cam geom.PointF) {

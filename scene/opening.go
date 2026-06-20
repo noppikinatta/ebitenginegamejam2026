@@ -1,7 +1,6 @@
 package scene
 
 import (
-	"image/color"
 	"math"
 	"math/rand"
 	"time"
@@ -55,6 +54,7 @@ const (
 	opFlyDur      = 28  // ticks each weapon spends flying in
 	opTile        = 40.0
 	opZoom        = 2.2
+	opScrollSpeed = 2.4 // bg px/tick during the launch demo (tank "drives up")
 )
 
 var (
@@ -163,10 +163,21 @@ func (o *Opening) Update() error {
 }
 
 func (o *Opening) Draw(screen *ebiten.Image) {
+	// Background: held still while the aliens attack, then scrolled top-to-bottom
+	// during the launch demo so the screen-stationary tank reads as driving
+	// upward (the scenery slides down past it). The scroll matches the in-game
+	// camera convention: a tank moving up means a decreasing Y offset.
+	var scrollY float64
+	if o.t >= opTankStart {
+		scrollY = -float64(o.t-opTankStart) * opScrollSpeed
+	}
+	drawScrollBG(screen, 0, scrollY)
+
+	// A translucent mood tint over the backdrop (ominous red, then battle blue).
 	if o.t < opAliensEnd {
-		screen.Fill(color.RGBA{26, 12, 14, 255}) // ominous red
+		drawing.DrawRect(screen, 0, 0, screenW, screenH, 0.10, 0.05, 0.05, 0.5)
 	} else {
-		screen.Fill(color.RGBA{12, 14, 22, 255}) // battle blue
+		drawing.DrawRect(screen, 0, 0, screenW, screenH, 0.05, 0.06, 0.10, 0.4)
 	}
 
 	// Aliens, fading out as the tank rolls in.
