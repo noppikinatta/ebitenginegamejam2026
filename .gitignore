@@ -39,3 +39,6 @@ asset/sound/raw/
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Mac
+.DS_Store
