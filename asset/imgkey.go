@@ -5,6 +5,7 @@ package asset
 // key, and drawing.Image(key) looks them up here.
 const (
 	ImgTitle        = "title"
+	ImgBackground   = "background" // layout-sized, seamlessly-tiling scrolling backdrop
 	ImgTank         = "tank"
 	ImgEnemy        = "enemy" // grunt (default zako)
 	ImgEnemySwarmer = "enemy_swarmer"

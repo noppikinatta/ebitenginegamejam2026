@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"math/rand"
 	"sort"
 	"strings"
 	"time"
@@ -21,25 +22,11 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
-const (
-	screenW = 1280
-	screenH = 720
-	gridGap = 64
-
-	combatTileSize = core.TurretTileSize // px per hex tile (combat miniature; matches muzzle world offsets)
-	pauseTileSize  = 56.0                // px per hex tile in the zoomed pause/cut view (upright)
-
-	// Sprite draw sizes (px at the 1:1 camera). These are the asset footprints
-	// and are intentionally independent of the core collision radii.
-	tankDrawW = 48.0 // tank is tall (portrait)
-	tankDrawH = 64.0
-
-	// Level-up doctor-card layout.
-	cardW   = 360.0
-	cardH   = 300.0
-	cardGap = 28.0
-	cardY   = 210.0
-)
+// combatTileSize is the px-per-hex tile for the combat miniature. It is NOT a
+// free knob: it must equal core.TurretTileSize so the drawn turret lines up with
+// the muzzle world offsets, so it lives here rather than in tuning.go. All other
+// scene rendering/layout knobs are in tuning.go.
+const combatTileSize = core.TurretTileSize
 
 // InGame is the main gameplay scene: a Vampire-Survivors-like run driven by the
 // Ebiten-free core.World simulation. This scene only handles input and drawing.
@@ -65,6 +52,19 @@ type InGame struct {
 	// visibly rises when a tile is cut (power re-concentrates into faster fire)
 	// and falls when a doctor adds a tile.
 	powerGaugeFill float64
+
+	// popups are the active floating damage numbers (presentation only; spawned
+	// from world.DamageEvents each tick). rng scatters their launch directions.
+	popups []damagePopup
+	rng    *rand.Rand
+
+	// deaths are the fading enemy sprites left where enemies died (spawned from
+	// world.DeathEvents each tick).
+	deaths []deathFX
+
+	// hpShake counts down the HP bar's post-hit shake (set when the tank takes
+	// damage, decremented each tick).
+	hpShake int
 }
 
 func NewInGame(input *ui.Input) *InGame {
@@ -109,6 +109,12 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	g.paused = false
+	g.popups = g.popups[:0]
+	g.deaths = g.deaths[:0]
+	g.hpShake = 0
+	if g.rng == nil {
+		g.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
 	asset.PlayBGM(asset.BGMGame)
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
@@ -174,6 +180,9 @@ func (g *InGame) Update() error {
 		g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 		g.turretRenderedAngle = g.world.Player.FacingAngle
 	}
+	if g.rng == nil {
+		g.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	}
 
 	switch g.world.State {
 	case core.StateGameOver, core.StateCleared:
@@ -193,6 +202,13 @@ func (g *InGame) Update() error {
 		} else {
 			g.world.Update(g.readMove())
 			core.DispatchSounds(g.world.SoundEvents, soundSink{})
+			g.spawnDamagePopups()
+			g.updateDamagePopups()
+			g.spawnDeathFX()
+			g.updateDeathFX()
+			if g.hpShake > 0 {
+				g.hpShake--
+			}
 		}
 	}
 
@@ -330,6 +346,9 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	// Camera keeps the player centred on screen.
 	cam := geom.PointF{X: w.Player.Pos.X - screenW/2, Y: w.Player.Pos.Y - screenH/2}
 
+	// Background scrolls with the camera (bgScrollMul = 1 locks the scenery 1:1
+	// to the world), so moving the tank scrolls the scenery underneath it.
+	drawScrollBG(screen, cam.X*bgScrollMul, cam.Y*bgScrollMul)
 	g.drawGrid(screen, cam)
 
 	for _, gem := range w.Gems {
@@ -338,6 +357,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	for _, pk := range w.Pickups {
 		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 12, 12, 0, 1, 1, 1, 1)
 	}
+	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {
 		sz := e.Radius * 2 // sprite footprint follows the collision radius
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1)
@@ -362,6 +382,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	g.drawTurretCombat(screen, cam)
 
 	g.drawExplosions(screen, cam)
+	g.drawDamagePopups(screen, cam)
 
 	g.drawHUD(screen)
 	g.drawBossBar(screen)
@@ -397,14 +418,6 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		g.drawPowerGauge(screen)
 	}
 }
-
-// Left-edge power gauge geometry.
-const (
-	powerGaugeX      = 24.0
-	powerGaugeW      = 22.0
-	powerGaugeTop    = 132.0
-	powerGaugeBottom = screenH - 40.0
-)
 
 // drawPowerGauge draws a vertical bar on the left edge whose height encodes the
 // turret-wide fire-rate multiplier. It fills from the bottom up and brightens as
@@ -864,6 +877,35 @@ func hexLocalOffset(idx hexmap.Index, size float64) (dx, dy float64) {
 	return
 }
 
+// drawScrollBG tiles the layout-sized background image across the screen,
+// scrolled by (ox, oy) in screen pixels. The art is authored to wrap seamlessly
+// on all four edges, so a 2x2 block of copies always covers the screen with the
+// seams falling off-screen. Only DrawImageOptions values are allocated per call
+// (no per-frame images), and every copy shares one source image so the draws
+// batch.
+func drawScrollBG(screen *ebiten.Image, ox, oy float64) {
+	img := drawing.Image(asset.ImgBackground)
+	b := img.Bounds()
+	iw, ih := b.Dx(), b.Dy()
+	if iw == 0 || ih == 0 {
+		return
+	}
+	tw, th := float64(screenW), float64(screenH)
+	// Wrap the scroll into [0, tile) so only the 2x2 block is needed.
+	sx := math.Mod(math.Mod(ox, tw)+tw, tw)
+	sy := math.Mod(math.Mod(oy, th)+th, th)
+	sclX, sclY := tw/float64(iw), th/float64(ih)
+	for _, dx := range [2]float64{-sx, -sx + tw} {
+		for _, dy := range [2]float64{-sy, -sy + th} {
+			opt := &ebiten.DrawImageOptions{}
+			opt.Filter = ebiten.FilterNearest
+			opt.GeoM.Scale(sclX, sclY)
+			opt.GeoM.Translate(dx, dy)
+			screen.DrawImage(img, opt)
+		}
+	}
+}
+
 func (g *InGame) drawGrid(screen *ebiten.Image, cam geom.PointF) {
 	startX := math.Floor(cam.X/gridGap) * gridGap
 	for x := startX; x < cam.X+screenW; x += gridGap {
@@ -878,11 +920,26 @@ func (g *InGame) drawGrid(screen *ebiten.Image, cam geom.PointF) {
 func (g *InGame) drawHUD(screen *ebiten.Image) {
 	p := g.world.Player
 
+	// HP bar: bottom-centre during play (easier to read than a corner); while
+	// paused it falls back to the top-left so it stays clear of the pause view's
+	// bottom tile-info panel. A recent hit shakes it (play only).
+	hpLeft, hpTop := hpBarPauseX, hpBarPauseY
+	if !g.paused {
+		hpLeft = (screenW - hpBarW) / 2
+		hpTop = screenH - hpBarBottomMargin - hpBarH
+		if g.hpShake > 0 {
+			frac := float64(g.hpShake) / hpShakeTicks
+			amp := hpShakeAmp * frac
+			ph := float64(g.hpShake) * hpShakeFreq
+			hpLeft += amp * math.Sin(ph)
+			hpTop += amp * 0.5 * math.Cos(ph*1.3)
+		}
+	}
 	hp := &drawing.GaugeDrawer{
 		Max:           int(p.MaxHP),
 		Current:       int(p.HP),
-		TopLeft:       geom.PointF{X: 20, Y: 20},
-		BottomRight:   geom.PointF{X: 320, Y: 44},
+		TopLeft:       geom.PointF{X: hpLeft, Y: hpTop},
+		BottomRight:   geom.PointF{X: hpLeft + hpBarW, Y: hpTop + hpBarH},
 		TextOffset:    geom.PointF{X: 6, Y: 2},
 		FontSize:      16,
 		ColorScaleMax: scale(0.2, 0.9, 0.3, 1),
@@ -890,14 +947,15 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 	}
 	hp.Draw(screen)
 
-	// XP bar under the HP gauge.
-	drawing.DrawRect(screen, 20, 50, 300, 8, 0.2, 0.2, 0.3, 1)
+	// XP bar: a thin full-width strip along the very top edge (Vampire-Survivors
+	// style), with the stats line and cut hint just below-left.
+	drawing.DrawRect(screen, 0, 0, screenW, xpBarH, 0.2, 0.2, 0.3, 1)
 	if p.XPToNext > 0 {
-		drawing.DrawRect(screen, 20, 50, 300*float64(p.XP/p.XPToNext), 8, 0.4, 0.6, 1, 1)
+		drawing.DrawRect(screen, 0, 0, screenW*float64(p.XP/p.XPToNext), xpBarH, 0.4, 0.6, 1, 1)
 	}
 
 	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(20, 64)
+	opt.GeoM.Translate(hudTextX, hudStatsY)
 	drawing.DrawTextTemplate(screen, "hud-stats", map[string]any{
 		"Level":   p.Level,
 		"Spd":     fmt.Sprintf("%.1f", p.Speed),
@@ -907,7 +965,7 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 
 	// Cut hint.
 	opt = &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(20, 88)
+	opt.GeoM.Translate(hudTextX, hudHintY)
 	drawing.DrawTextByKey(screen, "hud-hint", 14, opt)
 
 	opt = &ebiten.DrawImageOptions{}
@@ -934,14 +992,21 @@ func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.Poin
 // enemySpriteKey selects the sprite for an enemy: candlestick, boss, or the
 // per-kind zako sprite.
 func enemySpriteKey(e *core.Enemy) string {
+	return enemySpriteKeyFor(e.Kind, e.IsBoss, e.DropsNipper)
+}
+
+// enemySpriteKeyFor selects the sprite from the fields that distinguish enemies,
+// so the live draw (enemySpriteKey) and the death-fade effect (which only has a
+// DeathEvent, not the Enemy) share one mapping.
+func enemySpriteKeyFor(kind core.EnemyKind, isBoss, dropsNipper bool) string {
 	switch {
-	case e.DropsNipper:
+	case dropsNipper:
 		return asset.ImgCandlestick
-	case e.IsBoss:
+	case isBoss:
 		return asset.ImgBoss
-	case e.Kind == core.EnemySwarmer:
+	case kind == core.EnemySwarmer:
 		return asset.ImgEnemySwarmer
-	case e.Kind == core.EnemyBrute:
+	case kind == core.EnemyBrute:
 		return asset.ImgEnemyBrute
 	default:
 		return asset.ImgEnemy

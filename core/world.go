@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
@@ -32,6 +33,14 @@ type World struct {
 	// SoundEvents are the sound effects triggered during the current tick.
 	// The scene layer drains this after Update; it is reset each tick.
 	SoundEvents []SoundEvent
+
+	// DamageEvents are the hits landed during the current tick (for floating
+	// damage numbers). Drained by the scene after Update; reset each tick.
+	DamageEvents []DamageEvent
+
+	// DeathEvents are the enemies that died this tick (for the scene's fade-out
+	// effect). Drained by the scene after Update; reset each tick.
+	DeathEvents []DeathEvent
 
 	// Choices are the doctor offers shown while State==StateLevelUp.
 	Choices []Upgrade
@@ -102,19 +111,53 @@ func (w *World) FireRateMultBounds() (min, max float64) {
 func NewWorld(seed int64, cfg Config) *World {
 	rng := rand.New(rand.NewSource(seed))
 	turret := GenerateTurret(cfg.TurretGen, rng)
-	weapons := turret.ActiveWeapons()
 
 	p := cfg.Player // copy the starting-stat template
 	p.Pos = geom.PointF{}
-	p.Weapons = weapons
+	p.Weapons = turret.ActiveWeapons()
 	p.FacingAngle = -math.Pi / 2
 	p.Nippers = cfg.StartingNippers
-	return &World{
+	w := &World{
 		Player: &p,
 		State:  StatePlaying,
 		turret: turret,
 		rng:    rng,
 		cfg:    cfg,
+	}
+	w.primeNewWeapons()
+	return w
+}
+
+// primeNewWeapons seeds each not-yet-primed weapon's fire accumulator with a
+// random 0-70% of its interval, so a freshly mounted weapon starts out of phase
+// with the others (attacks feel scattered) instead of every weapon firing on
+// the same tick. Call it wherever weapons are (re)assigned to the player; the
+// primed flag keeps it idempotent, so cutting/adding tiles never re-randomizes
+// weapons that are already mounted.
+func (w *World) primeNewWeapons() {
+	if w.rng == nil { // manually-built test worlds skip the random seeding
+		return
+	}
+	// Collect the not-yet-primed weapons and seed them in a stable order (by tile
+	// index). ActiveWeapons returns weapons in map-iteration order, which varies
+	// per run; drawing from the shared rng in that order would make two same-seed
+	// worlds diverge. A deterministic order keeps runs reproducible.
+	var fresh []*Weapon
+	for _, weapon := range w.Player.Weapons {
+		if !weapon.primed {
+			fresh = append(fresh, weapon)
+		}
+	}
+	sort.Slice(fresh, func(i, j int) bool {
+		a, b := fresh[i].TileIdx, fresh[j].TileIdx
+		if a.X() != b.X() {
+			return a.X() < b.X()
+		}
+		return a.Y() < b.Y()
+	})
+	for _, weapon := range fresh {
+		weapon.fireProgress = w.rng.Float64() * 0.7 * w.cfg.Weapons[weapon.Kind].BaseInterval
+		weapon.primed = true
 	}
 }
 
@@ -125,6 +168,8 @@ func (w *World) Update(move geom.PointF) {
 	// Clear last tick's sound events before the guard so the scene never
 	// replays stale effects while the world is frozen (level-up, game over).
 	w.SoundEvents = w.SoundEvents[:0]
+	w.DamageEvents = w.DamageEvents[:0]
+	w.DeathEvents = w.DeathEvents[:0]
 
 	if w.State != StatePlaying {
 		return
@@ -177,6 +222,7 @@ func (w *World) CutTile(idx hexmap.Index) bool {
 	}
 	w.Player.Nippers--
 	w.Player.Weapons = w.turret.ActiveWeapons()
+	w.primeNewWeapons()
 	return true
 }
 
@@ -336,6 +382,7 @@ func (w *World) updateBeams() {
 			}
 			if geom.PointSegmentDistance(e.Pos, muzzle, end) <= halfWidth+e.Radius {
 				e.HP -= stats.Damage
+				w.emitDamage(e.Pos, stats.Damage, false)
 				if e.HP <= 0 {
 					w.killEnemy(e)
 				}
@@ -419,6 +466,7 @@ func (w *World) updateProjectiles() {
 			}
 			if p.Pos.Distance(e.Pos) <= p.Radius+e.Radius {
 				e.HP -= p.Damage
+				w.emitDamage(e.Pos, p.Damage, false)
 				p.alive = false
 				if e.HP <= 0 {
 					w.killEnemy(e)
@@ -443,6 +491,7 @@ func (w *World) explode(center geom.PointF, radius, dmg float64) {
 		}
 		if e.Pos.Distance(center) <= radius+e.Radius {
 			e.HP -= dmg
+			w.emitDamage(e.Pos, dmg, false)
 			if e.HP <= 0 {
 				w.killEnemy(e)
 			}
@@ -461,6 +510,7 @@ func (w *World) updateExplosions() {
 
 func (w *World) killEnemy(e *Enemy) {
 	e.alive = false
+	w.emitDeath(e)
 	w.Kills++
 	if e.XPValue > 0 {
 		w.Gems = append(w.Gems, &Gem{Pos: e.Pos, Value: e.XPValue, alive: true})
@@ -491,6 +541,7 @@ func (w *World) updateEnemies() {
 
 func (w *World) damagePlayer(dmg float64) {
 	w.Player.HP -= dmg
+	w.emitDamage(w.Player.Pos, dmg, true)
 	w.Player.invuln = 30
 	w.emit(SndPlayerHit)
 	if w.Player.HP <= 0 {
@@ -648,6 +699,7 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 				world.turret.AddTile(comp, world.rng)
 			}
 			world.Player.Weapons = world.turret.ActiveWeapons()
+			world.primeNewWeapons()
 		},
 	}
 }

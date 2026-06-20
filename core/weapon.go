@@ -66,6 +66,7 @@ type Weapon struct {
 	TileIdx       hexmap.Index // the turret tile this weapon sits on; set by ActiveWeapons
 	Level         int          // doctor upgrade level; each +1 multiplies Damage by WeaponParams.LevelMult
 	fireProgress  float64      // accumulator: advances by fireIncrement each tick, fires at BaseInterval
+	primed        bool         // fire accumulator seeded with a random initial offset (once, when first mounted)
 	pelletsLeft   int          // projectiles still to emit in the current shot (for staggered bursts)
 	pelletTimer   int          // ticks until the next staggered pellet
 	beamTicksLeft int          // KindLaser: ticks remaining in current beam burst
