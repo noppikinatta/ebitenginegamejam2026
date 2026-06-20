@@ -97,3 +97,36 @@ func TestPowerMultiplier_Interpolation(t *testing.T) {
 		t.Errorf("empty curve: PowerMultiplier = %.4f, want 1", got)
 	}
 }
+
+// TestPrimeNewWeapons_RandomOffsetWithinRange: every weapon mounted at world
+// creation starts with a fire accumulator in [0, 0.7*BaseInterval) (so weapons
+// fire out of phase), and re-priming is idempotent (already-primed weapons keep
+// their offset).
+func TestPrimeNewWeapons_RandomOffsetWithinRange(t *testing.T) {
+	w := NewWorld(testSeed, testConfig())
+
+	if len(w.Player.Weapons) == 0 {
+		t.Fatal("expected at least one mounted weapon")
+	}
+	for _, wp := range w.Player.Weapons {
+		if !wp.primed {
+			t.Errorf("weapon %v not primed at creation", wp.Kind)
+		}
+		limit := 0.7 * w.cfg.Weapons[wp.Kind].BaseInterval
+		if wp.fireProgress < 0 || wp.fireProgress >= limit {
+			t.Errorf("fireProgress = %.2f, want [0, %.2f)", wp.fireProgress, limit)
+		}
+	}
+
+	// Re-priming must not disturb existing weapons.
+	before := make([]float64, len(w.Player.Weapons))
+	for i, wp := range w.Player.Weapons {
+		before[i] = wp.fireProgress
+	}
+	w.primeNewWeapons()
+	for i, wp := range w.Player.Weapons {
+		if wp.fireProgress != before[i] {
+			t.Errorf("weapon %d offset changed on re-prime: %.2f -> %.2f", i, before[i], wp.fireProgress)
+		}
+	}
+}
