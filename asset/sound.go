@@ -28,14 +28,22 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/sndpak"
 )
 
-// soundPak is the obfuscated bundle of every sound, keyed by base name (e.g.
+// sePak is the obfuscated bundle of sound EFFECTS, keyed by base name (e.g.
 // "fire"). The loose source files live in asset/sound/raw (gitignored) and are
 // packed into this file by `make sound-pak`; only the pak is committed, so raw,
-// directly-playable assets are not exposed in the repository. See package
-// sndpak — this is light obfuscation to respect asset licenses, not encryption.
+// directly-playable SE (often licensed free-asset files) are not exposed in the
+// repository. See package sndpak — light obfuscation to respect asset licenses,
+// not encryption.
 //
-//go:embed sound/sounds.pak
-var soundPak []byte
+//go:embed sound/se.pak
+var sePak []byte
+
+// bgmBytes is the background track. BGM is self-authored, so it has no license
+// concern and is committed and embedded directly (no pak / obfuscation). Swap
+// in the real track by replacing asset/sound/bgm.wav.
+//
+//go:embed sound/bgm.wav
+var bgmBytes []byte
 
 const sampleRate int = 48000
 
@@ -65,9 +73,9 @@ const (
 	fileTypeOgg
 )
 
-// soundSpec describes how to load one sound. pakName is the entry name inside
-// soundPak (the base name of the source file, e.g. "fire"); fileType selects the
-// decoder for that entry's bytes.
+// soundSpec describes how to load one sound effect. pakName is the entry name
+// inside sePak (the base name of the source file, e.g. "fire"); fileType selects
+// the decoder for that entry's bytes.
 type soundSpec struct {
 	pakName  string
 	sound    Sound
@@ -75,12 +83,18 @@ type soundSpec struct {
 	volume   float64
 }
 
-var soundSpecs = []soundSpec{
+// seSpecs are the one-shot effects, loaded from sePak. BGM is handled separately
+// (committed wav, not in the pak).
+var seSpecs = []soundSpec{
 	{"fire", SEFire, fileTypeWav, 0.2},
 	{"explosion", SEExplosion, fileTypeWav, 0.3},
 	{"hit", SEPlayerHit, fileTypeWav, 0.4},
-	{"bgm", BGM, fileTypeWav, 0.25},
 }
+
+const (
+	bgmFileType = fileTypeWav
+	bgmVolume   = 0.25
+)
 
 // seBytes holds the decoded PCM for each one-shot effect so PlaySound can create
 // a fresh player per play (allowing the same SE to overlap). bgmPlayer is the
@@ -91,25 +105,29 @@ var (
 	bgmPlayer *audio.Player
 )
 
-// LoadSounds unpacks the embedded sound bundle and decodes each track. A failed
-// track (missing pak entry or undecodable bytes) is logged and skipped so a
-// single bad asset does not take down the whole game; real assets can be swapped
-// in by repacking asset/sound/raw. If the whole pak is unreadable the game runs
-// silently rather than crashing.
+// LoadSounds decodes the BGM (committed wav) and the sound effects (unpacked
+// from the embedded sePak). A failed track (missing pak entry or undecodable
+// bytes) is logged and skipped so a single bad asset does not take down the
+// whole game; SE can be swapped by repacking asset/sound/raw, BGM by replacing
+// asset/sound/bgm.wav. If the pak is unreadable the SE are simply silent.
 func LoadSounds() error {
-	blobs, err := sndpak.Unpack(soundPak)
+	if err := loadBGM(bgmBytes, bgmFileType, bgmVolume); err != nil {
+		log.Printf("skip loading BGM: %v", err)
+	}
+
+	blobs, err := sndpak.Unpack(sePak)
 	if err != nil {
-		log.Printf("cannot read sound pak (running without audio): %v", err)
+		log.Printf("cannot read SE pak (running without sound effects): %v", err)
 		return nil
 	}
-	for _, s := range soundSpecs {
+	for _, s := range seSpecs {
 		resource := blobs[s.pakName]
 		if resource == nil {
-			log.Printf("skip loading sound %q: not present in pak", s.pakName)
+			log.Printf("skip loading SE %q: not present in pak", s.pakName)
 			continue
 		}
-		if err := load(s, resource); err != nil {
-			log.Printf("skip loading sound %q: %v", s.pakName, err)
+		if err := loadSE(s, resource); err != nil {
+			log.Printf("skip loading SE %q: %v", s.pakName, err)
 			continue
 		}
 	}
@@ -129,28 +147,33 @@ func decode(resource []byte, ftype fileType) (io.ReadSeeker, error) {
 	}
 }
 
-func load(s soundSpec, resource []byte) error {
+// loadBGM decodes the background track into the single reusable looping player.
+func loadBGM(resource []byte, ftype fileType, volume float64) error {
+	stream, err := decode(resource, ftype)
+	if err != nil {
+		return err
+	}
+	// One reusable looping player; the loop spans the whole decoded stream.
+	var loopLen int64
+	if l, ok := stream.(interface{ Length() int64 }); ok {
+		loopLen = l.Length()
+	}
+	p, err := context.NewPlayer(audio.NewInfiniteLoop(stream, loopLen))
+	if err != nil {
+		return err
+	}
+	p.SetVolume(volume)
+	bgmPlayer = p
+	return nil
+}
+
+// loadSE decodes a one-shot effect, keeping the PCM so each play gets its own
+// player (allowing the same SE to overlap).
+func loadSE(s soundSpec, resource []byte) error {
 	stream, err := decode(resource, s.fileType)
 	if err != nil {
 		return err
 	}
-
-	if s.sound == BGM {
-		// One reusable looping player; the loop spans the whole decoded stream.
-		var loopLen int64
-		if l, ok := stream.(interface{ Length() int64 }); ok {
-			loopLen = l.Length()
-		}
-		p, err := context.NewPlayer(audio.NewInfiniteLoop(stream, loopLen))
-		if err != nil {
-			return err
-		}
-		p.SetVolume(s.volume)
-		bgmPlayer = p
-		return nil
-	}
-
-	// One-shot SE: keep the decoded PCM so each play gets its own player.
 	pcm, err := io.ReadAll(stream)
 	if err != nil {
 		return err

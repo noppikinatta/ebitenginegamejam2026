@@ -73,7 +73,15 @@ func noise(dur, vol float64) []float64 {
 }
 
 func main() {
-	out := os.Args[1]
+	// arg1: directory for SE placeholders (e.g. asset/sound/raw, gitignored).
+	// arg2: directory for the BGM placeholder (e.g. asset/sound, committed).
+	// BGM is self-authored and lives outside the pak, so it is written separately.
+	seDir := os.Args[1]
+	bgmDir := seDir
+	if len(os.Args) > 2 {
+		bgmDir = os.Args[2]
+	}
+	out := seDir
 
 	// SE: weapon fire — short high blip.
 	writeWAV(out+"/fire.wav", tone(660, 0.06, 0.6))
@@ -108,6 +116,6 @@ func main() {
 		for _, f := range notes {
 			bgm = append(bgm, tone(f, 0.5, 0.4)...)
 		}
-		writeWAV(out+"/bgm.wav", bgm)
+		writeWAV(bgmDir+"/bgm.wav", bgm)
 	}
 }

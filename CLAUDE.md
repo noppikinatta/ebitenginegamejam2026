@@ -65,7 +65,11 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 
 ### 既知の暫定対応・残課題
 
-- **音声はダミー（差し替え前提）だが配線済み・実際に鳴る**。音源は**個別wavではなく難読化した1ファイル `asset/sound/sounds.pak` に同梱**してコミット（`bgm`/`fire`/`explosion`/`hit` をエントリ名で格納）。**生のwavはコミットしない**：素材は `asset/sound/raw/`（gitignore）に置き、`make sound-pak`（=`go run tools/sndpak/main.go asset/sound/raw asset/sound/sounds.pak`）で pak に固める。仮音源はサイン波生成（`make sound-gen` が `gensound`→`raw/`→`sound-pak` を実行）。pak は `sndpak` パッケージのXORキーストリームで軽く難読化されており（RIFFヘッダも隠れる）、**リネームしてそのまま再生はできない**＝フリー素材サイト等のSEを生のまま公開リポジトリに置かないための配慮（暗号ではなく速度バンプ。キーはソース内）。`asset.LoadSounds()`（`app/main.go` 起動時）が `sndpak.Unpack` で展開→各エントリをデコード。デコード/欠落は握りつぶす（ログして継続、pak全体が壊れていても無音で起動）。本物の音源は `raw/` に入れて再パックすれば差し替え可。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMは単一プレイヤーを `Rewind` で使い回しループ（`InGame.OnStart` で再生／`OnEnd` で停止）
+- **音声はダミー（差し替え前提）だが配線済み・実際に鳴る**。**SEとBGMで扱いを分離**：
+  - **SE**（`fire`/`explosion`/`hit`）は**難読化した1ファイル `asset/sound/se.pak` に同梱**してコミット（エントリ名で格納）。**生のwavはコミットしない**：素材は `asset/sound/raw/`（gitignore）に置き、`make sound-pak`（=`go run tools/sndpak/main.go asset/sound/raw asset/sound/se.pak`）で pak に固める。pak は `sndpak` パッケージのXORキーストリームで軽く難読化されており（RIFFヘッダも隠れる）、**リネームしてそのまま再生はできない**＝フリー素材サイト等のSEを生のまま公開リポジトリに置かないための配慮（暗号ではなく速度バンプ。キーはソース内）
+  - **BGMは自作前提なので隠す必要がなく、生wav `asset/sound/bgm.wav` を直接コミット＆`//go:embed`**（pak非経由・難読化なし）。本物が出来たらこのファイルを差し替えるだけ
+  - 仮音源はサイン波生成：`make sound-gen` が `gensound`（SE→`raw/`、BGM→`asset/sound/bgm.wav`）→`sound-pak` を実行
+  - `asset.LoadSounds()`（`app/main.go` 起動時）が `bgm.wav` を直接デコード＋`sndpak.Unpack(se.pak)` でSE展開→各エントリをデコード。デコード/欠落は握りつぶす（ログして継続、pakが壊れていてもSE無音で起動、BGM失敗もBGM無しで継続）。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMは単一プレイヤーを `Rewind` で使い回しループ（`InGame.OnStart` で再生／`OnEnd` で停止）
 - **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
 - **言語CSVは整備済み**。`asset/lang/english.csv` / `japanese.csv` に scene の全UI文言・武器名/説明・博士/ジャンク/ボス名をキーで定義（両言語キー集合一致、`lang/csv_test.go` で検証）。scene は `drawing.DrawTextByKey`/`DrawTextTemplate` で描画し、core由来の名前は scene の `loc.go`（`weaponName`/`doctorNameL`/`junkNameL`/`bossNameL`、未定義キーは `lang.TextWithDefault` で元文字列にフォールバック）でキー解決。デフォルト言語は english（L キーで日本語へ切替）。カード番号など語を含まない純数値のみ `fmt.Sprintf` のまま
 - **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity/JunkDensity）、電力量、ニッパー入手率、燭台周期、`maxTurretTiles` 等は初期値のまま。プレイテストで要調整
