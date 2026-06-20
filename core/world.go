@@ -204,6 +204,11 @@ func stepAngle(a, b, t float64) float64 {
 	return a + math.Atan2(math.Sin(b-a), math.Cos(b-a))*t
 }
 
+// wrapAngle normalizes an angle to (-π, π].
+func wrapAngle(a float64) float64 {
+	return math.Atan2(math.Sin(a), math.Cos(a))
+}
+
 func (w *World) updateWeapons() {
 	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
@@ -224,7 +229,7 @@ func (w *World) updateWeapons() {
 				weapon.fireProgress = params.BaseInterval
 			} else {
 				weapon.fireProgress -= params.BaseInterval
-				w.emit(SndFire) // one fire SE per shot (not per pellet)
+				w.emit(FireSound(weapon.Kind)) // one fire SE per shot (not per pellet), per weapon kind
 				if weapon.Kind == KindLaser {
 					weapon.beamTicksLeft = stats.BeamDuration
 					weapon.beamAngle = w.weaponAim(weapon, params)
@@ -299,10 +304,13 @@ func (w *World) weaponAim(weapon *Weapon, params WeaponParams) float64 {
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
 		if target := w.nearestEnemy(w.Player.Pos, params.BaseRange); target != nil {
 			if dir := target.Pos.Subtract(muzzle); dir.Abs() > 0 {
-				return dir.Angle()
+				// Store the aim relative to the tank's facing so that, when the
+				// target leaves range, the barrel freezes pointing the same way
+				// relative to the tank (turning with it) instead of snapping forward.
+				weapon.aimOffset = wrapAngle(dir.Angle() - w.Player.FacingAngle)
 			}
 		}
-		return w.Player.FacingAngle
+		return w.Player.FacingAngle + weapon.aimOffset
 	}
 }
 

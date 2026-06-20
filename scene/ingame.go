@@ -109,18 +109,12 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	g.paused = false
-	asset.PlayBGM()
+	asset.PlayBGM(asset.BGMGame)
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
 	g.turretRenderedAngle = g.world.Player.FacingAngle
 	// Snap the power gauge to its current value so it doesn't sweep up from empty.
 	g.powerGaugeFill = g.powerGaugeTarget()
-}
-
-// OnEnd is called by bamenn when the scene is left; stop the BGM so it doesn't
-// bleed into the result/title screens.
-func (g *InGame) OnEnd() {
-	asset.StopBGM()
 }
 
 // soundSink routes core sound events to the asset audio backend. It is the
@@ -129,8 +123,22 @@ type soundSink struct{}
 
 func (soundSink) PlaySound(e core.SoundEvent) {
 	switch e {
-	case core.SndFire:
-		asset.PlaySound(asset.SEFire)
+	case core.SndFireCannon:
+		asset.PlaySound(asset.SEFireCannon)
+	case core.SndFireShotgun:
+		asset.PlaySound(asset.SEFireShotgun)
+	case core.SndFireSniper:
+		asset.PlaySound(asset.SEFireSniper)
+	case core.SndFireLaser:
+		asset.PlaySound(asset.SEFireLaser)
+	case core.SndFireGatling:
+		asset.PlaySound(asset.SEFireGatling)
+	case core.SndFireGrenade:
+		asset.PlaySound(asset.SEFireGrenade)
+	case core.SndFireCIWS:
+		asset.PlaySound(asset.SEFireCIWS)
+	case core.SndFireMissile:
+		asset.PlaySound(asset.SEFireMissile)
 	case core.SndExplosion:
 		asset.PlaySound(asset.SEExplosion)
 	case core.SndPlayerHit:
@@ -524,7 +532,7 @@ func offerIcon(it core.OfferItem) (key string, weapon bool) {
 	case core.OfferNippers:
 		return asset.ImgNipper, false
 	default: // OfferAddJunk
-		return asset.ImgTileJunk, false
+		return core.JunkImageKey(it.Text), false
 	}
 }
 
@@ -574,7 +582,7 @@ func (g *InGame) drawTurretCombat(screen *ebiten.Image, cam geom.PointF) {
 }
 
 // drawTurretTiles renders the turret centred at screen (cx, cy) with the given
-// tile size and rotation. Weapons are drawn in two layers: a wire socket base,
+// tile size and rotation. Weapons are drawn in two layers: a plain tile base,
 // then the barrel on top. Used by both the combat miniature (small, rotated)
 // and the paused cut view (large, upright). theta=0 draws the turret upright.
 //
@@ -611,10 +619,16 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 		return ps[i].c.X < ps[j].c.X
 	})
 
-	// Pass 1: tile bases (weapons reuse the wire socket as their base).
+	// Pass 1: tile bases, plus the flat junk device for regular junk. Every
+	// weapon/junk tile is a plain base tile with its device drawn on top; weapon
+	// barrels and tall junk get their taller sprite in pass 2, regular junk's
+	// device is flat and tile-sized so it draws here with its base.
 	for _, p := range ps {
 		key, dim := tileBase(tr, p.idx, tiles[p.idx], power[p.idx])
 		drawing.DrawSprite(screen, drawing.Image(key), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
+		if j, ok := tiles[p.idx].Component.(core.Junk); ok && !j.Tall {
+			drawing.DrawSprite(screen, drawing.Image(core.JunkImageKey(j.DeviceName)), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
+		}
 	}
 
 	// Pass 2: tall fixtures (weapon barrels + tall junk). These are rectangular
@@ -661,7 +675,7 @@ func tallTileSprite(comp core.Component) (key string, ok bool) {
 		return weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
 		if c.Tall {
-			return asset.ImgJunkTower, true
+			return core.JunkImageKey(c.DeviceName), true
 		}
 	}
 	return "", false
@@ -775,13 +789,13 @@ func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool)
 		return name, weaponDescL(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
 		if c.Tall {
-			return junkNameL(c.Name()), lang.Text("junk-desc-tall"), asset.ImgJunkTower, true
+			return junkNameL(c.Name()), lang.Text("junk-desc-tall"), core.JunkImageKey(c.DeviceName), true
 		}
-		return junkNameL(c.Name()), lang.Text("junk-desc"), asset.ImgTileJunk, false
+		return junkNameL(c.Name()), lang.Text("junk-desc"), core.JunkImageKey(c.DeviceName), false
 	case core.Capacitor:
 		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor, false
-	default: // Wire (or empty)
-		return lang.Text("comp-wire-name"), lang.Text("comp-wire-desc"), asset.ImgTileWire, false
+	default: // plain tile (or empty)
+		return lang.Text("comp-wire-name"), lang.Text("comp-wire-desc"), asset.ImgTile, false
 	}
 }
 
@@ -804,25 +818,18 @@ func tileBase(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64)
 	if tr.IsGenerator(idx) {
 		return asset.ImgTileGenerator, 1
 	}
-	switch tile.Component.(type) {
-	case core.Junk:
-		return asset.ImgTileJunk, 1
-	case core.Capacitor:
+	if _, ok := tile.Component.(core.Capacitor); ok {
 		if power <= 0 {
 			return asset.ImgTileCapacitor, 0.45 // dim: disconnected capacitor
 		}
 		return asset.ImgTileCapacitor, 1
-	case core.WeaponComponent:
-		if power <= 0 {
-			return asset.ImgTileWire, 0.45 // dim: unpowered weapon socket
-		}
-		return asset.ImgTileWire, 1
-	default: // Wire
-		if power <= 0 {
-			return asset.ImgTileWire, 0.45 // dim: unpowered wire
-		}
-		return asset.ImgTileWire, 1
 	}
+	// Every other tile (weapon, junk, empty) sits on the same plain base tile; the
+	// weapon barrel / junk device is layered on top afterwards.
+	if power <= 0 {
+		return asset.ImgTile, 0.45 // dim: unpowered tile
+	}
+	return asset.ImgTile, 1
 }
 
 // weaponTileKey maps a weapon kind to its turret-tile image key.

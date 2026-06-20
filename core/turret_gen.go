@@ -2,6 +2,7 @@ package core
 
 import (
 	"math/rand"
+	"strings"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 )
@@ -176,12 +177,49 @@ func junkBySpec(name string) *junkSpec {
 	return nil
 }
 
-// junkTall reports whether the named device renders as a tall fixture.
-func junkTall(name string) bool {
+// JunkDeviceNames returns every junk device name in the pool, in declaration
+// order. Exposed so tooling (e.g. placeholder image generation) can enumerate
+// the junk that needs an image without reaching into core internals.
+func JunkDeviceNames() []string {
+	names := make([]string, len(junkSpecs))
+	for i := range junkSpecs {
+		names[i] = junkSpecs[i].Name
+	}
+	return names
+}
+
+// JunkDeviceTall reports whether the named device renders as a tall fixture
+// (and therefore needs a taller-than-tile image).
+func JunkDeviceTall(name string) bool {
 	if s := junkBySpec(name); s != nil {
 		return s.Tall
 	}
 	return false
+}
+
+// JunkImageKey is the per-device image key (and PNG base name) for a junk
+// device, so every junk type gets its own art. It slugifies the display name:
+// lowercase, runs of non-alphanumerics collapse to a single underscore, e.g.
+// "Wi-Fi Antenna" -> "junk_wi_fi_antenna". The placeholder-image generator and
+// the scene renderer share this one mapping so files line up with lookups.
+func JunkImageKey(deviceName string) string {
+	var b strings.Builder
+	b.WriteString("junk_")
+	pendingUnderscore := false
+	wroteBody := false
+	for _, r := range strings.ToLower(deviceName) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if pendingUnderscore && wroteBody {
+				b.WriteByte('_')
+			}
+			b.WriteRune(r)
+			wroteBody = true
+			pendingUnderscore = false
+		} else {
+			pendingUnderscore = true
+		}
+	}
+	return b.String()
 }
 
 // junkFromSpec builds a Junk from a spec, attaching a fresh emitter (with its

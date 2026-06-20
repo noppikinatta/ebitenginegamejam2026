@@ -89,8 +89,12 @@ func (o *Opening) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transit
 	o.transition = transition
 }
 
-// OnStart restarts the cinematic each time the scene is entered.
-func (o *Opening) OnStart() { o.reset() }
+// OnStart restarts the cinematic each time the scene is entered and starts the
+// title BGM (shared with the title screen, so the music carries over seamlessly).
+func (o *Opening) OnStart() {
+	o.reset()
+	asset.PlayBGM(asset.BGMTitle)
+}
 
 func (o *Opening) reset() {
 	o.t = 0
@@ -200,7 +204,7 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 		}
 		target := geom.PointF{X: opCenterX + w.dx, Y: opCenterY + w.dy}
 		ang := math.Atan2(w.dy, w.dx) + math.Pi/2 // barrel points outward from the tank
-		drawing.DrawSprite(screen, drawing.Image(asset.ImgTileWire), target.X, target.Y, opTile, opTile, 0, 1, 1, 1, 1)
+		drawing.DrawSprite(screen, drawing.Image(asset.ImgTile), target.X, target.Y, opTile, opTile, 0, 1, 1, 1, 1)
 
 		pos := target
 		if o.t < arrive {
