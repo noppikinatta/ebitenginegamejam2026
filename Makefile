@@ -13,7 +13,10 @@ sound-gen:
 	$(MAKE) sound-pak
 
 # Bundle the sound EFFECTS in asset/sound/raw/* into the committed, obfuscated
-# asset/sound/se.pak. BGM is committed directly and is not packed.
+# asset/sound/se.pak. MERGE by default: files in raw/ override same-named entries
+# in the existing pak, so you can partially replace SE (drop one file into raw/
+# and repack) without needing every source. Use `-rebuild` to build only from
+# raw/ (e.g. to drop an effect). BGM is committed directly and is not packed.
 sound-pak:
 	go run tools/sndpak/main.go asset/sound/raw asset/sound/se.pak
 

@@ -66,7 +66,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
 ### 既知の暫定対応・残課題
 
 - **音声はダミー（差し替え前提）だが配線済み・実際に鳴る**。**SEとBGMで扱いを分離**：
-  - **SE**（`fire`/`explosion`/`hit`）は**難読化した1ファイル `asset/sound/se.pak` に同梱**してコミット（エントリ名で格納）。**生のwavはコミットしない**：素材は `asset/sound/raw/`（gitignore）に置き、`make sound-pak`（=`go run tools/sndpak/main.go asset/sound/raw asset/sound/se.pak`）で pak に固める。pak は `sndpak` パッケージのXORキーストリームで軽く難読化されており（RIFFヘッダも隠れる）、**リネームしてそのまま再生はできない**＝フリー素材サイト等のSEを生のまま公開リポジトリに置かないための配慮（暗号ではなく速度バンプ。キーはソース内）
+  - **SE**（`fire`/`explosion`/`hit`）は**難読化した1ファイル `asset/sound/se.pak` に同梱**してコミット（エントリ名で格納）。**生のwavはコミットしない**：素材は `asset/sound/raw/`（gitignore）に置き、`make sound-pak`（=`go run tools/sndpak/main.go asset/sound/raw asset/sound/se.pak`）で pak に固める。**packerはマージ方式**：既存 se.pak をベースに読み込み、`raw/` にあるファイルだけ同名エントリを上書きするので、**SEを1個だけ差し替える時は当該wavを `raw/` に置いて再パックするだけ**でよい（他はpakから維持、cleanクローンでrawが空でも可）。`-rebuild` で raw/ のみから再構築（SE削除はこれ）。pak は `sndpak` パッケージのXORキーストリームで軽く難読化されており（RIFFヘッダも隠れる）、**リネームしてそのまま再生はできない**＝フリー素材サイト等のSEを生のまま公開リポジトリに置かないための配慮（暗号ではなく速度バンプ。キーはソース内）
   - **BGMは自作前提なので隠す必要がなく、生wav `asset/sound/bgm.wav` を直接コミット＆`//go:embed`**（pak非経由・難読化なし）。本物が出来たらこのファイルを差し替えるだけ
   - 仮音源はサイン波生成：`make sound-gen` が `gensound`（SE→`raw/`、BGM→`asset/sound/bgm.wav`）→`sound-pak` を実行
   - `asset.LoadSounds()`（`app/main.go` 起動時）が `bgm.wav` を直接デコード＋`sndpak.Unpack(se.pak)` でSE展開→各エントリをデコード。デコード/欠落は握りつぶす（ログして継続、pakが壊れていてもSE無音で起動、BGM失敗もBGM無しで継続）。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMは単一プレイヤーを `Rewind` で使い回しループ（`InGame.OnStart` で再生／`OnEnd` で停止）
