@@ -89,8 +89,12 @@ func (o *Opening) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transit
 	o.transition = transition
 }
 
-// OnStart restarts the cinematic each time the scene is entered.
-func (o *Opening) OnStart() { o.reset() }
+// OnStart restarts the cinematic each time the scene is entered and starts the
+// title BGM (shared with the title screen, so the music carries over seamlessly).
+func (o *Opening) OnStart() {
+	o.reset()
+	asset.PlayBGM(asset.BGMTitle)
+}
 
 func (o *Opening) reset() {
 	o.t = 0

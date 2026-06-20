@@ -229,7 +229,7 @@ func (w *World) updateWeapons() {
 				weapon.fireProgress = params.BaseInterval
 			} else {
 				weapon.fireProgress -= params.BaseInterval
-				w.emit(SndFire) // one fire SE per shot (not per pellet)
+				w.emit(FireSound(weapon.Kind)) // one fire SE per shot (not per pellet), per weapon kind
 				if weapon.Kind == KindLaser {
 					weapon.beamTicksLeft = stats.BeamDuration
 					weapon.beamAngle = w.weaponAim(weapon, params)

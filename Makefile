@@ -3,14 +3,15 @@
 gen:
 	go generate ./...
 
-# Regenerate placeholder audio: SE into asset/sound/raw (gitignored), BGM into
-# asset/sound/bgm.wav (committed), then bundle the SE. Drop real SE .wav/.mp3/.ogg
-# into asset/sound/raw and run `make sound-pak`; replace asset/sound/bgm.wav for
-# the real (self-authored) BGM.
+# Regenerate placeholder audio: per-weapon SE into asset/sound/raw (gitignored),
+# the two BGM tracks into asset/sound/bgm_title.wav + bgm_game.wav (committed),
+# then rebuild the SE pak from scratch (-rebuild, so removed effects don't linger).
+# Drop real SE into asset/sound/raw and run `make sound-pak` (merge) to swap one;
+# replace the bgm_*.wav files for the real (self-authored) BGM.
 sound-gen:
 	mkdir -p asset/sound/raw
 	go run tools/gensound/main.go asset/sound/raw asset/sound
-	$(MAKE) sound-pak
+	go run tools/sndpak/main.go -rebuild asset/sound/raw asset/sound/se.pak
 
 # Bundle the sound EFFECTS in asset/sound/raw/* into the committed, obfuscated
 # asset/sound/se.pak. MERGE by default: files in raw/ override same-named entries

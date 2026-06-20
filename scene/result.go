@@ -5,6 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
+	"github.com/noppikinatta/ebitenginegamejam2026/asset"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
@@ -37,6 +38,10 @@ var (
 	resRetryBtn  = sceneButton{x: screenW/2 - 350, y: 470, w: 320, h: 60, labelKey: "btn-retry"}
 	resAcceptBtn = sceneButton{x: screenW/2 + 30, y: 470, w: 320, h: 60, labelKey: "btn-accept"}
 )
+
+// OnStart keeps the in-game BGM playing into the result screen (shared track, so
+// re-requesting it is a no-op and the music continues seamlessly from the run).
+func (r *Result) OnStart() { asset.PlayBGM(asset.BGMGame) }
 
 func (r *Result) Update() error {
 	if !r.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {

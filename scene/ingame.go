@@ -109,18 +109,12 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 func (g *InGame) OnStart() {
 	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
 	g.paused = false
-	asset.PlayBGM()
+	asset.PlayBGM(asset.BGMGame)
 	// Snap the rendered turret angle to the fresh world's facing so it doesn't
 	// spin from a stale value on scene entry.
 	g.turretRenderedAngle = g.world.Player.FacingAngle
 	// Snap the power gauge to its current value so it doesn't sweep up from empty.
 	g.powerGaugeFill = g.powerGaugeTarget()
-}
-
-// OnEnd is called by bamenn when the scene is left; stop the BGM so it doesn't
-// bleed into the result/title screens.
-func (g *InGame) OnEnd() {
-	asset.StopBGM()
 }
 
 // soundSink routes core sound events to the asset audio backend. It is the
@@ -129,8 +123,22 @@ type soundSink struct{}
 
 func (soundSink) PlaySound(e core.SoundEvent) {
 	switch e {
-	case core.SndFire:
-		asset.PlaySound(asset.SEFire)
+	case core.SndFireCannon:
+		asset.PlaySound(asset.SEFireCannon)
+	case core.SndFireShotgun:
+		asset.PlaySound(asset.SEFireShotgun)
+	case core.SndFireSniper:
+		asset.PlaySound(asset.SEFireSniper)
+	case core.SndFireLaser:
+		asset.PlaySound(asset.SEFireLaser)
+	case core.SndFireGatling:
+		asset.PlaySound(asset.SEFireGatling)
+	case core.SndFireGrenade:
+		asset.PlaySound(asset.SEFireGrenade)
+	case core.SndFireCIWS:
+		asset.PlaySound(asset.SEFireCIWS)
+	case core.SndFireMissile:
+		asset.PlaySound(asset.SEFireMissile)
 	case core.SndExplosion:
 		asset.PlaySound(asset.SEExplosion)
 	case core.SndPlayerHit:

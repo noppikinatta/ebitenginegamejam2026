@@ -93,14 +93,35 @@
 
 ## サウンド
 
-| 種別 | 配置 | 備考 |
-|---|---|---|
-| BGM | `asset/sound/bgm.wav` | **自作前提**。生wavを直接コミット＆埋め込み。差し替えはこのファイルを置換するだけ |
-| SE: 発射 | `asset/sound/raw/fire.wav` | フリー素材可。`raw/` は **非コミット**、`make sound-pak` で `se.pak` に格納 |
-| SE: 爆発 | `asset/sound/raw/explosion.wav` | 同上 |
-| SE: 被弾 | `asset/sound/raw/hit.wav` | 同上 |
+### BGM（自作前提・生wavを直接コミット＆埋め込み）
 
-> SEは1個だけでも差し替え可（マージ方式）：当該wavを `raw/` に置いて `make sound-pak`。他は既存pakから維持。
+2曲構成。差し替えは該当ファイルを置換するだけ。
+
+| ファイル | 用途 | 鳴るタイミング |
+|---|---|---|
+| `asset/sound/bgm_title.wav` | タイトル曲 | オープニング＋タイトル |
+| `asset/sound/bgm_game.wav` | ゲーム曲 | ゲーム中＋リザルト |
+
+> 同じ曲を共有するシーン間（オープニング↔タイトル、ゲーム↔リザルト）は鳴り直さずシームレスに継続。曲が変わる切替時（タイトル→ゲーム開始、ゲーム→オープニング復帰）のみ頭から再生。
+
+### SE（フリー素材可・`raw/` は非コミット→`se.pak`）
+
+発射音は**武器ごとに別ファイル**。`raw/` に置いて `make sound-pak` で `se.pak` に格納。
+
+| ファイル | 用途 |
+|---|---|
+| `asset/sound/raw/fire_cannon.wav` | キャノン発射 |
+| `asset/sound/raw/fire_shotgun.wav` | ショットガン発射 |
+| `asset/sound/raw/fire_sniper.wav` | スナイパー発射 |
+| `asset/sound/raw/fire_laser.wav` | レーザー発射 |
+| `asset/sound/raw/fire_gatling.wav` | ガトリング発射 |
+| `asset/sound/raw/fire_grenade.wav` | グレネード発射 |
+| `asset/sound/raw/fire_ciws.wav` | CIWS発射 |
+| `asset/sound/raw/fire_missile.wav` | ミサイル発射 |
+| `asset/sound/raw/explosion.wav` | 爆発（爆発弾・グレネード等） |
+| `asset/sound/raw/hit.wav` | 自機被弾 |
+
+> SEは1個だけでも差し替え可（マージ方式）：当該wavを `raw/` に置いて `make sound-pak`。他は既存pakから維持。SE削除は `raw/` から消して `-rebuild`。
 
 ---
 

@@ -20,10 +20,15 @@ func (f *fakeSink) PlaySound(s SoundEvent) { f.played = append(f.played, s) }
 // play.
 func TestDispatchSounds_DedupsPerFrame(t *testing.T) {
 	sink := &fakeSink{}
-	DispatchSounds([]SoundEvent{SndFire, SndFire, SndFire, SndExplosion, SndPlayerHit, SndExplosion}, sink)
+	cannon := FireSound(KindCannon)
+	gatling := FireSound(KindGatling)
+	DispatchSounds([]SoundEvent{cannon, cannon, cannon, gatling, SndExplosion, SndPlayerHit, SndExplosion}, sink)
 
-	if got := countEvents(sink.played, SndFire); got != 1 {
-		t.Errorf("SndFire played %d times, want 1", got)
+	if got := countEvents(sink.played, cannon); got != 1 {
+		t.Errorf("cannon fire played %d times, want 1", got)
+	}
+	if got := countEvents(sink.played, gatling); got != 1 {
+		t.Errorf("gatling fire played %d times, want 1 (distinct weapon kinds each play)", got)
 	}
 	if got := countEvents(sink.played, SndExplosion); got != 1 {
 		t.Errorf("SndExplosion played %d times, want 1", got)
@@ -35,7 +40,7 @@ func TestDispatchSounds_DedupsPerFrame(t *testing.T) {
 
 // TestDispatchSounds_NilSink: a nil sink (audio not loaded) is a safe no-op.
 func TestDispatchSounds_NilSink(t *testing.T) {
-	DispatchSounds([]SoundEvent{SndFire}, nil) // must not panic
+	DispatchSounds([]SoundEvent{FireSound(KindCannon)}, nil) // must not panic
 }
 
 func countEvents(evs []SoundEvent, want SoundEvent) int {
@@ -48,16 +53,17 @@ func countEvents(evs []SoundEvent, want SoundEvent) int {
 	return n
 }
 
-// TestSound_FireEmittedPerShot: a triggered weapon emits exactly one SndFire for
-// the shot, regardless of how many pellets that shot spawns.
+// TestSound_FireEmittedPerShot: a triggered weapon emits exactly one fire SE for
+// the shot (its own per-kind event), regardless of how many pellets that shot
+// spawns.
 func TestSound_FireEmittedPerShot(t *testing.T) {
 	w, wp := buildWeaponWorld(KindShotgun, hexmap.IdxXY(1, 0))
 	wp.fireProgress = w.cfg.Weapons[KindShotgun].BaseInterval
 
 	w.updateWeapons()
 
-	if got := countEvents(w.SoundEvents, SndFire); got != 1 {
-		t.Errorf("SndFire emitted %d times, want 1", got)
+	if got := countEvents(w.SoundEvents, FireSound(KindShotgun)); got != 1 {
+		t.Errorf("shotgun fire emitted %d times, want 1", got)
 	}
 }
 
@@ -102,7 +108,7 @@ func TestSound_ClearedEachTick(t *testing.T) {
 	}
 
 	w.State = StateLevelUp
-	w.SoundEvents = append(w.SoundEvents, SndFire)
+	w.SoundEvents = append(w.SoundEvents, FireSound(KindCannon))
 	w.Update(geom.PointF{})
 	if len(w.SoundEvents) != 0 {
 		t.Errorf("frozen world produced %d events, want 0", len(w.SoundEvents))

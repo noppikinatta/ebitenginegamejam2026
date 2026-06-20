@@ -5,6 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
+	"github.com/noppikinatta/ebitenginegamejam2026/asset"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
@@ -27,6 +28,10 @@ func (t *Title) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transitio
 	t.sequence = sequence
 	t.transition = transition
 }
+
+// OnStart keeps the title BGM playing (started during the opening; the shared
+// track makes the transition seamless, and re-requesting it is a no-op).
+func (t *Title) OnStart() { asset.PlayBGM(asset.BGMTitle) }
 
 func (t *Title) Update() error {
 	if t.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {

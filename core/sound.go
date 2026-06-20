@@ -8,10 +8,27 @@ package core
 type SoundEvent int
 
 const (
-	SndFire      SoundEvent = iota // a weapon fired a shot
-	SndExplosion                   // an explosive projectile detonated
+	SndExplosion SoundEvent = iota // an explosive projectile detonated
 	SndPlayerHit                   // the tank took damage
+	// Per-weapon fire events. These MUST stay contiguous and in WeaponKind order
+	// so FireSound can index into them; each weapon gets its own fire SE.
+	SndFireCannon
+	SndFireShotgun
+	SndFireSniper
+	SndFireLaser
+	SndFireGatling
+	SndFireGrenade
+	SndFireCIWS
+	SndFireMissile
+
+	numSoundEvents // sentinel: count of sound events (for dedup sizing)
 )
+
+// FireSound returns the fire SoundEvent for a weapon kind. The per-kind events
+// are laid out contiguously from SndFireCannon in WeaponKind order.
+func FireSound(k WeaponKind) SoundEvent {
+	return SndFireCannon + SoundEvent(k)
+}
 
 // emit records a sound event for the current tick. Events accumulate during
 // Update and are cleared at the start of the next Update.
@@ -27,15 +44,17 @@ type SoundSink interface {
 }
 
 // DispatchSounds plays the events emitted during a tick, collapsing duplicates
-// so a tick where several weapons fire triggers a single shot SE (instead of a
-// dozen overlapping players). Call it once per frame after Update.
+// so a tick where several tiles of the same weapon fire triggers a single shot
+// SE (instead of a dozen overlapping players). Distinct events (e.g. two
+// different weapon kinds firing) still each play. Call it once per frame after
+// Update.
 func DispatchSounds(evs []SoundEvent, sink SoundSink) {
 	if sink == nil {
 		return
 	}
-	var seen [3]bool // indexed by SoundEvent; grow if more events are added
+	var seen [numSoundEvents]bool
 	for _, e := range evs {
-		if int(e) < len(seen) {
+		if e >= 0 && int(e) < len(seen) {
 			if seen[e] {
 				continue
 			}
