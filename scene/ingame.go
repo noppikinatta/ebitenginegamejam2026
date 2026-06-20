@@ -363,13 +363,29 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1)
 	}
 	for _, p := range w.Projectiles {
-		// Junk emitters tag their cosmetic projectiles with a sprite key; plain
-		// bullets leave it empty and use the default sprite (drawn smaller).
-		key, sz := asset.ImgProjectile, 8.0
-		if p.Sprite != "" {
-			key, sz = p.Sprite, 16.0
+		// Weapons and junk emitters tag projectiles with their own sprite key and
+		// draw footprint; anything without a key falls back to the default bullet.
+		key := p.Sprite
+		if key == "" {
+			key = asset.ImgProjectile
 		}
-		drawSprite(screen, cam, key, p.Pos, sz, sz, 0, 1, 1, 1, 1)
+		dw, dh := p.DrawW, p.DrawH
+		if dw == 0 && dh == 0 {
+			// Legacy fallback for projectiles that carry no explicit size: the
+			// default bullet is small (8), tagged sprites (junk) are larger (16).
+			if p.Sprite == "" {
+				dw, dh = 8, 8
+			} else {
+				dw, dh = 16, 16
+			}
+		}
+		// Elongated bullets (cannon/sniper/missile) are authored pointing up, so
+		// rotate by the travel angle + 90° (same convention as the tank body).
+		angle := 0.0
+		if p.FaceVelocity && p.Vel.Abs() > 0 {
+			angle = p.Vel.Angle() + math.Pi/2
+		}
+		drawSprite(screen, cam, key, p.Pos, dw, dh, angle, 1, 1, 1, 1)
 	}
 	g.drawBeams(screen, cam)
 

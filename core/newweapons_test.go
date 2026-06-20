@@ -29,6 +29,48 @@ func angleClose(a, b, tol float64) bool {
 	return math.Abs(d) <= tol
 }
 
+// TestProjectile_AppearanceFields: fired bullets carry their weapon's sprite key,
+// draw footprint and face-velocity flag through to the Projectile, so the scene
+// can draw per-weapon art (and rotate the elongated cannon/sniper/missile).
+func TestProjectile_AppearanceFields(t *testing.T) {
+	cases := []struct {
+		kind         WeaponKind
+		sprite       string
+		w, h         float64
+		faceVelocity bool
+	}{
+		{KindCannon, SpriteCannon, 8, 14, true},
+		{KindSniper, SpriteSniper, 4, 16, true},
+		{KindMissile, SpriteMissile, 8, 12, true},
+		{KindShotgun, SpriteShotgun, 6, 6, false},
+		{KindGatling, SpriteGatling, 6, 6, false},
+		{KindCIWS, SpriteCIWS, 6, 6, false},
+	}
+	for _, c := range cases {
+		w, wp := buildWeaponWorld(c.kind, hexmap.IdxXY(1, 0))
+		p := w.cfg.Weapons[c.kind]
+		// CIWS holds fire without a target; give every weapon something to lock on.
+		w.Enemies = append(w.Enemies, &Enemy{Pos: geom.PointF{X: 40, Y: 0}, HP: 1000, Radius: 16, alive: true})
+		wp.fireProgress = p.BaseInterval // trigger on the next tick
+		for i := 0; i < 30 && len(w.Projectiles) == 0; i++ {
+			w.updateWeapons()
+		}
+		if len(w.Projectiles) == 0 {
+			t.Fatalf("%v: no projectile fired", c.kind)
+		}
+		pr := w.Projectiles[0]
+		if pr.Sprite != c.sprite {
+			t.Errorf("%v: Sprite=%q, want %q", c.kind, pr.Sprite, c.sprite)
+		}
+		if pr.DrawW != c.w || pr.DrawH != c.h {
+			t.Errorf("%v: DrawW/DrawH=%g/%g, want %g/%g", c.kind, pr.DrawW, pr.DrawH, c.w, c.h)
+		}
+		if pr.FaceVelocity != c.faceVelocity {
+			t.Errorf("%v: FaceVelocity=%v, want %v", c.kind, pr.FaceVelocity, c.faceVelocity)
+		}
+	}
+}
+
 // TestGatling_ForwardStaggeredBurst: a triggered gatling emits all its pellets
 // over time, all aimed forward within the spread, with no enemy present (no lock).
 func TestGatling_ForwardStaggeredBurst(t *testing.T) {

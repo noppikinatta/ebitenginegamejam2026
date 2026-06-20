@@ -11,6 +11,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseDamage:   20,
 			BaseInterval: 720, MinInterval: 6, // 12s between shots at fireMult=1
 			ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 6, BaseRange: 200,
+			Sprite: core.SpriteCannon, ProjDrawW: 8, ProjDrawH: 14, ProjFaceVelocity: true, // chunky shell, points along travel
 			LevelMult: 1.2,
 		},
 		core.KindShotgun: {
@@ -18,12 +19,14 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 720, MinInterval: 8, // 12s
 			ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 2, BaseRange: 100,
 			Pellets: 4, SpreadRad: 0.3, // simultaneous fixed 4-pellet spread
+			Sprite: core.SpriteShotgun, ProjDrawW: 6, ProjDrawH: 6, // small round pellet
 			LevelMult: 1.2,
 		},
 		core.KindSniper: {
 			BaseDamage:   10,
 			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 2, BaseRange: 360,
+			Sprite: core.SpriteSniper, ProjDrawW: 4, ProjDrawH: 16, ProjFaceVelocity: true, // long thin dart
 			LevelMult: 1.2,
 		},
 		core.KindLaser: {
@@ -40,7 +43,8 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 480, MinInterval: 6, // 8s between bursts
 			ProjSpeed: 5, ProjMaxDist: 240, ProjRadius: 2,
 			Pellets: 10, SpreadRad: 0.2, SpreadRandom: true, BurstGap: 3, // staggered random stream
-			Aim:       core.AimForward, // never locks on; always fires forward
+			Aim:    core.AimForward, // never locks on; always fires forward
+			Sprite: core.SpriteGatling, ProjDrawW: 6, ProjDrawH: 6, // small round slug
 			LevelMult: 1.2,
 		},
 		core.KindGrenade: {
@@ -49,6 +53,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			ProjSpeed: 2, ProjMaxDist: 120, // lobbed slowly; expires after 60 ticks
 			Aim:           core.AimOutward,                          // never locks on; always fires outward
 			ExplodeRadius: 64, ExplodeDamage: 15, PassThrough: true, // flies through; detonates where it lands
+			Sprite: core.SpriteGrenade, ProjDrawW: 14, ProjDrawH: 14, // fat round shell
 			LevelMult: 1.2,
 		},
 		core.KindCIWS: {
@@ -57,14 +62,16 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			ProjSpeed: 5, ProjMaxDist: 120, ProjRadius: 2, BaseRange: 80, // very short range point defence
 			Pellets: 10, SpreadRad: 0.1, SpreadRandom: true, BurstGap: 2, // tight rapid burst
 			HoldWhenNoTarget: true, // stays charged until something enters range
-			LevelMult:        1.2,
+			Sprite:           core.SpriteCIWS, ProjDrawW: 6, ProjDrawH: 6, // small round tracer
+			LevelMult: 1.2,
 		},
 		core.KindMissile: {
 			BaseDamage:   8,                    // contact damage
 			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 2, ProjMaxDist: 240, ProjRadius: 6, BaseRange: 240, // slow shell, long lock range
 			ExplodeRadius: 48, ExplodeDamage: 10, // smaller blast than the grenade, only if it expires unhit
-			Mover:     core.NewHomingMover(0.3, 6), // homes onto the nearest enemy (turn force 0.3, cruise speed 6)
+			Mover:  core.NewHomingMover(0.3, 6),                                            // homes onto the nearest enemy (turn force 0.3, cruise speed 6)
+			Sprite: core.SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, // larger shell, turns to face its target
 			LevelMult: 1.2,
 		},
 	}
