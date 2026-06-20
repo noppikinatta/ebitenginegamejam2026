@@ -112,7 +112,8 @@ go test ./lang/... -run TestName -v
 
 `CreateSequence` は `wrapperGame` を返す。これは `langSwitcher`（後述）を `Sequence` にかぶせ、全シーン共通で言語切替の入力と表示を処理するラッパー。
 
-- `scene/opening.go` — オープニング・シネマティック。エイリアン徘徊＋テロップ→自機（武装なし）が下から登場し中央へ→博士のセリフで武装が画面外から1つずつ飛来して装着→完成でタイトルへ自動遷移（クリックでスキップ）。`OnStart` で毎回リセット。タイムラインは tick ベース、装飾用の固定砲塔配置 `openingWeapons`（実runの生成砲塔とは無関係）
+- `scene/opening.go` — オープニング・シネマティック。エイリアン徘徊＋テロップ→自機（武装なし）が下から登場し中央へ→博士のセリフで**実runの砲塔**が中央ジェネレータから外側へ1タイルずつ飛来して組み上がる→完成でタイトルへ自動遷移。入力は2系統：**エイリアン場面中のクリックで次の場面（組み立て）へ早送り**、**Space長押し（`opSkipHoldTicks`≒1秒）でタイトルまでスキップ**（`spaceHeld()`/`drawSkipHint` の充填バー付き）。`OnStart`→`reset()` で毎回リセット。**砲塔は演出専用の固定配置ではなく実データ**：`reset()` が `seed=time.Now().UnixNano()` を採番→`runSeed.set(seed)`（共有ホルダー、後述）→`core.NewWorld(seed, data.NewConfig())` で本物の砲塔を構築し `turret`/`power`/`order`（中心からの距離順）を保持。`drawAssembly` が `order` 順に各タイルを中心から hex スロットへ飛ばし、`drawTileBase`/`drawTileFixture`（`ingame.go` から共通化、土台＋平型ジャンク／バレル・縦長ジャンク）で描画。タイムラインは tick ベース（`opFirstArrive`/`opStagger`/`opFlyDur`）
+- **シーン跨ぎの砲塔引き渡しは `scene/runseed.go` の `runSeed`（int64シード1個）**：オープニングが採番→`pending=true`。`InGame.OnStart` が `runSeed.take()` で消費（pendingならそのシード→クリア、なければ `time.Now()` で新規）。これにより **オープニングで見せた砲塔＝インゲームで戦う砲塔**（同シード＋同 `data.NewConfig()`→`NewWorld` 内で最初に `GenerateTurret` がrng消費するため完全一致／core 側 `TestNewWorld_SameSeedSameTurret` で固定）、**リトライ（Result→InGame）は pending なしで新砲塔**。`CreateSequence` が `runSeed` を Opening/InGame に注入
 - `scene/title.go` — タイトル画面。タイトル画像とストーリーテキスト（`lang.Text("story-1")`）を表示し、左クリックで次シーンへ。シーン実装の参考パターンになる（`Title` 構造体 + `NewTitle` + `Init`/`Update`/`Draw`/`Layout`）
 - `scene/result.go` — 勝敗で分岐。勝利＝「エイリアンを倒し、自由を手に入れた」＋『オープニングに戻る』。敗北＝「…自由を失った。…」＋『リトライ』(InGame)／『結果を受け入れる』(Opening)。勝敗は `InGame.Outcome()`（`StateCleared`/`StateGameOver`）から取得。`sceneButton` で簡易クリックボタン
 - `scene/lang.go` — `langSwitcher`。**L キー**で言語をトグルし、`DrawTriangles` のグラデ矩形＋テキストで現在言語を一時表示（alpha フェードアウト）

@@ -33,6 +33,7 @@ const combatTileSize = core.TurretTileSize
 type InGame struct {
 	input      *ui.Input
 	world      *core.World
+	runSeed    *runSeed // shared seed source: opening's turret seed, or fresh on retry
 	nextScene  ebiten.Game
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
@@ -67,9 +68,10 @@ type InGame struct {
 	hpShake int
 }
 
-func NewInGame(input *ui.Input) *InGame {
+func NewInGame(input *ui.Input, seed *runSeed) *InGame {
 	return &InGame{
-		input: input,
+		input:   input,
+		runSeed: seed,
 	}
 }
 
@@ -107,7 +109,9 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 // from a fresh world. The seed is time-based so runs vary; use core.NewWorld
 // directly with a fixed seed for deterministic tests.
 func (g *InGame) OnStart() {
-	g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
+	// Use the seed the opening generated its turret from (so the run matches the
+	// cinematic); a retry from the result screen has no pending seed and rolls fresh.
+	g.world = core.NewWorld(g.runSeed.take(), data.NewConfig())
 	g.paused = false
 	g.popups = g.popups[:0]
 	g.deaths = g.deaths[:0]
@@ -177,7 +181,7 @@ func (g *InGame) powerGaugeTarget() float64 {
 
 func (g *InGame) Update() error {
 	if g.world == nil {
-		g.world = core.NewWorld(time.Now().UnixNano(), data.NewConfig())
+		g.world = core.NewWorld(g.runSeed.take(), data.NewConfig())
 		g.turretRenderedAngle = g.world.Player.FacingAngle
 	}
 	if g.rng == nil {
@@ -653,32 +657,15 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 	// barrels and tall junk get their taller sprite in pass 2, regular junk's
 	// device is flat and tile-sized so it draws here with its base.
 	for _, p := range ps {
-		key, dim := tileBase(tr, p.idx, tiles[p.idx], power[p.idx])
-		drawing.DrawSprite(screen, drawing.Image(key), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
-		if j, ok := tiles[p.idx].Component.(core.Junk); ok && !j.Tall {
-			drawing.DrawSprite(screen, drawing.Image(core.JunkImageKey(j.DeviceName)), p.c.X, p.c.Y, size, size, theta, dim, dim, dim, 1)
-		}
+		drawTileBase(screen, tr, p.idx, tiles[p.idx], power[p.idx], p.c.X, p.c.Y, size, theta)
 	}
 
-	// Pass 2: tall fixtures (weapon barrels + tall junk). These are rectangular
-	// sprites taller than a tile, authored pointing "up" with their mount tile as
-	// the bottom TurretTileSize×TurretTileSize block. We anchor at that mount-tile
-	// centre and scale uniformly by the tile zoom, so the sprite's base sits on the
-	// socket. Drawn after all bases (and in Y order) so a front tile's sprite
-	// overlays the tiles behind it.
+	// Pass 2: tall fixtures (weapon barrels + tall junk), drawn after all bases
+	// (and in Y order) so a front tile's sprite overlays the tiles behind it.
 	//   - Weapon barrels point where they fire (their aim angle) in combat, or the
 	//     grid rotation when paused.
-	//   - Tall junk (e.g. a cathedral spire) always points world-up (angle 0).
-	z := size / core.TurretTileSize
+	//   - Tall junk (e.g. a pagoda) always points world-up (angle 0).
 	for _, p := range ps {
-		key, ok := tallTileSprite(tiles[p.idx].Component)
-		if !ok {
-			continue
-		}
-		dim := float32(1)
-		if power[p.idx] <= 0 && !tr.IsGenerator(p.idx) {
-			dim = 0.5 // unpowered (the generator reads as 0 power but is always live)
-		}
 		spriteTheta := 0.0 // tall junk: always world-up
 		if wc, isWeapon := tiles[p.idx].Component.(core.WeaponComponent); isWeapon {
 			if aimBarrels {
@@ -687,12 +674,41 @@ func (g *InGame) drawTurretTiles(screen *ebiten.Image, cx, cy, size, theta float
 				spriteTheta = theta
 			}
 		}
-		img := drawing.Image(key)
-		b := img.Bounds()
-		ax := float64(b.Dx()) / 2                     // mount tile is horizontally centred
-		ay := float64(b.Dy()) - core.TurretTileSize/2 // ...and is the bottom tile block
-		drawing.DrawSpriteAnchored(screen, img, p.c.X, p.c.Y, z, spriteTheta, ax, ay, dim, dim, dim, 1)
+		drawTileFixture(screen, tr, p.idx, tiles[p.idx], power[p.idx], p.c.X, p.c.Y, size, spriteTheta)
 	}
+}
+
+// drawTileBase draws a turret tile's base plate (plus the flat junk device for
+// regular junk) centred at screen (cx, cy), rotated by theta and dimmed if
+// unpowered. Shared by the in-game turret and the opening assembly cinematic.
+func drawTileBase(screen *ebiten.Image, tr *core.Turret, idx hexmap.Index, tile *core.Tile, power, cx, cy, size, theta float64) {
+	key, dim := tileBase(tr, idx, tile, power)
+	drawing.DrawSprite(screen, drawing.Image(key), cx, cy, size, size, theta, dim, dim, dim, 1)
+	if j, ok := tile.Component.(core.Junk); ok && !j.Tall {
+		drawing.DrawSprite(screen, drawing.Image(core.JunkImageKey(j.DeviceName)), cx, cy, size, size, theta, dim, dim, dim, 1)
+	}
+}
+
+// drawTileFixture draws a tile's tall fixture (weapon barrel or tall junk) if it
+// has one: a rectangular sprite authored pointing "up" with its mount tile as the
+// bottom TurretTileSize block. It is anchored at that mount-tile centre (cx, cy)
+// and scaled by the tile zoom so the sprite's base sits on the socket, rotated by
+// spriteTheta. No-op for tiles without a tall fixture.
+func drawTileFixture(screen *ebiten.Image, tr *core.Turret, idx hexmap.Index, tile *core.Tile, power, cx, cy, size, spriteTheta float64) {
+	key, ok := tallTileSprite(tile.Component)
+	if !ok {
+		return
+	}
+	dim := float32(1)
+	if power <= 0 && !tr.IsGenerator(idx) {
+		dim = 0.5 // unpowered (the generator reads as 0 power but is always live)
+	}
+	img := drawing.Image(key)
+	b := img.Bounds()
+	ax := float64(b.Dx()) / 2                     // mount tile is horizontally centred
+	ay := float64(b.Dy()) - core.TurretTileSize/2 // ...and is the bottom tile block
+	z := size / core.TurretTileSize
+	drawing.DrawSpriteAnchored(screen, img, cx, cy, z, spriteTheta, ax, ay, dim, dim, dim, 1)
 }
 
 // tallTileSprite returns the tall-sprite image key for a component that is drawn

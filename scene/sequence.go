@@ -10,9 +10,10 @@ import (
 )
 
 func CreateSequence(input *ui.Input) ebiten.Game {
-	opening := NewOpening(input)
+	rs := &runSeed{}
+	opening := NewOpening(input, rs)
 	title := NewTitle(input)
-	inGame := NewInGame(input)
+	inGame := NewInGame(input, rs)
 	result := NewResult(input)
 	seq := bamenn.NewSequence(opening)
 	tran := bamenn.NewLinearTransition(5, 10, bamennutil.LinearFillFadingDrawer{Color: color.Black})

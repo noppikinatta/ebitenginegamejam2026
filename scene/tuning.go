@@ -104,9 +104,9 @@ const (
 	opTankStart   = 200 // tank starts rolling in (and the backdrop starts scrolling)
 	opTankEnd     = 320 // tank reaches centre
 	opFirstLine   = 330 // first doctor line appears
-	opFirstArrive = 386 // first weapon snaps into place
-	opStagger     = 20  // ticks between successive weapon arrivals
-	opFlyDur      = 28  // ticks each weapon spends flying in
+	opFirstArrive = 386 // first tile (the generator) snaps into place
+	opStagger     = 12  // ticks between successive tile arrivals (turret has ~22 tiles)
+	opFlyDur      = 28  // ticks each tile spends flying out from the centre
 	opTile        = 40.0
 	opZoom        = 2.2
 	// opSkipHoldTicks is how long Space must be held to skip the whole opening to

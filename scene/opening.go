@@ -3,23 +3,30 @@ package scene
 import (
 	"math"
 	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
 	"github.com/noppikinatta/ebitenginegamejam2026/asset"
 	"github.com/noppikinatta/ebitenginegamejam2026/core"
+	"github.com/noppikinatta/ebitenginegamejam2026/data"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
+	"github.com/noppikinatta/ebitenginegamejam2026/hexmap"
 	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
 )
 
 // Opening is the intro cinematic: aliens swarm in, the unarmed tank rolls up
-// from the bottom, then doctors bolt weapons onto it one by one until it reaches
-// its battle-ready state, whereupon it advances to the title.
+// from the bottom, then doctors bolt tiles onto it one by one — growing the
+// ACTUAL run turret outward from the central generator — until it reaches its
+// battle-ready state, whereupon it advances to the title. The turret shown is the
+// real one the player will fight with: the opening seeds runSeed and builds the
+// turret from it, and InGame later rebuilds the same turret from that seed.
 type Opening struct {
 	input      *ui.Input
+	runSeed    *runSeed // seeded here so InGame fights the turret shown assembling
 	nextScene  ebiten.Game // the title
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
@@ -29,6 +36,12 @@ type Opening struct {
 	rng      *rand.Rand
 	aliens   []*openingAlien
 	bubbles  []openingBubble
+
+	// The run's real turret, plus a center-out ordering of its tiles and their
+	// power map, used to animate the assembly and draw each tile faithfully.
+	turret *core.Turret
+	power  map[hexmap.Index]float64
+	order  []hexmap.Index // tile indices sorted center-outward (assembly order)
 }
 
 type openingAlien struct {
@@ -46,25 +59,8 @@ type openingBubble struct {
 // The opening cinematic timeline, scroll speed and centre points are tunable in
 // scene/tuning.go.
 
-// openingWeapons is a decorative battle-ready turret (offsets from the tank
-// centre + kind). It is intentionally fixed flavour, independent of the random
-// run turret generated later.
-var openingWeapons = []struct {
-	dx, dy float64
-	kind   core.WeaponKind
-}{
-	{0, -72, core.KindCannon},
-	{-66, -40, core.KindSniper},
-	{66, -40, core.KindLaser},
-	{-86, 10, core.KindShotgun},
-	{86, 10, core.KindGatling},
-	{-54, 54, core.KindCIWS},
-	{54, 54, core.KindMissile},
-	{0, 74, core.KindGrenade},
-}
-
-func NewOpening(input *ui.Input) *Opening {
-	return &Opening{input: input}
+func NewOpening(input *ui.Input, seed *runSeed) *Opening {
+	return &Opening{input: input, runSeed: seed}
 }
 
 func (o *Opening) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transition bamenn.Transition) {
@@ -84,6 +80,19 @@ func (o *Opening) reset() {
 	o.t = 0
 	o.switched = false
 	o.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	// Seed the run and build the real turret to show assembling, then hand the
+	// seed to InGame so it fights the same turret. Built via NewWorld (the exact
+	// in-game construction path) so the shapes are guaranteed identical.
+	seed := time.Now().UnixNano()
+	if o.runSeed != nil {
+		o.runSeed.set(seed)
+	}
+	w := core.NewWorld(seed, data.NewConfig())
+	o.turret = w.Turret()
+	o.power = o.turret.ComputePower()
+	o.buildOrder()
+
 	o.aliens = o.aliens[:0]
 	for i := 0; i < 9; i++ {
 		key, size := asset.ImgEnemy, 30.0
@@ -103,8 +112,35 @@ func (o *Opening) reset() {
 	o.bubbles = o.bubbles[:0]
 }
 
+// buildOrder sorts the turret's tile indices center-outward (by hex distance from
+// the central generator, breaking ties by screen angle) so the assembly grows
+// from the middle out in a stable order, independent of map iteration.
+func (o *Opening) buildOrder() {
+	o.order = o.order[:0]
+	if o.turret == nil {
+		return
+	}
+	origin := hexmap.IdxXY(0, 0)
+	for idx := range o.turret.Tiles() {
+		o.order = append(o.order, idx)
+	}
+	sort.Slice(o.order, func(i, j int) bool {
+		di, dj := origin.Distance(o.order[i]), origin.Distance(o.order[j])
+		if di != dj {
+			return di < dj
+		}
+		axi, ayi := hexLocalOffset(o.order[i], 1)
+		axj, ayj := hexLocalOffset(o.order[j], 1)
+		return math.Atan2(ayi, axi) < math.Atan2(ayj, axj)
+	})
+}
+
 func (o *Opening) doneTick() int {
-	return opFirstArrive + (len(openingWeapons)-1)*opStagger + 90
+	n := len(o.order)
+	if n == 0 {
+		n = 1
+	}
+	return opFirstArrive + (n-1)*opStagger + 90
 }
 
 func (o *Opening) Update() error {
@@ -125,10 +161,17 @@ func (o *Opening) Update() error {
 		}
 	}
 
-	// Each weapon after the first pops a doctor speech bubble as it arrives, so
-	// the rapid arm-up reads as a whole crowd of doctors piling on.
-	for i := 1; i < len(openingWeapons); i++ {
-		if o.t == opFirstArrive+i*opStagger {
+	// Each weapon tile (skipping the central generator) pops a doctor speech bubble
+	// as it arrives, so the rapid arm-up reads as a whole crowd of doctors piling on.
+	if o.turret != nil {
+		tiles := o.turret.Tiles()
+		for i := 1; i < len(o.order); i++ {
+			if o.t != opFirstArrive+i*opStagger {
+				continue
+			}
+			if _, isWeapon := tiles[o.order[i]].Component.(core.WeaponComponent); !isWeapon {
+				continue
+			}
 			o.bubbles = append(o.bubbles, openingBubble{
 				pos:  geom.PointF{X: 130 + o.rng.Float64()*(screenW-260), Y: 130 + o.rng.Float64()*(screenH-380)},
 				born: o.t,
@@ -210,23 +253,9 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 	}
 	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), opCenterX, tankY, tankDrawW*opZoom, tankDrawH*opZoom, 0, 1, 1, 1, 1)
 
-	// Weapons fly in from outside to their mount, base sockets telegraphing the spot.
-	for i, w := range openingWeapons {
-		arrive := opFirstArrive + i*opStagger
-		if o.t < arrive-opFlyDur {
-			continue
-		}
-		target := geom.PointF{X: opCenterX + w.dx, Y: opCenterY + w.dy}
-		ang := math.Atan2(w.dy, w.dx) + math.Pi/2 // barrel points outward from the tank
-		drawing.DrawSprite(screen, drawing.Image(asset.ImgTile), target.X, target.Y, opTile, opTile, 0, 1, 1, 1, 1)
-
-		pos := target
-		if o.t < arrive {
-			outward := geom.PointFFromPolar(1100, math.Atan2(w.dy, w.dx))
-			pos = lerpPt(target.Add(outward), target, smooth(float64(o.t-(arrive-opFlyDur))/opFlyDur))
-		}
-		drawOpeningBarrel(screen, w.kind, pos.X, pos.Y, ang)
-	}
+	// The real run turret grows outward from the central generator: each tile
+	// flies from the tank centre to its hex slot, staggered in center-out order.
+	o.drawAssembly(screen)
 
 	// The first doctor's line, then the crowd of repeated bubbles.
 	if o.t >= opFirstLine && o.t < opFirstArrive+40 {
@@ -270,14 +299,48 @@ func (o *Opening) drawSkipHint(screen *ebiten.Image) {
 
 func (o *Opening) Layout(outsideWidth, outsideHeight int) (int, int) { return screenW, screenH }
 
-// drawOpeningBarrel draws a weapon barrel anchored at its mount-tile centre,
-// the same way the in-game turret does, but at a fixed angle for the cinematic.
-func drawOpeningBarrel(screen *ebiten.Image, kind core.WeaponKind, cx, cy, angle float64) {
-	img := drawing.Image(weaponTileKey(kind))
-	b := img.Bounds()
-	ax := float64(b.Dx()) / 2
-	ay := float64(b.Dy()) - core.TurretTileSize/2
-	drawing.DrawSpriteAnchored(screen, img, cx, cy, opTile/core.TurretTileSize, angle, ax, ay, 1, 1, 1, 1)
+// drawAssembly draws the real run turret mid-assembly: every tile that has begun
+// arriving flies from the tank centre (the generator) out to its hex slot, drawn
+// with the same tile/barrel art as the in-game turret. Tiles point world-up
+// (theta 0), like the paused cut view, for a clear "being built" read.
+func (o *Opening) drawAssembly(screen *ebiten.Image) {
+	if o.turret == nil {
+		return
+	}
+	center := geom.PointF{X: opCenterX, Y: opCenterY}
+
+	// Current (flight-interpolated) positions of tiles that have started arriving.
+	type vis struct {
+		idx hexmap.Index
+		pos geom.PointF
+	}
+	vs := make([]vis, 0, len(o.order))
+	for i, idx := range o.order {
+		arrive := opFirstArrive + i*opStagger
+		if o.t < arrive-opFlyDur {
+			continue // not started yet
+		}
+		dx, dy := hexLocalOffset(idx, opTile)
+		target := geom.PointF{X: center.X + dx, Y: center.Y + dy}
+		p := smooth(float64(o.t-(arrive-opFlyDur)) / opFlyDur)
+		vs = append(vs, vis{idx: idx, pos: lerpPt(center, target, p)})
+	}
+	// Paint top-to-bottom so nearer (lower) tiles and their tall fixtures overlay
+	// the ones behind, matching the in-game turret's painter order.
+	sort.Slice(vs, func(i, j int) bool {
+		if vs[i].pos.Y != vs[j].pos.Y {
+			return vs[i].pos.Y < vs[j].pos.Y
+		}
+		return vs[i].pos.X < vs[j].pos.X
+	})
+
+	tiles := o.turret.Tiles()
+	for _, v := range vs {
+		drawTileBase(screen, o.turret, v.idx, tiles[v.idx], o.power[v.idx], v.pos.X, v.pos.Y, opTile, 0)
+	}
+	for _, v := range vs {
+		drawTileFixture(screen, o.turret, v.idx, tiles[v.idx], o.power[v.idx], v.pos.X, v.pos.Y, opTile, 0)
+	}
 }
 
 // drawTelopC draws txt horizontally centred at cx with its top at y, tinted by
