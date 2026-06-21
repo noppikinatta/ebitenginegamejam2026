@@ -325,6 +325,10 @@ func (w *World) emitPellets(weapon *Weapon, params WeaponParams, stats WeaponSta
 			ExplodeDamage: stats.ExplodeDamage,
 			PassThrough:   params.PassThrough,
 			Mover:         params.Mover,
+			Sprite:        params.Sprite,
+			DrawW:         params.ProjDrawW,
+			DrawH:         params.ProjDrawH,
+			FaceVelocity:  params.ProjFaceVelocity,
 			alive:         true,
 		})
 	}

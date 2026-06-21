@@ -23,7 +23,14 @@
 | `tank.png` | 48x64 | 自機（戦車）。**上向き**で authoring（砲塔は別途タイルで重なる） |
 | `gem.png` | 8x8 | 経験値ジェム |
 | `nipper.png` | 12x12 | ニッパー（切断回数アイテム） |
-| `projectile.png` | 8x8 | 既定の弾 |
+| `projectile.png` | 8x8 | 既定の弾（武器がスプライト未指定の時のフォールバック） |
+| `proj_cannon.png` | **8x12** | キャノン弾（長方形・**進行方向へ回転**。上向き authoring） |
+| `proj_shotgun.png` | 6x6 | ショットガン弾（丸） |
+| `proj_sniper.png` | **4x16** | スナイパー弾（細長・**進行方向へ回転**。上向き authoring） |
+| `proj_gatling.png` | 6x6 | ガトリング弾（丸） |
+| `proj_grenade.png` | 14x14 | グレネード弾（丸・放物投擲） |
+| `proj_ciws.png` | 6x6 | CIWS弾（丸） |
+| `proj_missile.png` | **8x12** | ミサイル弾（やや大きめ・ホーミングで**敵方向へ回転**。上向き authoring） |
 | `proj_balloon.png` | 16x16 | 風船ジャンクが出すコミカル弾 |
 | `proj_coffee.png` | 16x16 | コーヒーメーカーが噴出するコーヒー |
 | `proj_toast.png` | 16x16 | トースターが飛ばすトースト |
@@ -57,7 +64,7 @@
 
 ## ジャンク（種類ごとに1枚）
 
-> 平型は 24x24 で土台 `tile.png` の上に重ねて描画。**Sagrada Familia のみ縦長 24x72**（土台から立ち上がる背の高いフィクスチャ。バレル同様、最下段24x24＝土台で authoring）。
+> 平型は 24x24 で土台 `tile.png` の上に重ねて描画。**Five-storied Pagoda のみ縦長 24x72**（土台から立ち上がる背の高いフィクスチャ。バレル同様、最下段24x24＝土台で authoring）。
 > ファイル名は `core.JunkImageKey(デバイス名)` のスラッグ。`make junk-img` でプレースホルダ再生成。
 
 | ファイル | 寸法 | デバイス名 |
@@ -66,7 +73,7 @@
 | `junk_electric_fan.png` | 24x24 | Electric Fan（扇風機） |
 | `junk_calculator.png` | 24x24 | Calculator（電卓） |
 | `junk_wi_fi_antenna.png` | 24x24 | Wi-Fi Antenna |
-| `junk_sagrada_familia.png` | **24x72** | Sagrada Familia（サグラダファミリア・**Tall**） |
+| `junk_five_storied_pagoda.png` | **24x72** | Five-storied Pagoda（五重塔・**Tall**） |
 | `junk_fax_machine.png` | 24x24 | Fax Machine（FAX） |
 | `junk_lava_lamp.png` | 24x24 | Lava Lamp |
 | `junk_oil_heater.png` | 24x24 | Oil Heater（オイルヒーター） |
@@ -139,3 +146,5 @@
 ## 将来・未実装（今は不要）
 
 弾を出すジャンク全6種は配線済み（`docs/asset-plan.md` 参照）。弾スプライト `proj_coffee` / `proj_toast` / `proj_note` / `proj_duck` / `proj_firework` はプレースホルダ（`make proj-img` ＝ `tools/genprojimg` で生成した色付き円）。本番アートに差し替える場合は該当 PNG を上書きするだけ。
+
+通常武器の弾もそれぞれ専用スプライト（`proj_cannon` / `proj_shotgun` / `proj_sniper` / `proj_gatling` / `proj_grenade` / `proj_ciws` / `proj_missile`、Laser はビームのため弾なし）を持つ。同じく `make proj-img` でプレースホルダ生成（丸弾は円、長方形弾は縦長カプセル）。割り当ては `core.Sprite*` 定数 → `data/weapon.go` の `WeaponParams.Sprite`／`ProjDrawW`／`ProjDrawH`／`ProjFaceVelocity`。**Cannon / Sniper / Missile は `ProjFaceVelocity` で進行方向へ回転**（弾は上向き authoring、scene が `Vel.Angle()+π/2` で回す＝戦車と同規約）。本番アートは該当 PNG を上書きするだけ。

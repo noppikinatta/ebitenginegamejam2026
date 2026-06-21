@@ -65,9 +65,15 @@ type Projectile struct {
 	// Mover steers the projectile each tick (homing, drifting). nil flies straight.
 	Mover ProjectileMover
 	// Sprite is the image key this projectile is drawn with; empty uses the
-	// default bullet sprite. Junk emitters set it to their cosmetic projectile.
+	// default bullet sprite. Junk emitters and weapons set it to their own art.
 	Sprite string
-	alive  bool
+	// DrawW/DrawH are the sprite's draw footprint in px (0 lets the scene pick a
+	// default). FaceVelocity rotates the sprite to point along Vel (elongated art
+	// like the cannon shell, sniper dart and homing missile).
+	DrawW        float64
+	DrawH        float64
+	FaceVelocity bool
+	alive        bool
 }
 
 // Explosion is a short-lived visual effect queued where an explosive shell

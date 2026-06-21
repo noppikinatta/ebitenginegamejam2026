@@ -87,6 +87,16 @@ type WeaponParams struct {
 	PassThrough   bool
 	// Mover steers each fired projectile (homing, drift). nil flies straight.
 	Mover ProjectileMover
+	// Projectile appearance. Sprite is the image key fired projectiles are drawn
+	// with (empty falls back to the default bullet). ProjDrawW/ProjDrawH are the
+	// draw footprint in px (independent of ProjRadius, which is collision only),
+	// so non-square art like the missile (8×12) can be expressed. ProjFaceVelocity
+	// rotates the sprite to point along its travel direction (for elongated art:
+	// cannon shell, sniper dart, homing missile); round bullets leave it false.
+	Sprite           string
+	ProjDrawW        float64
+	ProjDrawH        float64
+	ProjFaceVelocity bool
 	// Laser-only.
 	BeamBaseLength   float64
 	BeamBaseWidth    float64

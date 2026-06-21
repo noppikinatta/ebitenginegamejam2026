@@ -8,7 +8,8 @@ title-start,クリックでスタート
 # --- オープニング ---
 op-aliens,エイリアンが攻めてきたぞ！
 op-doctor,一人では危険じゃ、これを授けよう
-click-skip,クリックでスキップ
+op-hint-advance,クリックで次へ
+op-hint-skip,Space長押しでスキップ
 
 # --- ゲーム中HUD ---
 hud-pwr,電力
@@ -88,7 +89,7 @@ junk-unusual-banana,ヘンテコバナナ
 junk-electric-fan,扇風機
 junk-calculator,電卓
 junk-wi-fi-antenna,Wi-Fiアンテナ
-junk-sagrada-familia,サグラダ・ファミリア
+junk-five-storied-pagoda,五重塔
 junk-fax-machine,FAX
 junk-lava-lamp,ラバランプ
 junk-oil-heater,オイルヒーター
@@ -106,6 +107,28 @@ junk-toaster,トースター
 junk-music-box,オルゴール
 junk-rubber-duck-dispenser,ラバーダック設置装置
 junk-fireworks,花火
+
+# --- ジャンク説明（仮テキスト・後で調整） ---
+junk-unusual-banana-desc,砲塔に括りつけられたヘンテコな形のバナナ。電力は通すが食べられもしない——切る筆頭候補。
+junk-electric-fan-desc,頼んでもいない冷却を続ける扇風機。電力の無駄——切る筆頭候補。
+junk-calculator-desc,誰のためでもない計算を延々と。負荷だけ増やす——切る筆頭候補。
+junk-wi-fi-antenna-desc,とっくに切断されたネットへ発信し続ける——切る筆頭候補。
+junk-five-storied-pagoda-desc,静寂のために据えられた巨大な五重塔。背が高く無意味で電力を薄める——切る筆頭候補。
+junk-fax-machine-desc,宛先のない注文をFAXし続ける。ピーピー鳴って電力を食う——切る筆頭候補。
+junk-lava-lamp-desc,催眠的なゆらめき。戦闘価値はゼロ——切る筆頭候補。
+junk-oil-heater-desc,砲塔をぽかぽかに。何のためでもなく電力を吸う——切る筆頭候補。
+junk-rice-cooker-desc,戦闘中に完璧なご飯を炊き上げる。美味だが無意味——切る筆頭候補。
+junk-modern-art-fountain-desc,前衛的な泉。評論家は絶賛するが戦車は無関心——切る筆頭候補。
+junk-invisible-cannon-desc,愚か者にしか見えないキャノン。何も撃たない——切る筆頭候補。
+junk-nft-nuclear-missile-desc,NFT化された核ミサイル。代替不可能で機能不全——切る筆頭候補。
+junk-horns-desc,飾りのツノ。威圧的だが役立たず——切る筆頭候補。
+junk-ai-targeting-device-desc,特に何も狙わないAI。考えるだけで電力を燃やす——切る筆頭候補。
+junk-balloon-service-unit-desc,陽気な風船を空へ漂わせる。無害な演出——切る筆頭候補。
+junk-coffee-maker-desc,熱いコーヒーを外へ噴く。いい香りだが効果なし——切る筆頭候補。
+junk-toaster-desc,トーストを宙へポンと飛ばす。香ばしいが無意味——切る筆頭候補。
+junk-music-box-desc,音符を漂わせる。心地よいが無益——切る筆頭候補。
+junk-rubber-duck-dispenser-desc,ラバーダックを撒き散らす。鳴くだけでダメージなし——切る筆頭候補。
+junk-fireworks-desc,無害な花火を打ち上げる。見た目だけで電力にならない——切る筆頭候補。
 
 # --- ボス名 ---
 boss-prototype-hauler,試作運搬機

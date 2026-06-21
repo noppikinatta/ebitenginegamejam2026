@@ -39,7 +39,13 @@
 - `core/junk_emitter.go`：`EmitterSpec{Interval, Aim(EmitUp/Outward/Random), Speed, Life, Radius, Sprite, Mover, ExplodeRadius}`、ランタイム `junkEmitter{spec, timer}`（`Junk.emitter *junkEmitter`、値コピーでも timer 共有）、`World.updateJunkEmitters()`（`Update` で毎tick、`MuzzleOffset` から発射）、`emitAngle`。
 - `Turret.ActiveEmitters()`：接続中の発射ジャンクを収集（`ComputePower` ベース＝junkも含む）。
 - 発射は**固定 Interval（発射倍率の影響なし）**。弾は**コミカル演出＝0ダメージ・`PassThrough`（敵すり抜け）**で、ジャンクは依然「切るべき無用タイル」。
-- `Projectile.Sprite`（画像キー、空＝既定弾）追加。scene は junk弾を 16px・既定弾を 8px で描画。Mover は `core/projectile_mover.go`。
+- `Projectile.Sprite`（画像キー、空＝既定弾）に加え `DrawW/DrawH`（描画寸法、0＝既定）・`FaceVelocity`（進行方向へ回転）を持つ。scene はサイズ未指定時に junk弾を 16px・既定弾を 8px でフォールバック描画。Mover は `core/projectile_mover.go`。
+
+## 通常武器の弾（武器ごとに専用スプライト）— 実装済
+
+各 `WeaponKind`（Laser 除く）に `core.Sprite*` 定数 → `data/weapon.go` の `WeaponParams.Sprite`／`ProjDrawW`／`ProjDrawH`／`ProjFaceVelocity` を割り当て。`emitPellets` が `Projectile` へ伝搬し、scene が `Projectile.Sprite`／`DrawW`／`DrawH` で描画、`FaceVelocity` の弾は `Vel.Angle()+π/2`（弾は上向き authoring、戦車と同規約）で回転。
+- Cannon `proj_cannon`（8×12・**回転**）/ Shotgun `proj_shotgun`（6×6・丸）/ Sniper `proj_sniper`（4×16・**回転**）/ Gatling `proj_gatling`（6×6・丸）/ Grenade `proj_grenade`（14×14・丸）/ CIWS `proj_ciws`（6×6・丸）/ Missile `proj_missile`（8×12・ホーミング＋**回転**）。
+- プレースホルダは `make proj-img`（`tools/genprojimg`）が丸弾＝円・回転弾＝縦長カプセルで生成。サイズ・色は初期値、要バランス調整。
 
 **実装状況**
 - 風船サービス装置 (Balloon Service Unit) — **実装済**。`NewRiseMover`（上昇＋サイン横揺れ）で画面上へ漂う。Interval 90tick、Sprite `proj_balloon`（プレースホルダ＝赤丸）。
@@ -56,7 +62,7 @@
 - 扇風機 (Electric Fan)
 - 電卓 (Calculator)
 - Wi-Fiアンテナ (Wi-Fi Antenna)
-- サグラダファミリア (Sagrada Familia) — `Tall`
+- 五重塔 (Five-storied Pagoda) — `Tall`
 - FAX (Fax Machine)
 - ラーバランプ (Lava Lamp)
 - オイルヒーター (Oil Heater)

@@ -4,8 +4,8 @@ import "testing"
 
 // TestNewJunk_TallFlag: tall device names get Tall set; ordinary ones don't.
 func TestNewJunk_TallFlag(t *testing.T) {
-	if !newJunk("Sagrada Familia").Tall {
-		t.Error("Sagrada Familia should be a Tall junk")
+	if !newJunk("Five-storied Pagoda").Tall {
+		t.Error("Five-storied Pagoda should be a Tall junk")
 	}
 	if newJunk("Toaster").Tall {
 		t.Error("Toaster should not be a Tall junk")

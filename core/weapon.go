@@ -42,6 +42,22 @@ func (k WeaponKind) String() string {
 	}
 }
 
+// Projectile sprite keys for the projectile weapons (Laser has no projectile, so
+// it is omitted). Like the junk-emitter sprite keys, core keeps these as plain
+// strings so it stays Ebiten-free; the asset layer supplies matching images and
+// the scene draws Projectile.Sprite directly. Cannon/Sniper/Missile use
+// elongated art drawn rotated to face travel (ProjFaceVelocity); the rest are
+// round bullets drawn upright.
+const (
+	SpriteCannon  = "proj_cannon"
+	SpriteShotgun = "proj_shotgun"
+	SpriteSniper  = "proj_sniper"
+	SpriteGatling = "proj_gatling"
+	SpriteGrenade = "proj_grenade"
+	SpriteCIWS    = "proj_ciws"
+	SpriteMissile = "proj_missile"
+)
+
 // WeaponStats are the concrete combat numbers a weapon fires with. They flow
 // through Weapon.Stats, where the turret-wide fire-rate multiplier (the
 // Disconnect mechanic's power expression) modulates the fire interval.

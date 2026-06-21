@@ -464,6 +464,41 @@ func TestRollChoices_AtCapNeverAddsTiles(t *testing.T) {
 
 // ── 7. Determinism ────────────────────────────────────────────────────────────
 
+// TestNewWorld_SameSeedSameTurret locks the contract the opening/in-game scenes
+// rely on: building two worlds from the same seed yields the identical turret
+// (same tile slots, same component on each). The opening cinematic seeds a turret
+// to show assembling and hands the seed to InGame, trusting that NewWorld(seed)
+// reproduces it exactly.
+func TestNewWorld_SameSeedSameTurret(t *testing.T) {
+	a := NewWorld(testSeed, testConfig()).Turret()
+	b := NewWorld(testSeed, testConfig()).Turret()
+
+	ta, tb := a.Tiles(), b.Tiles()
+	if len(ta) != len(tb) {
+		t.Fatalf("tile count differs: %d vs %d", len(ta), len(tb))
+	}
+	for idx, tileA := range ta {
+		tileB, ok := tb[idx]
+		if !ok {
+			t.Errorf("tile %v present in A but missing in B", idx)
+			continue
+		}
+		na, nb := componentName(tileA.Component), componentName(tileB.Component)
+		if na != nb {
+			t.Errorf("tile %v component differs: %q vs %q", idx, na, nb)
+		}
+	}
+}
+
+// componentName returns a component's display name (or "" for an empty slot), for
+// comparing two turrets tile-by-tile.
+func componentName(c Component) string {
+	if c == nil {
+		return ""
+	}
+	return c.Name()
+}
+
 func TestDeterminism_SameSeedSameSpawnPositions(t *testing.T) {
 	const ticks = 200
 
