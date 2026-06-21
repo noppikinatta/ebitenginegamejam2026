@@ -5,8 +5,6 @@ import (
 	"sort"
 	"strings"
 	"text/template"
-
-	"github.com/noppikinatta/ebitenginegamejam2026/asset"
 )
 
 func Switch() string {
@@ -118,7 +116,7 @@ func (c *cachedTemplate) template() *template.Template {
 }
 
 func init() {
-	langData := asset.LoadTemplates()
+	langData := LoadTemplates()
 	langs := make([]string, 0, len(langData))
 	langTmpls := make(map[string]map[string]*cachedTemplate, len(langData))
 

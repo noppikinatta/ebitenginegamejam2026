@@ -71,7 +71,7 @@ Written in Go using the Ebitengine game engine. Supports both desktop and WebAss
   - 仮音源はサイン波生成：`make sound-gen` が `gensound`（SE→`raw/`、BGM2曲→`asset/sound/`）→`sndpak -rebuild` を実行
   - `asset.LoadSounds()`（`app/main.go` 起動時）が `bgm_title.wav`/`bgm_game.wav` を直接デコード＋`sndpak.Unpack(se.pak)` でSE展開→各エントリをデコード。デコード/欠落は握りつぶす（ログして継続、pakが壊れていてもSE無音で起動、BGM失敗もBGM無しで継続）。SEは `context.NewPlayerFromBytes` で毎回生成し多重再生可、BGMはトラックごとに単一プレイヤーを `Rewind` で使い回しループ
 - **タイトル画像 `asset/img/title.png` もプレースホルダ**（枠だけの矩形）
-- **言語CSVは整備済み**。`asset/lang/english.csv` / `japanese.csv` に scene の全UI文言・武器名/説明・博士/ジャンク/ボス名をキーで定義（両言語キー集合一致、`lang/csv_test.go` で検証）。scene は `drawing.DrawTextByKey`/`DrawTextTemplate` で描画し、core由来の名前は scene の `loc.go`（`weaponName`/`doctorNameL`/`junkNameL`/`bossNameL`、未定義キーは `lang.TextWithDefault` で元文字列にフォールバック）でキー解決。デフォルト言語は english（L キーで日本語へ切替）。カード番号など語を含まない純数値のみ `fmt.Sprintf` のまま
+- **言語CSVは整備済み**。`lang/csv/english.csv` / `japanese.csv` に scene の全UI文言・武器名/説明・博士/ジャンク/ボス名をキーで定義（両言語キー集合一致、`lang/csv_test.go` で検証）。CSVは `lang` パッケージが `//go:embed csv/*.csv` で自前にロード・パースする（Ebiten非依存なので headless でテスト可能）。scene は `drawing.DrawTextByKey`/`DrawTextTemplate` で描画し、core由来の名前は scene の `loc.go`（`weaponName`/`doctorNameL`/`junkNameL`/`bossNameL`、未定義キーは `lang.TextWithDefault` で元文字列にフォールバック）でキー解決。デフォルト言語は english（L キーで日本語へ切替）。カード番号など語を含まない純数値のみ `fmt.Sprintf` のまま
 - **バランス調整未実施** — 砲塔生成パラメータ（MaxTiles/BranchProb/WeaponDensity/JunkDensity）、電力量、ニッパー入手率、燭台周期、`maxTurretTiles` 等は初期値のまま。プレイテストで要調整
 
 ### Build/Verify この環境での注意
@@ -164,14 +164,14 @@ go test ./lang/... -run TestName -v
 
 ### lang パッケージ
 
-- `asset/lang/<language>.csv` を `<言語名>` として読み込む（ファイル名 = 言語名。現状 `english` / `japanese`）。デフォルトは **english**
+- `lang/csv/<language>.csv` を `<言語名>` として読み込む（ファイル名 = 言語名。現状 `english` / `japanese`）。`lang` パッケージが `//go:embed` で直接埋め込み・パースする（`asset` 非依存＝Ebiten非依存でテスト可能）。デフォルトは **english**
 - CSV は `key,value` の2列。`#` 始まりはコメント、value 内の `\n` リテラルは改行に変換される
 - 取得は `lang.Text("key")`。プレースホルダ入りは `lang.ExecuteTemplate("key", data)` で Go `text/template` として評価（テンプレートはキャッシュされる）。キーが無ければ `NO_TMPL: ...` を返す。`lang.Has("key")` でキー有無を判定、`lang.TextWithDefault("key", def)` は未定義時に `def` を返す（core由来の英語名をCSV移行する際のフォールバックに使用）
 - `lang.Switch()` で言語を循環切替（戻り値は表示用に先頭大文字化した言語名）
 
 ### asset パッケージ
 
-- `embed.go` — フォント（Mplus2-Regular）、`lang/*.csv`、`img/*.png` を埋め込み、`init()` で `FontFace(size)`（サイズ別キャッシュ）・言語テンプレート・画像マップを構築。`Images()` / `LoadTemplates()` / `FontFace()` を公開
+- `embed.go` — フォント（Mplus2-Regular）、`img/*.png` を埋め込み、`init()` で `FontFace(size)`（サイズ別キャッシュ）・画像マップを構築。`Images()` / `FontFace()` を公開。**言語CSVは `lang` パッケージが自前で埋め込む**（`asset` は非関与＝lang が Ebiten 非依存になった）
 - `sound.go` — `bgm.wav`（ループ）と SE（`fire`/`explosion`/`hit`）`.wav` を埋め込み、48000Hz の `audio.Context` を作る。`LoadSounds()`（`app/main.go` で起動時に呼ぶ）でSEは**デコード済みPCMを保持**し `PlaySound` ごとに `NewPlayerFromBytes` で多重再生、BGMは単一ループプレイヤー。`PlaySound(Sound)` / `PlayBGM()` / `StopBGM()`。`Sound` は `BGM` / `SEFire` / `SEExplosion` / `SEPlayerHit` の enum。**core はEbiten非依存のまま音を扱う**：`core.SoundEvent`（`SndFire`/`SndExplosion`/`SndPlayerHit`）を `World.Update` 中に `emit` で `World.SoundEvents` へ貯め、scene が毎フレーム `core.DispatchSounds(events, sink)`（同tick重複は1回に間引き）で `core.SoundSink` 実装（`scene.soundSink`→`asset.PlaySound`）へ流す。`SoundSink` がテスト用フェイクで差し替え可能な注入点
 
 ### Drawing / Performance Conventions
