@@ -10,7 +10,9 @@ const (
 	ImgEnemy        = "enemy" // grunt (default zako)
 	ImgEnemySwarmer = "enemy_swarmer"
 	ImgEnemyBrute   = "enemy_brute"
-	ImgBoss         = "boss"
+	ImgBoss1        = "boss1" // 3-min boss (Prototype Hauler)
+	ImgBoss2        = "boss2" // 6-min boss (Siege Engine)
+	ImgBoss3        = "boss3" // 10-min final boss (The Disconnector)
 	ImgCandlestick  = "candlestick"
 	ImgGem          = "gem"
 	ImgNipper       = "nipper"

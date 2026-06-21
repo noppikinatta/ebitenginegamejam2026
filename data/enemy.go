@@ -79,9 +79,9 @@ func spawnPhases() []core.SpawnPhase {
 // (no time scaling). Tune during playtesting.
 func bosses() []core.BossSpec {
 	return []core.BossSpec{
-		{AtTick: min3, Name: "Prototype Hauler", HP: 1200, Speed: 0.9, Radius: 40, Damage: 20, XPValue: 50},
-		{AtTick: min6, Name: "Siege Engine", HP: 3000, Speed: 0.85, Radius: 46, Damage: 26, XPValue: 100},
-		{AtTick: min10, Name: "The Disconnector", HP: 8000, Speed: 0.8, Radius: 54, Damage: 32, XPValue: 200, Final: true},
+		{AtTick: min3, Name: "Prototype Hauler", HP: 1200, Speed: 0.9, Radius: 40, Damage: 20, XPValue: 50, Sprite: core.BossSprite1},
+		{AtTick: min6, Name: "Siege Engine", HP: 3000, Speed: 0.85, Radius: 46, Damage: 26, XPValue: 100, Sprite: core.BossSprite2},
+		{AtTick: min10, Name: "The Disconnector", HP: 8000, Speed: 0.8, Radius: 54, Damage: 32, XPValue: 200, Final: true, Sprite: core.BossSprite3},
 	}
 }
 

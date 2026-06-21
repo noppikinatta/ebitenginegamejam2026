@@ -359,7 +359,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1)
 	}
 	for _, pk := range w.Pickups {
-		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 12, 12, 0, 1, 1, 1, 1)
+		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 16, 16, 0, 1, 1, 1, 1)
 	}
 	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {
@@ -1021,18 +1021,21 @@ func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.Poin
 // enemySpriteKey selects the sprite for an enemy: candlestick, boss, or the
 // per-kind zako sprite.
 func enemySpriteKey(e *core.Enemy) string {
-	return enemySpriteKeyFor(e.Kind, e.IsBoss, e.DropsNipper)
+	return enemySpriteKeyFor(e.Sprite, e.Kind, e.IsBoss, e.DropsNipper)
 }
 
 // enemySpriteKeyFor selects the sprite from the fields that distinguish enemies,
 // so the live draw (enemySpriteKey) and the death-fade effect (which only has a
-// DeathEvent, not the Enemy) share one mapping.
-func enemySpriteKeyFor(kind core.EnemyKind, isBoss, dropsNipper bool) string {
+// DeathEvent, not the Enemy) share one mapping. An explicit sprite override (set
+// per boss) wins so each boss can use its own art.
+func enemySpriteKeyFor(sprite string, kind core.EnemyKind, isBoss, dropsNipper bool) string {
 	switch {
+	case sprite != "":
+		return sprite
 	case dropsNipper:
 		return asset.ImgCandlestick
 	case isBoss:
-		return asset.ImgBoss
+		return asset.ImgBoss1
 	case kind == core.EnemySwarmer:
 		return asset.ImgEnemySwarmer
 	case kind == core.EnemyBrute:

@@ -22,7 +22,7 @@
 |---|---|---|
 | `tank.png` | 48x64 | 自機（戦車）。**上向き**で authoring（砲塔は別途タイルで重なる） |
 | `gem.png` | 8x8 | 経験値ジェム |
-| `nipper.png` | 12x12 | ニッパー（切断回数アイテム） |
+| `nipper.png` | 16x16 | ニッパー（切断回数アイテム） |
 | `projectile.png` | 8x8 | 既定の弾（武器がスプライト未指定の時のフォールバック） |
 | `proj_cannon.png` | **8x12** | キャノン弾（長方形・**進行方向へ回転**。上向き authoring） |
 | `proj_shotgun.png` | 6x6 | ショットガン弾（丸） |
@@ -100,7 +100,9 @@
 | `enemy_swarmer.png` | 28x28 | スウォーマー（高速・低耐久・群れ） |
 | `enemy_brute.png` | 52x52 | ブルート（低速・高耐久・大型） |
 | `candlestick.png` | 32x32 | 燭台（停止・無害・ニッパーdrop） |
-| `boss.png` | 112x112 | ボス3種共用（Prototype Hauler / Siege Engine / The Disconnector） |
+| `boss1.png` | 80x80 | 3分ボス（Prototype Hauler） |
+| `boss2.png` | 80x80 | 6分ボス（Siege Engine） |
+| `boss3.png` | 112x112 | 10分・最終ボス（The Disconnector） |
 
 ---
 

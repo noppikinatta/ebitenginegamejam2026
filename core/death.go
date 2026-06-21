@@ -14,6 +14,7 @@ type DeathEvent struct {
 	Radius      float64
 	IsBoss      bool
 	DropsNipper bool
+	Sprite      string // explicit sprite-key override (bosses); empty falls back to the per-kind sprite
 }
 
 // emitDeath records an enemy death for the scene's fade-out effect.
@@ -24,5 +25,6 @@ func (w *World) emitDeath(e *Enemy) {
 		Radius:      e.Radius,
 		IsBoss:      e.IsBoss,
 		DropsNipper: e.DropsNipper,
+		Sprite:      e.Sprite,
 	})
 }

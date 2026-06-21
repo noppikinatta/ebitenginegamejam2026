@@ -44,6 +44,7 @@ type Enemy struct {
 	IsBoss      bool   // scheduled boss: drawn large, shows a health bar
 	Final       bool   // final boss: killing it clears the run
 	Name        string // boss display name
+	Sprite      string // explicit sprite-key override (bosses set their own art); empty falls back to the per-kind sprite
 	alive       bool
 }
 
