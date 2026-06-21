@@ -21,7 +21,7 @@ func (g *InGame) spawnDeathFX() {
 	for _, ev := range g.world.DeathEvents {
 		g.deaths = append(g.deaths, deathFX{
 			pos:  ev.Pos,
-			key:  enemySpriteKeyFor(ev.Kind, ev.IsBoss, ev.DropsNipper),
+			key:  enemySpriteKeyFor(ev.Sprite, ev.Kind, ev.IsBoss, ev.DropsNipper),
 			size: ev.Radius * 2,
 		})
 	}

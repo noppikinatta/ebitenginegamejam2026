@@ -22,7 +22,7 @@
 |---|---|---|
 | `tank.png` | 48x64 | 自機（戦車）。**上向き**で authoring（砲塔は別途タイルで重なる） |
 | `gem.png` | 8x8 | 経験値ジェム |
-| `nipper.png` | 12x12 | ニッパー（切断回数アイテム） |
+| `nipper.png` | 16x16 | ニッパー（切断回数アイテム） |
 | `projectile.png` | 8x8 | 既定の弾（武器がスプライト未指定の時のフォールバック） |
 | `proj_cannon.png` | **8x12** | キャノン弾（長方形・**進行方向へ回転**。上向き authoring） |
 | `proj_shotgun.png` | 6x6 | ショットガン弾（丸） |
@@ -32,7 +32,7 @@
 | `proj_ciws.png` | 6x6 | CIWS弾（丸） |
 | `proj_missile.png` | **8x12** | ミサイル弾（やや大きめ・ホーミングで**敵方向へ回転**。上向き authoring） |
 | `proj_balloon.png` | 16x16 | 風船ジャンクが出すコミカル弾 |
-| `proj_coffee.png` | 16x16 | コーヒーメーカーが噴出するコーヒー |
+| `proj_steam.png` | 16x16 | コーヒーメーカーが立ち上らせる湯気 |
 | `proj_toast.png` | 16x16 | トースターが飛ばすトースト |
 | `proj_note.png` | 16x16 | オルゴールが漂わせる音符 |
 | `proj_duck.png` | 16x16 | ラバーダック設置装置が撒くダック |
@@ -100,7 +100,9 @@
 | `enemy_swarmer.png` | 28x28 | スウォーマー（高速・低耐久・群れ） |
 | `enemy_brute.png` | 52x52 | ブルート（低速・高耐久・大型） |
 | `candlestick.png` | 32x32 | 燭台（停止・無害・ニッパーdrop） |
-| `boss.png` | 112x112 | ボス3種共用（Prototype Hauler / Siege Engine / The Disconnector） |
+| `boss1.png` | 80x80 | 3分ボス（Prototype Hauler） |
+| `boss2.png` | 80x80 | 6分ボス（Siege Engine） |
+| `boss3.png` | 112x112 | 10分・最終ボス（The Disconnector） |
 
 ---
 
@@ -145,6 +147,6 @@
 
 ## 将来・未実装（今は不要）
 
-弾を出すジャンク全6種は配線済み（`docs/asset-plan.md` 参照）。弾スプライト `proj_coffee` / `proj_toast` / `proj_note` / `proj_duck` / `proj_firework` はプレースホルダ（`make proj-img` ＝ `tools/genprojimg` で生成した色付き円）。本番アートに差し替える場合は該当 PNG を上書きするだけ。
+弾を出すジャンク全6種は配線済み（`docs/asset-plan.md` 参照）。弾スプライト `proj_steam` / `proj_toast` / `proj_note` / `proj_duck` / `proj_firework` はプレースホルダ（`make proj-img` ＝ `tools/genprojimg` で生成した色付き円）。本番アートに差し替える場合は該当 PNG を上書きするだけ。
 
 通常武器の弾もそれぞれ専用スプライト（`proj_cannon` / `proj_shotgun` / `proj_sniper` / `proj_gatling` / `proj_grenade` / `proj_ciws` / `proj_missile`、Laser はビームのため弾なし）を持つ。同じく `make proj-img` でプレースホルダ生成（丸弾は円、長方形弾は縦長カプセル）。割り当ては `core.Sprite*` 定数 → `data/weapon.go` の `WeaponParams.Sprite`／`ProjDrawW`／`ProjDrawH`／`ProjFaceVelocity`。**Cannon / Sniper / Missile は `ProjFaceVelocity` で進行方向へ回転**（弾は上向き authoring、scene が `Vel.Angle()+π/2` で回す＝戦車と同規約）。本番アートは該当 PNG を上書きするだけ。

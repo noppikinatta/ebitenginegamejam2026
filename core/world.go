@@ -845,7 +845,7 @@ func (w *World) spawnBosses() {
 		w.Enemies = append(w.Enemies, &Enemy{
 			Pos: pos, HP: b.HP, MaxHP: b.HP,
 			Speed: b.Speed, Radius: b.Radius, Damage: b.Damage, XPValue: b.XPValue,
-			IsBoss: true, Final: b.Final, Name: b.Name, alive: true,
+			IsBoss: true, Final: b.Final, Name: b.Name, Sprite: b.Sprite, alive: true,
 		})
 	}
 }

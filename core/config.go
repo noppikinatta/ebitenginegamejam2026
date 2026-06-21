@@ -174,6 +174,14 @@ type SpawnPhase struct {
 	Weights   []KindWeight
 }
 
+// Boss sprite keys. The asset layer provides matching PNGs (boss1.png …) and the
+// scene draws Enemy.Sprite directly, mirroring the cosmetic junk sprite keys.
+const (
+	BossSprite1 = "boss1"
+	BossSprite2 = "boss2"
+	BossSprite3 = "boss3"
+)
+
 // BossSpec schedules a single boss to spawn once at AtTick. Bosses do not use
 // time-based HP scaling (HP is fixed here). Killing the boss whose Final flag is
 // set clears the run.
@@ -186,4 +194,5 @@ type BossSpec struct {
 	Damage  float64
 	XPValue float64
 	Final   bool
+	Sprite  string // image key for this boss; empty falls back to the default boss sprite
 }
