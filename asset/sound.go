@@ -16,10 +16,13 @@ package asset
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"errors"
+	"fmt"
 	"io"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
@@ -38,16 +41,15 @@ import (
 //go:embed sound/se.pak
 var sePak []byte
 
-// BGM tracks. BGM is self-authored, so it has no license concern and is
-// committed and embedded directly (no pak / obfuscation). There are two songs:
-// the title track (opening + title screens) and the game track (in-game +
-// result). Swap in real music by replacing the matching wav.
+// bgmFS embeds the whole BGM directory. BGM is self-authored (no license
+// concern), so it is committed and embedded directly (no pak / obfuscation).
+// Each track may be present as a .wav (the authoring master) and/or a .ogg
+// produced by `make bgm-ogg`; loadBGM prefers the .ogg (far smaller for the web
+// build) and falls back to the .wav. Because the whole directory is embedded,
+// dropping the .wav once the .ogg is verified ships ogg-only with no code change.
 //
-//go:embed sound/bgm_title.wav
-var bgmTitleBytes []byte
-
-//go:embed sound/bgm_game.wav
-var bgmGameBytes []byte
+//go:embed sound/bgm
+var bgmFS embed.FS
 
 const sampleRate int = 48000
 
@@ -116,17 +118,17 @@ var seSpecs = []soundSpec{
 	{"hit", SEPlayerHit, fileTypeWav, 0.4},
 }
 
-// bgmSpec describes a BGM track: its embedded bytes, format and volume.
+// bgmSpec describes a BGM track: its file base name (looked up in bgmFS as
+// <name>.ogg / <name>.wav) and playback volume.
 type bgmSpec struct {
-	track    BGMTrack
-	resource []byte
-	fileType fileType
-	volume   float64
+	track  BGMTrack
+	name   string
+	volume float64
 }
 
 var bgmSpecs = []bgmSpec{
-	{BGMTitle, bgmTitleBytes, fileTypeWav, 0.25},
-	{BGMGame, bgmGameBytes, fileTypeWav, 0.25},
+	{BGMTitle, "bgm_title", 0.25},
+	{BGMGame, "bgm_game", 0.25},
 }
 
 // seBytes holds the decoded PCM for each one-shot effect so PlaySound can create
@@ -146,7 +148,7 @@ var (
 // from the embedded sePak). A failed track (missing pak entry or undecodable
 // bytes) is logged and skipped so a single bad asset does not take down the
 // whole game; SE can be swapped by repacking asset/sound/raw, BGM by replacing
-// asset/sound/bgm.wav. If the pak is unreadable the SE are simply silent.
+// the files in asset/sound/bgm. If the pak is unreadable the SE are simply silent.
 func LoadSounds() error {
 	for _, b := range bgmSpecs {
 		if err := loadBGM(b); err != nil {
@@ -186,16 +188,15 @@ func decode(resource []byte, ftype fileType) (io.ReadSeeker, error) {
 	}
 }
 
-// loadBGM decodes one background track into its reusable looping player.
+// loadBGM decodes one background track into its reusable looping player. It
+// prefers the Ogg Vorbis form (<name>.ogg, far smaller for the web build), using
+// the exact loop length recorded by `make bgm-ogg` in <name>.ogg.loop so the
+// lossy stream still loops seamlessly; if no usable .ogg is present it falls back
+// to the .wav master, whose decoded Length() is exact.
 func loadBGM(b bgmSpec) error {
-	stream, err := decode(b.resource, b.fileType)
+	stream, loopLen, err := decodeBGM(b.name)
 	if err != nil {
 		return err
-	}
-	// One reusable looping player; the loop spans the whole decoded stream.
-	var loopLen int64
-	if l, ok := stream.(interface{ Length() int64 }); ok {
-		loopLen = l.Length()
 	}
 	p, err := context.NewPlayer(audio.NewInfiniteLoop(stream, loopLen))
 	if err != nil {
@@ -204,6 +205,52 @@ func loadBGM(b bgmSpec) error {
 	p.SetVolume(b.volume)
 	bgmPlayers[b.track] = p
 	return nil
+}
+
+// decodeBGM returns a looping stream and its loop length in bytes for track
+// `name`, preferring <name>.ogg + <name>.ogg.loop over <name>.wav.
+func decodeBGM(name string) (io.ReadSeeker, int64, error) {
+	if ogg, err := bgmFS.ReadFile("sound/bgm/" + name + ".ogg"); err == nil {
+		loopLen, lerr := readLoopLen(name)
+		if lerr != nil {
+			log.Printf("BGM %q: .ogg present but loop length unusable (%v); falling back to wav", name, lerr)
+		} else if stream, derr := decode(ogg, fileTypeOgg); derr != nil {
+			log.Printf("BGM %q: .ogg failed to decode (%v); falling back to wav", name, derr)
+		} else {
+			return stream, loopLen, nil
+		}
+	}
+	wavBytes, err := bgmFS.ReadFile("sound/bgm/" + name + ".wav")
+	if err != nil {
+		return nil, 0, fmt.Errorf("no .ogg or .wav for BGM %q", name)
+	}
+	stream, err := decode(wavBytes, fileTypeWav)
+	if err != nil {
+		return nil, 0, err
+	}
+	// The wav decoder's Length() is exact, so the whole stream loops cleanly.
+	var loopLen int64
+	if l, ok := stream.(interface{ Length() int64 }); ok {
+		loopLen = l.Length()
+	}
+	return stream, loopLen, nil
+}
+
+// readLoopLen parses the loop length (bytes, decimal) recorded next to the .ogg
+// by the wav2ogg tool.
+func readLoopLen(name string) (int64, error) {
+	b, err := bgmFS.ReadFile("sound/bgm/" + name + ".ogg.loop")
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	if n <= 0 {
+		return 0, fmt.Errorf("non-positive loop length %d", n)
+	}
+	return n, nil
 }
 
 // loadSE decodes a one-shot effect, keeping the PCM so each play gets its own

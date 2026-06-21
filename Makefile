@@ -9,8 +9,8 @@ gen:
 # Drop real SE into asset/sound/raw and run `make sound-pak` (merge) to swap one;
 # replace the bgm_*.wav files for the real (self-authored) BGM.
 sound-gen:
-	mkdir -p asset/sound/raw
-	go run tools/gensound/main.go asset/sound/raw asset/sound
+	mkdir -p asset/sound/raw asset/sound/bgm
+	go run tools/gensound/main.go asset/sound/raw asset/sound/bgm
 	go run tools/sndpak/main.go -rebuild asset/sound/raw asset/sound/se.pak
 
 # Bundle the sound EFFECTS in asset/sound/raw/* into the committed, obfuscated
@@ -28,7 +28,7 @@ sound-pak:
 # After running, wire asset/sound.go to fileTypeOgg + the recorded loop lengths
 # (see the printed snippet / the .ogg.loop files).
 bgm-ogg:
-	go run tools/wav2ogg/main.go asset/sound asset/sound/bgm_title.wav asset/sound/bgm_game.wav
+	go run tools/wav2ogg/main.go asset/sound/bgm asset/sound/bgm/bgm_title.wav asset/sound/bgm/bgm_game.wav
 
 # Regenerate the per-type junk placeholder images into asset/img.
 junk-img:
