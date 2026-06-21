@@ -1,16 +1,16 @@
-package lang
+package lang_test
 
 import (
 	"testing"
 
-	"github.com/noppikinatta/ebitenginegamejam2026/asset"
+	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 )
 
 // TestCSVKeyParity guards against translation drift: every key defined in one
 // language CSV must exist in all the others, so no string falls back to a
 // NO_TMPL marker when the player switches language.
 func TestCSVKeyParity(t *testing.T) {
-	data := asset.LoadTemplates()
+	data := lang.LoadTemplates()
 	if len(data) < 2 {
 		t.Fatalf("expected at least 2 languages, got %d", len(data))
 	}
