@@ -3,7 +3,7 @@
 
 // genprojimg writes one placeholder PNG per projectile sprite into the given
 // directory (default asset/img): the cosmetic junk-emitter projectiles (balloon,
-// coffee, toast, note, duck, firework) and the per-weapon bullets (cannon,
+// steam, toast, note, duck, firework) and the per-weapon bullets (cannon,
 // shotgun, sniper, gatling, grenade, ciws, missile). Each gets its own file
 // named by its core.Sprite* key so the real art can be dropped in later by
 // overwriting the matching file. Placeholders are deliberately plain: round
@@ -39,7 +39,7 @@ type projSprite struct {
 var projSprites = []projSprite{
 	// Junk-emitter cosmetic projectiles (discs).
 	{key: core.SpriteBalloon, col: color.RGBA{0xE0, 0x40, 0x40, 0xFF}, w: 16, h: 16},
-	{key: core.SpriteCoffee, col: color.RGBA{0x6B, 0x40, 0x22, 0xFF}, w: 16, h: 16},
+	{key: core.SpriteSteam, col: color.RGBA{0xE0, 0xE4, 0xEC, 0xB0}, w: 16, h: 16},
 	{key: core.SpriteToast, col: color.RGBA{0xD9, 0xA0, 0x4A, 0xFF}, w: 16, h: 16},
 	{key: core.SpriteNote, col: color.RGBA{0x7A, 0x5C, 0xD0, 0xFF}, w: 16, h: 16},
 	{key: core.SpriteDuck, col: color.RGBA{0xF2, 0xCC, 0x2E, 0xFF}, w: 16, h: 16},

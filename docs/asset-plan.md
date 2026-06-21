@@ -49,7 +49,7 @@
 
 **実装状況**
 - 風船サービス装置 (Balloon Service Unit) — **実装済**。`NewRiseMover`（上昇＋サイン横揺れ）で画面上へ漂う。Interval 90tick、Sprite `proj_balloon`（プレースホルダ＝赤丸）。
-- コーヒーメーカー (Coffee Maker) — **実装済**。外側へ噴出→`NewGravityMover`（下向き加速）で落下。Interval 70tick、Sprite `proj_coffee`
+- コーヒーメーカー (Coffee Maker) — **実装済**。上へ湯気を立ち上らせる→`NewRiseMover`（上昇＋サイン横揺れ）で漂う。Interval 70tick、Sprite `proj_steam`
 - トースター (Toaster) — **実装済**。上へポン→`NewGravityMover` でアーチ落下。Interval 120tick、Sprite `proj_toast`
 - オルゴール (Music Box) — **実装済**。外側へ漂う音符（`NewRiseMover(lift=0)` で横揺れドリフト）。Interval 60tick、Sprite `proj_note`
 - ラバーダック設置装置 (Rubber Duck Dispenser) — **実装済**。ランダム方向に短寿命のダックを撒く（`NewGravityMover`）。Interval 100tick、Sprite `proj_duck`

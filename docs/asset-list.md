@@ -32,7 +32,7 @@
 | `proj_ciws.png` | 6x6 | CIWS弾（丸） |
 | `proj_missile.png` | **8x12** | ミサイル弾（やや大きめ・ホーミングで**敵方向へ回転**。上向き authoring） |
 | `proj_balloon.png` | 16x16 | 風船ジャンクが出すコミカル弾 |
-| `proj_coffee.png` | 16x16 | コーヒーメーカーが噴出するコーヒー |
+| `proj_steam.png` | 16x16 | コーヒーメーカーが立ち上らせる湯気 |
 | `proj_toast.png` | 16x16 | トースターが飛ばすトースト |
 | `proj_note.png` | 16x16 | オルゴールが漂わせる音符 |
 | `proj_duck.png` | 16x16 | ラバーダック設置装置が撒くダック |
@@ -145,6 +145,6 @@
 
 ## 将来・未実装（今は不要）
 
-弾を出すジャンク全6種は配線済み（`docs/asset-plan.md` 参照）。弾スプライト `proj_coffee` / `proj_toast` / `proj_note` / `proj_duck` / `proj_firework` はプレースホルダ（`make proj-img` ＝ `tools/genprojimg` で生成した色付き円）。本番アートに差し替える場合は該当 PNG を上書きするだけ。
+弾を出すジャンク全6種は配線済み（`docs/asset-plan.md` 参照）。弾スプライト `proj_steam` / `proj_toast` / `proj_note` / `proj_duck` / `proj_firework` はプレースホルダ（`make proj-img` ＝ `tools/genprojimg` で生成した色付き円）。本番アートに差し替える場合は該当 PNG を上書きするだけ。
 
 通常武器の弾もそれぞれ専用スプライト（`proj_cannon` / `proj_shotgun` / `proj_sniper` / `proj_gatling` / `proj_grenade` / `proj_ciws` / `proj_missile`、Laser はビームのため弾なし）を持つ。同じく `make proj-img` でプレースホルダ生成（丸弾は円、長方形弾は縦長カプセル）。割り当ては `core.Sprite*` 定数 → `data/weapon.go` の `WeaponParams.Sprite`／`ProjDrawW`／`ProjDrawH`／`ProjFaceVelocity`。**Cannon / Sniper / Missile は `ProjFaceVelocity` で進行方向へ回転**（弾は上向き authoring、scene が `Vel.Angle()+π/2` で回す＝戦車と同規約）。本番アートは該当 PNG を上書きするだけ。

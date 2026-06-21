@@ -21,7 +21,7 @@ const (
 // Projectile.Sprite directly.
 const (
 	SpriteBalloon  = "proj_balloon"
-	SpriteCoffee   = "proj_coffee"
+	SpriteSteam    = "proj_steam"
 	SpriteToast    = "proj_toast"
 	SpriteNote     = "proj_note"
 	SpriteDuck     = "proj_duck"
@@ -65,16 +65,16 @@ var balloonEmitter = EmitterSpec{
 	Mover:    NewRiseMover(0.03, 0.02, 1.6),
 }
 
-// coffeeEmitter sprays a jet of coffee radially outward that arcs back down
-// under gravity.
+// coffeeEmitter (the Coffee Maker junk) puffs out clouds of steam that drift
+// gently up the screen with a sideways wobble.
 var coffeeEmitter = EmitterSpec{
 	Interval: 70,
-	Aim:      EmitOutward,
-	Speed:    1.4,
-	Life:     150,
+	Aim:      EmitUp,
+	Speed:    0.5,
+	Life:     120,
 	Radius:   6,
-	Sprite:   SpriteCoffee,
-	Mover:    NewGravityMover(0.03, 3),
+	Sprite:   SpriteSteam,
+	Mover:    NewRiseMover(0.02, 0.04, 1.2),
 }
 
 // toasterEmitter pops a slice of toast straight up that arcs back down under
