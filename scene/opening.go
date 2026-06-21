@@ -26,7 +26,7 @@ import (
 // turret from it, and InGame later rebuilds the same turret from that seed.
 type Opening struct {
 	input      *ui.Input
-	runSeed    *runSeed // seeded here so InGame fights the turret shown assembling
+	runSeed    *runSeed    // seeded here so InGame fights the turret shown assembling
 	nextScene  ebiten.Game // the title
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
@@ -42,6 +42,13 @@ type Opening struct {
 	turret *core.Turret
 	power  map[hexmap.Index]float64
 	order  []hexmap.Index // tile indices sorted center-outward (assembly order)
+
+	// Power meter, computed exactly like the in-game gauge so the cinematic shows
+	// the fire-rate multiplier dropping as tiles pile on. powerCurve + bounds come
+	// from the run config; powerFill is the smoothed [0,1] bar fill.
+	powerCurve       []core.PowerPoint
+	fireMin, fireMax float64
+	powerFill        float64
 }
 
 type openingAlien struct {
@@ -88,10 +95,17 @@ func (o *Opening) reset() {
 	if o.runSeed != nil {
 		o.runSeed.set(seed)
 	}
-	w := core.NewWorld(seed, data.NewConfig())
+	cfg := data.NewConfig()
+	w := core.NewWorld(seed, cfg)
 	o.turret = w.Turret()
 	o.power = o.turret.ComputePower()
 	o.buildOrder()
+
+	// Capture the power curve and its multiplier bounds so the assembly meter
+	// uses the same maths as the in-game gauge.
+	o.powerCurve = cfg.PowerCurve
+	o.fireMin, o.fireMax = fireRateBounds(cfg.PowerCurve)
+	o.powerFill = o.powerMeterTarget() // snap to full (no tiles connected yet)
 
 	o.aliens = o.aliens[:0]
 	for i := 0; i < 9; i++ {
@@ -135,12 +149,23 @@ func (o *Opening) buildOrder() {
 	})
 }
 
+// arriveTick is the tick the i-th tile (center-out order) snaps into place. The
+// first tile lands at opFirstArrive; then there is an opArmPause beat before the
+// doctors pile the rest on in a staggered stream, so the power meter visibly
+// holds high and then craters.
+func arriveTick(i int) int {
+	if i <= 0 {
+		return opFirstArrive
+	}
+	return opFirstArrive + opArmPause + (i-1)*opStagger
+}
+
 func (o *Opening) doneTick() int {
 	n := len(o.order)
 	if n == 0 {
-		n = 1
+		return opFirstArrive + 90
 	}
-	return opFirstArrive + (n-1)*opStagger + 90
+	return arriveTick(n-1) + 90
 }
 
 func (o *Opening) Update() error {
@@ -166,7 +191,7 @@ func (o *Opening) Update() error {
 	if o.turret != nil {
 		tiles := o.turret.Tiles()
 		for i := 1; i < len(o.order); i++ {
-			if o.t != opFirstArrive+i*opStagger {
+			if o.t != arriveTick(i) {
 				continue
 			}
 			if _, isWeapon := tiles[o.order[i]].Component.(core.WeaponComponent); !isWeapon {
@@ -178,6 +203,10 @@ func (o *Opening) Update() error {
 			})
 		}
 	}
+
+	// Ease the power meter toward its current target so it sweeps down smoothly as
+	// each pile-on tile lands (mirroring the in-game gauge's easing).
+	o.powerFill += (o.powerMeterTarget() - o.powerFill) * 0.18
 
 	// During the aliens scene a click ends it and jumps into the assembly demo
 	// (the tank rolls in and the doctors bolt on weapons). The lockout keeps a
@@ -257,6 +286,10 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 	// flies from the tank centre to its hex slot, staggered in center-out order.
 	o.drawAssembly(screen)
 
+	// Power meter: full while the lone first tile sits, then dropping as the
+	// doctors pile the rest on — the same gauge the player reads in combat.
+	drawPowerGaugeBar(screen, o.powerFill, o.assemblyFireRate())
+
 	// The first doctor's line, then the crowd of repeated bubbles.
 	if o.t >= opFirstLine && o.t < opFirstArrive+40 {
 		drawTelopC(screen, lang.Text("op-doctor"), opCenterX, 600, 30, 1, 0.95, 0.6, 1)
@@ -316,7 +349,7 @@ func (o *Opening) drawAssembly(screen *ebiten.Image) {
 	}
 	vs := make([]vis, 0, len(o.order))
 	for i, idx := range o.order {
-		arrive := opFirstArrive + i*opStagger
+		arrive := arriveTick(i)
 		if o.t < arrive-opFlyDur {
 			continue // not started yet
 		}
@@ -341,6 +374,61 @@ func (o *Opening) drawAssembly(screen *ebiten.Image) {
 	for _, v := range vs {
 		drawTileFixture(screen, o.turret, v.idx, tiles[v.idx], o.power[v.idx], v.pos.X, v.pos.Y, opTile, 0)
 	}
+}
+
+// assemblyFireRate computes the fire-rate multiplier for the tiles that have
+// landed so far, using the same maths as core's in-combat gauge: the power curve
+// evaluated at the connected consumer-tile count, plus any capacitor FireRateAdd.
+// Tiles arrive center-out, so the partial set stays connected and the count grows
+// as the doctors pile on, dropping the multiplier.
+func (o *Opening) assemblyFireRate() float64 {
+	if o.turret == nil {
+		return 1
+	}
+	tiles := o.turret.Tiles()
+	consumers := 0
+	var add float64
+	for i, idx := range o.order {
+		if o.t < arriveTick(i) {
+			continue // not landed yet
+		}
+		if o.turret.IsGenerator(idx) {
+			continue // the generator draws no power and adds no consumer count
+		}
+		consumers++
+		if tile := tiles[idx]; tile != nil && tile.Component != nil {
+			add += tile.Component.Mods().FireRateAdd
+		}
+	}
+	return core.PowerMultiplier(o.powerCurve, consumers) + add
+}
+
+// powerMeterTarget normalises the current assembly multiplier into the [0,1] bar
+// fill between the power curve's bounds (full bar = the curve's max multiplier).
+func (o *Opening) powerMeterTarget() float64 {
+	span := o.fireMax - o.fireMin
+	if span <= 0 {
+		return 0
+	}
+	return clamp01((o.assemblyFireRate() - o.fireMin) / span)
+}
+
+// fireRateBounds returns the min and max multiplier a power curve can produce,
+// mirroring core's World.FireRateMultBounds for the cinematic gauge.
+func fireRateBounds(curve []core.PowerPoint) (min, max float64) {
+	if len(curve) == 0 {
+		return 1, 1
+	}
+	min, max = curve[0].Mult, curve[0].Mult
+	for _, p := range curve {
+		if p.Mult < min {
+			min = p.Mult
+		}
+		if p.Mult > max {
+			max = p.Mult
+		}
+	}
+	return min, max
 }
 
 // drawTelopC draws txt horizontally centred at cx with its top at y, tinted by

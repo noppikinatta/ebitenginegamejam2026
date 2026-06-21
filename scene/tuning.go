@@ -105,6 +105,7 @@ const (
 	opTankEnd     = 320 // tank reaches centre
 	opFirstLine   = 330 // first doctor line appears
 	opFirstArrive = 386 // first tile (the generator) snaps into place
+	opArmPause    = 150 // pause after the first tile before the doctors pile the rest on (dramatizes the power drop)
 	opStagger     = 12  // ticks between successive tile arrivals (turret has ~22 tiles)
 	opFlyDur      = 28  // ticks each tile spends flying out from the centre
 	opTile        = 40.0

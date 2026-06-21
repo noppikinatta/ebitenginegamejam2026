@@ -444,12 +444,19 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 // the multiplier rises, so disconnecting tiles (which re-concentrates power into
 // faster fire) makes the bar climb.
 func (g *InGame) drawPowerGauge(screen *ebiten.Image) {
+	drawPowerGaugeBar(screen, g.powerGaugeFill, g.world.FireRateMultiplier())
+}
+
+// drawPowerGaugeBar renders the left-edge power gauge: a bar filled to `fill`
+// [0,1] with the exact multiplier printed below. Shared by the in-game HUD and
+// the opening assembly cinematic (which shows the same meter dropping as the
+// doctors pile tiles on and dilute the power).
+func drawPowerGaugeBar(screen *ebiten.Image, fill, mult float64) {
 	trackH := powerGaugeBottom - powerGaugeTop
 
 	// Track (dim background) and a 1px frame so the empty bar still reads.
 	drawing.DrawRect(screen, powerGaugeX, powerGaugeTop, powerGaugeW, trackH, 0.10, 0.12, 0.16, 0.9)
 
-	fill := g.powerGaugeFill
 	if fill < 0 {
 		fill = 0
 	}
@@ -471,7 +478,7 @@ func (g *InGame) drawPowerGauge(screen *ebiten.Image) {
 	drawing.DrawTextByKey(screen, "hud-pwr", 14, opt)
 	opt = &ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(powerGaugeX-6, powerGaugeBottom+4)
-	drawing.DrawTextTemplate(screen, "hud-pwr-mult", map[string]any{"Mult": fmt.Sprintf("%.2f", g.world.FireRateMultiplier())}, 14, opt)
+	drawing.DrawTextTemplate(screen, "hud-pwr-mult", map[string]any{"Mult": fmt.Sprintf("%.2f", mult)}, 14, opt)
 }
 
 func (g *InGame) drawLevelUp(screen *ebiten.Image) {
