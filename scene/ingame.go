@@ -519,7 +519,7 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 		drawing.DrawText(screen, fmt.Sprintf("%d", i+1), 22, opt)
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(x+46, cardY+16)
-		drawing.DrawTextTemplate(screen, "card-doctor", map[string]any{"Name": doctorNameL(c.Doctor)}, 20, opt)
+		drawing.DrawText(screen, doctorNameL(c.Doctor, c.DoctorAlphabet), 20, opt)
 
 		// One line per item: label, icon, then name.
 		itemY := cardY + 62.0

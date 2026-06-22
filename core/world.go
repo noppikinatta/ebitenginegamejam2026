@@ -667,10 +667,12 @@ func (w *World) addXP(v float64) {
 	}
 }
 
-// doctorNames are the eccentric doctors who keep bolting things onto the tank.
-var doctorNames = []string{
-	"Volt", "Sprocket", "Fizz", "Cogsworth", "Ohm",
-	"Wattson", "Pixel", "Gizmo", "Tinker", "Bolt",
+// doctorTitles are the honorifics of the eccentric doctors who keep bolting
+// things onto the tank. A doctor's full name is a title plus a random uppercase
+// letter (e.g. "Doctor X"); the scene formats the two via a per-language
+// template so the letter can sit before or after the title.
+var doctorTitles = []string{
+	"Doctor", "Professor", "Doktor", "Instructor", "Master",
 }
 
 // rollChoices builds three "doctor" offers. Each level-up grows the turret:
@@ -695,7 +697,8 @@ func (w *World) rollChoices() {
 // atCap forces every build item to be an upgrade (no new tiles) so the turret
 // doesn't exceed maxTurretTiles.
 func (w *World) rollDoctorChoice(atCap bool) Upgrade {
-	doc := doctorNames[w.rng.Intn(len(doctorNames))]
+	title := doctorTitles[w.rng.Intn(len(doctorTitles))]
+	alphabet := string(rune('A' + w.rng.Intn(26)))
 	r := w.rng.Float64()
 	activeWeapons := w.turret.ActiveWeapons()
 	dd := w.cfg.Doctor
@@ -704,9 +707,10 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	if r < dd.NipperChance || (atCap && len(activeWeapons) == 0) {
 		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
 		return Upgrade{
-			Doctor: doc,
-			Items:  []OfferItem{{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)}},
-			Apply:  func(world *World) { world.Player.Nippers += n },
+			Doctor:         title,
+			DoctorAlphabet: alphabet,
+			Items:          []OfferItem{{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)}},
+			Apply:          func(world *World) { world.Player.Nippers += n },
 		}
 	}
 
@@ -759,8 +763,9 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	}
 
 	return Upgrade{
-		Doctor: doc,
-		Items:  items,
+		Doctor:         title,
+		DoctorAlphabet: alphabet,
+		Items:          items,
 		Apply: func(world *World) {
 			for _, wp := range upgrades {
 				wp.Level++

@@ -28,13 +28,16 @@ type OfferItem struct {
 
 // Upgrade is a single doctor's level-up proposal: a list of items (a mix of tile
 // additions and weapon upgrades) that are all applied together when the proposal
-// is chosen. Doctor is the flavour name shown as the card title.
+// is chosen. Doctor is the doctor's title (e.g. "Doctor") and DoctorAlphabet is a
+// random uppercase letter; the scene formats them into the card title via a
+// per-language template (so the letter can precede or follow the title).
 //
 // The struct stays display-agnostic: it carries the data the scene needs to
 // render icons and labels, not Ebiten image keys (those live in the scene/asset
 // layers). Apply performs every item's effect.
 type Upgrade struct {
-	Doctor string
-	Items  []OfferItem
-	Apply  func(*World)
+	Doctor         string
+	DoctorAlphabet string
+	Items          []OfferItem
+	Apply          func(*World)
 }
