@@ -5,11 +5,13 @@ package core
 type OfferKind int
 
 const (
-	OfferAddWeapon    OfferKind = iota // add a new weapon tile
-	OfferAddJunk                       // add a junk tile
-	OfferAddCapacitor                  // add a capacitor tile
-	OfferUpgrade                       // level up an existing weapon
-	OfferNippers                       // grant spare nippers
+	OfferAddWeapon     OfferKind = iota // add a new weapon tile
+	OfferAddJunk                        // add a junk tile
+	OfferAddCapacitor                   // add a capacitor tile
+	OfferAddRepairUnit                  // add a repair-unit tile
+	OfferAddArmor                       // add an armor tile
+	OfferUpgrade                        // level up an existing weapon
+	OfferNippers                        // grant spare nippers
 )
 
 // OfferItem is one line of a doctor's proposal. Weapon is meaningful for

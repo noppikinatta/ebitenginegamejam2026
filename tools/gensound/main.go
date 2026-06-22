@@ -5,6 +5,8 @@ package main
 
 import (
 	"encoding/binary"
+	"flag"
+	"fmt"
 	"math"
 	"math/rand"
 	"os"
@@ -12,8 +14,19 @@ import (
 
 const sampleRate = 48000
 
-// writeWAV writes 16-bit PCM mono samples (range -1..1) as a WAV file.
+// force, when true, overwrites existing files; otherwise writeWAV skips any file
+// that already exists so real audio is never clobbered.
+var force bool
+
+// writeWAV writes 16-bit PCM mono samples (range -1..1) as a WAV file. Existing
+// files are skipped unless -force is set.
 func writeWAV(path string, samples []float64) {
+	if !force {
+		if _, err := os.Stat(path); err == nil {
+			fmt.Printf("skip %s (exists; -force to overwrite)\n", path)
+			return
+		}
+	}
 	buf := make([]byte, 0, 44+len(samples)*2)
 	put := func(b ...byte) { buf = append(buf, b...) }
 	u32 := func(v uint32) { var b [4]byte; binary.LittleEndian.PutUint32(b[:], v); put(b[:]...) }
@@ -99,10 +112,13 @@ func main() {
 	// arg1: directory for SE placeholders (e.g. asset/sound/raw, gitignored).
 	// arg2: directory for the BGM placeholder (e.g. asset/sound, committed).
 	// BGM is self-authored and lives outside the pak, so it is written separately.
-	seDir := os.Args[1]
+	flag.BoolVar(&force, "force", false, "overwrite existing files (default: skip files that already exist)")
+	flag.Parse()
+
+	seDir := flag.Arg(0)
 	bgmDir := seDir
-	if len(os.Args) > 2 {
-		bgmDir = os.Args[2]
+	if flag.NArg() > 1 {
+		bgmDir = flag.Arg(1)
 	}
 	out := seDir
 

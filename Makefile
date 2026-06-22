@@ -8,9 +8,11 @@ gen:
 # then rebuild the SE pak from scratch (-rebuild, so removed effects don't linger).
 # Drop real SE into asset/sound/raw and run `make sound-pak` (merge) to swap one;
 # replace the bgm_*.wav files for the real (self-authored) BGM.
+# Existing wavs are SKIPPED so real audio is never clobbered; pass FORCE=1 to
+# overwrite placeholders.
 sound-gen:
 	mkdir -p asset/sound/raw asset/sound/bgm
-	go run tools/gensound/main.go asset/sound/raw asset/sound/bgm
+	go run tools/gensound/main.go $(if $(FORCE),-force) asset/sound/raw asset/sound/bgm
 	go run tools/sndpak/main.go -rebuild asset/sound/raw asset/sound/se.pak
 
 # Bundle the sound EFFECTS in asset/sound/raw/* into the committed, obfuscated
@@ -30,17 +32,20 @@ sound-pak:
 bgm-ogg:
 	go run tools/wav2ogg/main.go asset/sound/bgm asset/etc/bgm_title.wav asset/etc/bgm_game.wav
 
-# Regenerate the per-type junk placeholder images into asset/img.
+# Regenerate the per-type junk placeholder images into asset/img. Existing files
+# are SKIPPED so real art is never clobbered; pass FORCE=1 to overwrite.
 junk-img:
-	go run tools/genjunkimg/main.go asset/img
+	go run tools/genjunkimg/main.go $(if $(FORCE),-force) asset/img
 
 # Regenerate the cosmetic junk-projectile placeholder sprites into asset/img.
+# Existing files are SKIPPED; pass FORCE=1 to overwrite.
 proj-img:
-	go run tools/genprojimg/main.go asset/img
+	go run tools/genprojimg/main.go $(if $(FORCE),-force) asset/img
 
 # Regenerate the placeholder scrolling background (seamless 1280x720) into asset/img.
+# An existing file is SKIPPED; pass FORCE=1 to overwrite.
 bg-img:
-	go run tools/genbgimg/main.go asset/img/background.png
+	go run tools/genbgimg/main.go $(if $(FORCE),-force) asset/img/background.png
 
 run:
 	go run app/main.go

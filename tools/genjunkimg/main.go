@@ -8,10 +8,14 @@
 // tall-fixture sprites). Placeholders are deliberately plain: a hue unique to
 // each device plus a couple of marker cells, just enough to tell them apart.
 //
-// Run: go run tools/genjunkimg/main.go asset/img
+// By default existing files are left untouched so real art is never clobbered;
+// pass -force to overwrite.
+//
+// Run: go run tools/genjunkimg/main.go [-force] asset/img
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -26,24 +30,40 @@ import (
 const tileSize = 24
 
 func main() {
+	force := flag.Bool("force", false, "overwrite existing files (default: skip files that already exist)")
+	flag.Parse()
+
 	outDir := "asset/img"
-	if len(os.Args) > 1 {
-		outDir = os.Args[1]
+	if flag.NArg() > 0 {
+		outDir = flag.Arg(0)
 	}
 
 	names := core.JunkDeviceNames()
+	wrote, skipped := 0, 0
 	for i, name := range names {
 		key := core.JunkImageKey(name)
 		tall := core.JunkDeviceTall(name)
-		img := placeholder(i, len(names), tall)
 		path := filepath.Join(outDir, key+".png")
+		if !*force && exists(path) {
+			fmt.Printf("skip %s (exists; -force to overwrite)\n", path)
+			skipped++
+			continue
+		}
+		img := placeholder(i, len(names), tall)
 		if err := writePNG(path, img); err != nil {
 			fmt.Fprintln(os.Stderr, "write", path, ":", err)
 			os.Exit(1)
 		}
 		fmt.Printf("wrote %s (%s%s)\n", path, name, tallSuffix(tall))
+		wrote++
 	}
-	fmt.Printf("generated %d junk placeholder images in %s\n", len(names), outDir)
+	fmt.Printf("generated %d junk placeholder images in %s (%d skipped)\n", wrote, outDir, skipped)
+}
+
+// exists reports whether a file is already present at path.
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func tallSuffix(tall bool) string {

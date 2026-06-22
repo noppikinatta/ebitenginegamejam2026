@@ -107,7 +107,8 @@ const (
 	opFirstArrive = 386 // first tile (the generator) snaps into place
 	opArmPause    = 150 // pause after the first tile before the doctors pile the rest on (dramatizes the power drop)
 	opStagger     = 12  // ticks between successive tile arrivals (turret has ~22 tiles)
-	opFlyDur      = 28  // ticks each tile spends flying out from the centre
+	opFlyDur      = 40  // ticks each tile spends flying in from off-screen
+	opFlyIn       = 950 // distance (px) off-screen each tile starts from before flying in
 	opTile        = 40.0
 	opZoom        = 2.2
 	// opSkipHoldTicks is how long Space must be held to skip the whole opening to

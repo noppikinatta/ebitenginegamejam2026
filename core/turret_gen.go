@@ -153,10 +153,10 @@ var junkSpecs = []junkSpec{
 	{Name: "Oil Heater"},
 	{Name: "Rice Cooker"},
 	{Name: "Modern Art Fountain"},
-	{Name: "Invisible Cannon"},
+	{Name: "Concept"},
 	{Name: "NFT Nuclear Missile"},
 	{Name: "Horns"},
-	{Name: "AI Targeting Device"},
+	{Name: "High-End GPU"},
 	// Devices that emit something. Each is wired to a cosmetic emitter.
 	{Name: "Balloon Service Unit", Emitter: &balloonEmitter},
 	{Name: "Coffee Maker", Emitter: &coffeeEmitter},

@@ -16,12 +16,15 @@ const (
 	ImgCandlestick  = "candlestick"
 	ImgGem          = "gem"
 	ImgNipper       = "nipper"
+	ImgHeart        = "heart" // HP pickup dropped (rarely) by candlesticks
 	ImgProjectile   = "projectile"
 
 	// Turret tiles (24x24).
-	ImgTile          = "tile" // plain base tile every weapon/junk is drawn on top of
-	ImgTileGenerator = "tile_generator"
-	ImgTileCapacitor = "tile_capacitor"
+	ImgTile           = "tile" // plain base tile every weapon/junk is drawn on top of
+	ImgTileGenerator  = "tile_generator"
+	ImgTileCapacitor  = "tile_capacitor"
+	ImgTileRepairUnit = "tile_repair"
+	ImgTileArmor      = "tile_armor"
 
 	// Junk devices get one image per type, keyed by core.JunkImageKey(name)
 	// (e.g. "junk_unusual_banana"). Flat junk is a 24x24 tile overlay; tall junk

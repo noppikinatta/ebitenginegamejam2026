@@ -10,10 +10,14 @@
 // bullets are filled discs, elongated bullets (cannon/sniper/missile, authored
 // pointing UP) are vertical capsules so their travel-facing rotation reads.
 //
-// Run: go run tools/genprojimg/main.go asset/img
+// By default existing files are left untouched so real art is never clobbered;
+// pass -force to overwrite.
+//
+// Run: go run tools/genprojimg/main.go [-force] asset/img
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -56,26 +60,42 @@ var projSprites = []projSprite{
 }
 
 func main() {
+	force := flag.Bool("force", false, "overwrite existing files (default: skip files that already exist)")
+	flag.Parse()
+
 	outDir := "asset/img"
-	if len(os.Args) > 1 {
-		outDir = os.Args[1]
+	if flag.NArg() > 0 {
+		outDir = flag.Arg(0)
 	}
 
+	wrote, skipped := 0, 0
 	for _, s := range projSprites {
+		path := filepath.Join(outDir, s.key+".png")
+		if !*force && exists(path) {
+			fmt.Printf("skip %s (exists; -force to overwrite)\n", path)
+			skipped++
+			continue
+		}
 		var img *image.RGBA
 		if s.capsule {
 			img = capsule(s.col, s.w, s.h)
 		} else {
 			img = disc(s.col, s.w, s.h)
 		}
-		path := filepath.Join(outDir, s.key+".png")
 		if err := writePNG(path, img); err != nil {
 			fmt.Fprintln(os.Stderr, "write", path, ":", err)
 			os.Exit(1)
 		}
 		fmt.Printf("wrote %s\n", path)
+		wrote++
 	}
-	fmt.Printf("generated %d projectile placeholder images in %s\n", len(projSprites), outDir)
+	fmt.Printf("generated %d projectile placeholder images in %s (%d skipped)\n", wrote, outDir, skipped)
+}
+
+// exists reports whether a file is already present at path.
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // rim returns a darker shade of col for a thin contrast edge.

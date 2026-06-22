@@ -19,12 +19,17 @@ func testConfig() Config {
 		StartingNippers:        3,
 		MaxTurretTiles:         40,
 		CandlestickInterval:    600,
+		HeartDropChance:        0.1,
+		HeartHeal:              30,
+		RepairInterval:         300,
+		RepairHealAmount:       1,
+		ArmorReduction:         1,
 		XPToNextGrowth:         1.25,
 		CapacitorFireRateBonus: 0.1,
 		Player:                 Player{HP: 100, MaxHP: 100, Speed: 3, Radius: 36, Level: 1, XPToNext: 10},
 		Pickup:                 PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 4},
 		Spawn:                  SpawnSpec{EnemyDist: 520, CandleDist: 220, CandleDistRange: 220},
-		Doctor:                 DoctorSpec{NipperChance: 0.25, UpgradeChance: 0.625, NipperMin: 5, NipperMax: 10, MaxUpgrades: 3, MaxBundleTiles: 3, CapacitorChance: 0.15},
+		Doctor:                 DoctorSpec{NipperChance: 0.25, UpgradeChance: 0.625, NipperMin: 5, NipperMax: 10, MaxUpgrades: 3, MaxBundleTiles: 3, CapacitorChance: 0.15, RepairUnitChance: 0.1, ArmorChance: 0.1},
 		EnemyKinds:             testEnemyKinds(),
 		HPDoublingTicks:        18000,
 		SpawnPhases:            testSpawnPhases(),
@@ -90,9 +95,9 @@ func testParams(kind WeaponKind) WeaponParams {
 	case KindShotgun:
 		return WeaponParams{BaseDamage: 8, BaseInterval: 720, MinInterval: 8, ProjSpeed: 5, ProjMaxDist: 150, ProjRadius: 2, BaseRange: 100, Pellets: 4, SpreadRad: 0.3, Sprite: SpriteShotgun, ProjDrawW: 6, ProjDrawH: 6, LevelMult: 1.2}
 	case KindSniper:
-		return WeaponParams{BaseDamage: 10, BaseInterval: 960, MinInterval: 20, ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 2, BaseRange: 360, Sprite: SpriteSniper, ProjDrawW: 4, ProjDrawH: 16, ProjFaceVelocity: true, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 10, BaseInterval: 960, MinInterval: 20, ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 2, BaseRange: 360, Target: TargetFarthest, Sprite: SpriteSniper, ProjDrawW: 4, ProjDrawH: 16, ProjFaceVelocity: true, LevelMult: 1.2}
 	case KindLaser:
-		return WeaponParams{BaseDamage: 1, BaseInterval: 1440, MinInterval: 15, BaseRange: 200, BeamBaseLength: 200, BeamBaseWidth: 6, BeamBaseDuration: 30, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 1, BaseInterval: 1440, MinInterval: 15, BaseRange: 200, Target: TargetFarthest, BeamBaseLength: 200, BeamBaseWidth: 6, BeamBaseDuration: 30, LevelMult: 1.2}
 	case KindGatling:
 		return WeaponParams{BaseDamage: 2, BaseInterval: 480, MinInterval: 6, ProjSpeed: 5, ProjMaxDist: 240, ProjRadius: 2, Pellets: 10, SpreadRad: 0.2, SpreadRandom: true, BurstGap: 3, Aim: AimForward, Sprite: SpriteGatling, ProjDrawW: 6, ProjDrawH: 6, LevelMult: 1.2}
 	case KindGrenade:

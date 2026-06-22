@@ -38,14 +38,20 @@ func MuzzleOffset(idx hexmap.Index, facingAngle float64) geom.PointF {
 // contributes to the tank/turret-wide stats. The zero value is "no effect".
 // Modifiers from every connected component are summed (see Turret.Modifiers),
 // which is the extension point for equipment: the Capacitor raises the fire-rate
-// multiplier today, and e.g. armour could add MaxHP here in future.
+// multiplier, the Repair Unit heals HP over time, and Armor reduces damage taken.
 type Modifier struct {
 	FireRateAdd float64 // added to the turret-wide fire-rate multiplier
+	HPRegen     float64 // HP healed each repair cycle (see Config.RepairInterval)
+	Armor       float64 // flat damage subtracted from each hit (min 1 still lands)
 }
 
 // Add returns the sum of two modifiers.
 func (m Modifier) Add(o Modifier) Modifier {
-	return Modifier{FireRateAdd: m.FireRateAdd + o.FireRateAdd}
+	return Modifier{
+		FireRateAdd: m.FireRateAdd + o.FireRateAdd,
+		HPRegen:     m.HPRegen + o.HPRegen,
+		Armor:       m.Armor + o.Armor,
+	}
 }
 
 // Component is what occupies a single hex tile on the turret. Power is shared
@@ -109,6 +115,28 @@ type Capacitor struct {
 func (Capacitor) Name() string { return "Capacitor" }
 
 func (c Capacitor) Mods() Modifier { return Modifier{FireRateAdd: c.FireRateBonus} }
+
+// RepairUnit is an equipment tile that heals the tank by HealAmount HP every
+// Config.RepairInterval ticks while connected. Like any tile it adds to the tile
+// count, so the upkeep is weighed against the fire-rate dilution.
+type RepairUnit struct {
+	HealAmount float64
+}
+
+func (RepairUnit) Name() string { return "Repair Unit" }
+
+func (r RepairUnit) Mods() Modifier { return Modifier{HPRegen: r.HealAmount} }
+
+// Armor is an equipment tile that subtracts Reduction from every hit the tank
+// takes while connected (a minimum of 1 damage still lands). Like any tile it
+// also adds to the tile count.
+type Armor struct {
+	Reduction float64
+}
+
+func (Armor) Name() string { return "Armor" }
+
+func (a Armor) Mods() Modifier { return Modifier{Armor: a.Reduction} }
 
 // ---- Tile ----
 

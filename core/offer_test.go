@@ -8,7 +8,7 @@ func itemTally(c Upgrade) (adds, upgrades int) {
 		switch it.Kind {
 		case OfferUpgrade:
 			upgrades++
-		case OfferAddWeapon, OfferAddJunk, OfferAddCapacitor:
+		case OfferAddWeapon, OfferAddJunk, OfferAddCapacitor, OfferAddRepairUnit, OfferAddArmor:
 			adds++
 		}
 	}

@@ -30,14 +30,10 @@ func junkNameL(name string) string   { return lang.TextWithDefault("junk-"+slug(
 func bossNameL(name string) string   { return lang.TextWithDefault("boss-"+slug(name), name) }
 
 // junkDescL returns the per-device description for a junk, keyed by
-// junk-<slug>-desc. If a device has no specific entry yet it falls back to the
-// generic junk-desc / junk-desc-tall copy, so new junk still shows something.
-func junkDescL(name string, tall bool) string {
-	generic := "junk-desc"
-	if tall {
-		generic = "junk-desc-tall"
-	}
-	return lang.TextWithDefault("junk-"+slug(name)+"-desc", lang.Text(generic))
+// junk-<slug>-desc. Every junk device has its own entry; a device without one
+// degrades to no description rather than a NO_TMPL marker.
+func junkDescL(name string) string {
+	return lang.TextWithDefault("junk-"+slug(name)+"-desc", "")
 }
 
 // offerItemText returns the localised display name for one proposal line,
@@ -49,6 +45,10 @@ func offerItemText(it core.OfferItem) string {
 		return weaponName(it.Weapon)
 	case core.OfferAddCapacitor:
 		return lang.Text("comp-capacitor")
+	case core.OfferAddRepairUnit:
+		return lang.Text("comp-repair-unit")
+	case core.OfferAddArmor:
+		return lang.Text("comp-armor")
 	case core.OfferNippers:
 		return lang.ExecuteTemplate("offer-nippers", map[string]any{"N": it.Amount})
 	default: // OfferAddJunk

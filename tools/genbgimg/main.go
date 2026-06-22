@@ -6,12 +6,15 @@
 // seamlessly on all four edges — a faint 80px grid (80 divides both 1280 and
 // 720) plus a starfield plotted with toroidal wrap — so the scene can scroll it
 // by simply tiling copies. Drop in the real seamless backdrop later by
-// overwriting the file.
+// overwriting the file. By default an existing file is left untouched so real
+// art is never clobbered; pass -force to overwrite.
 //
-// Run: go run tools/genbgimg/main.go asset/img/background.png
+// Run: go run tools/genbgimg/main.go [-force] asset/img/background.png
 package main
 
 import (
+	"flag"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -26,9 +29,19 @@ const (
 )
 
 func main() {
+	force := flag.Bool("force", false, "overwrite an existing file (default: skip if it already exists)")
+	flag.Parse()
+
 	out := "asset/img/background.png"
-	if len(os.Args) > 1 {
-		out = os.Args[1]
+	if flag.NArg() > 0 {
+		out = flag.Arg(0)
+	}
+
+	if !*force {
+		if _, err := os.Stat(out); err == nil {
+			fmt.Printf("skip %s (exists; -force to overwrite)\n", out)
+			return
+		}
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, bgW, bgH))

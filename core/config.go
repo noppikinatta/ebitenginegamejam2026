@@ -9,6 +9,11 @@ type Config struct {
 	StartingNippers        int     // nippers the player begins every run with
 	MaxTurretTiles         int     // soft cap on turret size; forces non-tile offers
 	CandlestickInterval    int     // ticks between candlestick spawns
+	HeartDropChance        float64 // chance a candlestick drops a heart (HP) instead of a nipper
+	HeartHeal              float64 // HP restored when a heart pickup is collected
+	RepairInterval         int     // ticks between Repair Unit heal cycles
+	RepairHealAmount       float64 // HP healed per connected Repair Unit each cycle
+	ArmorReduction         float64 // damage subtracted per connected Armor (min 1 still lands)
 	XPToNextGrowth         float64 // XPToNext multiplier applied each level-up
 	CapacitorFireRateBonus float64 // fire-rate multiplier added per connected Capacitor equipment
 
@@ -74,6 +79,9 @@ type WeaponParams struct {
 	BurstGap     int
 	// Aim selects how the weapon points (lock-on / forward / outward).
 	Aim AimMode
+	// Target selects which in-range enemy a lock-on weapon (and the laser) aims
+	// at: the nearest (default) or the farthest.
+	Target TargetMode
 	// HoldWhenNoTarget keeps a full accumulator charged (instead of firing into
 	// empty space) until an enemy enters range. Used by interception weapons
 	// (CIWS); other weapons fire even with no target.
@@ -114,6 +122,15 @@ const (
 	AimOutward                // always radially outward through the weapon's tile
 )
 
+// TargetMode selects which in-range enemy a lock-on weapon (or the laser) aims
+// at among the candidates within range.
+type TargetMode int
+
+const (
+	TargetNearest  TargetMode = iota // the closest enemy in range (default)
+	TargetFarthest                   // the farthest enemy in range
+)
+
 // PickupRanges are shared by XP gems and nipper pickups.
 type PickupRanges struct {
 	PickupDist  float64 // collect on contact within this distance
@@ -134,13 +151,15 @@ type SpawnSpec struct {
 //   - Weapon upgrade: selected weapons gain +1 Level.
 //   - Tile bundle: 1-MaxBundleTiles new tiles, each 50% weapon / 50% junk.
 type DoctorSpec struct {
-	NipperChance    float64 // probability of a nipper offer (evaluated first)
-	UpgradeChance   float64 // cumulative: upgrade if r < UpgradeChance after nipper check
-	NipperMin       int     // minimum nippers per nipper offer
-	NipperMax       int     // maximum nippers per nipper offer
-	MaxUpgrades     int     // max weapons upgraded per upgrade offer
-	MaxBundleTiles  int     // max tiles added per tile-bundle offer
-	CapacitorChance float64 // per bundle tile, probability it is a Capacitor (else weapon/junk)
+	NipperChance     float64 // probability of a nipper offer (evaluated first)
+	UpgradeChance    float64 // cumulative: upgrade if r < UpgradeChance after nipper check
+	NipperMin        int     // minimum nippers per nipper offer
+	NipperMax        int     // maximum nippers per nipper offer
+	MaxUpgrades      int     // max weapons upgraded per upgrade offer
+	MaxBundleTiles   int     // max tiles added per tile-bundle offer
+	CapacitorChance  float64 // per bundle tile, probability it is a Capacitor (else weapon/junk)
+	RepairUnitChance float64 // per bundle tile, probability it is a Repair Unit
+	ArmorChance      float64 // per bundle tile, probability it is an Armor tile
 }
 
 // EnemyStats is the spawn template for one zako (trash) enemy kind. Only HP

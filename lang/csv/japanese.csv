@@ -32,13 +32,15 @@ offer-add,追加
 offer-upgrade,強化
 offer-nippers,ニッパー +{{.N}}
 comp-capacitor,キャパシタ
+comp-repair-unit,修理装置
+comp-armor,増加装甲
 
 # --- ポーズ / 切断ビュー ---
 pause-title,ポーズ中 — タイルをクリックして切断  (ニッパー {{.Nippers}})
 pause-help,切断するとそのタイルと下流すべてが外れる。Spaceで再開。
-junk-desc,博士が勝手に付けた無意味なガジェット。電力は通すが何もしない——切る筆頭候補。
-junk-desc-tall,博士が勝手に付けた巨大で無意味な装置。電力を薄めるだけで何もしない——切る筆頭候補。
 comp-capacitor-desc,接続している間だけ砲塔の発射速度を上げる設備。
+comp-repair-unit-desc,接続している間、数秒ごとにHPを1回復する設備。
+comp-armor-desc,接続している間、被弾ごとのダメージを軽減する設備（最低1は受ける）。
 comp-wire-name,ワイヤー
 comp-wire-desc,電力を通すだけで単体では何もしない導線。切って配置を組み替えよう。
 
@@ -95,10 +97,10 @@ junk-lava-lamp,ラバランプ
 junk-oil-heater,オイルヒーター
 junk-rice-cooker,炊飯器
 junk-modern-art-fountain,泉（現代アート）
-junk-invisible-cannon,愚か者には見えないキャノン砲
+junk-concept,概念
 junk-nft-nuclear-missile,NFT核ミサイル
 junk-horns,ツノ
-junk-ai-targeting-device,AI照準装置
+junk-high-end-gpu,ハイエンドGPU
 
 # --- ジャンク装置名（あとで何かが出る） ---
 junk-balloon-service-unit,風船サービス装置
@@ -119,10 +121,10 @@ junk-lava-lamp-desc,催眠的なゆらめき。戦闘価値はゼロ——切る
 junk-oil-heater-desc,砲塔をぽかぽかに。何のためでもなく電力を吸う——切る筆頭候補。
 junk-rice-cooker-desc,戦闘中に完璧なご飯を炊き上げる。美味だが無意味——切る筆頭候補。
 junk-modern-art-fountain-desc,前衛的な泉。評論家は絶賛するが戦車は無関心——切る筆頭候補。
-junk-invisible-cannon-desc,愚か者にしか見えないキャノン。何も撃たない——切る筆頭候補。
+junk-concept-desc,愚か者にしか見えないキャノン。何も撃たない——切る筆頭候補。
 junk-nft-nuclear-missile-desc,NFT化された核ミサイル。代替不可能で機能不全——切る筆頭候補。
 junk-horns-desc,飾りのツノ。威圧的だが役立たず——切る筆頭候補。
-junk-ai-targeting-device-desc,特に何も狙わないAI。考えるだけで電力を燃やす——切る筆頭候補。
+junk-high-end-gpu-desc,特に何も狙わないAI。考えるだけで電力を燃やす——切る筆頭候補。
 junk-balloon-service-unit-desc,陽気な風船を空へ漂わせる。無害な演出——切る筆頭候補。
 junk-coffee-maker-desc,湯気をもうもうと立ち上らせる。いい香りだが効果なし——切る筆頭候補。
 junk-toaster-desc,トーストを宙へポンと飛ばす。香ばしいが無意味——切る筆頭候補。

@@ -356,15 +356,22 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	g.drawGrid(screen, cam)
 
 	for _, gem := range w.Gems {
-		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1)
+		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1, false)
 	}
 	for _, pk := range w.Pickups {
-		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 16, 16, 0, 1, 1, 1, 1)
+		key, sz := asset.ImgNipper, 16.0
+		if pk.Kind == core.PickupHeart {
+			key, sz = asset.ImgHeart, 8.0 // hearts draw at the gem's 8×8 footprint
+		}
+		drawSprite(screen, cam, key, pk.Pos, sz, sz, 0, 1, 1, 1, 1, false)
 	}
 	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {
 		sz := e.Radius * 2 // sprite footprint follows the collision radius
-		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1)
+		// Art faces slightly left; mirror it to face right when the enemy is left
+		// of the tank, so enemies always turn toward the player.
+		faceRight := e.Pos.X < w.Player.Pos.X
+		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1, faceRight)
 	}
 	for _, p := range w.Projectiles {
 		// Weapons and junk emitters tag projectiles with their own sprite key and
@@ -389,14 +396,14 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		if p.FaceVelocity && p.Vel.Abs() > 0 {
 			angle = p.Vel.Angle() + math.Pi/2
 		}
-		drawSprite(screen, cam, key, p.Pos, dw, dh, angle, 1, 1, 1, 1)
+		drawSprite(screen, cam, key, p.Pos, dw, dh, angle, 1, 1, 1, 1, false)
 	}
 	g.drawBeams(screen, cam)
 
 	// Player tank (tall sprite, authored pointing up; rotate to face movement
 	// using the same smoothed angle as the turret so body and turret ease
 	// together). Collision radius is separate, in core.
-	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1)
+	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1, false)
 
 	// Turret miniature on top of the tank body, rotated to face movement direction.
 	g.drawTurretCombat(screen, cam)
@@ -569,6 +576,10 @@ func offerIcon(it core.OfferItem) (key string, weapon bool) {
 		return weaponTileKey(it.Weapon), true
 	case core.OfferAddCapacitor:
 		return asset.ImgTileCapacitor, false
+	case core.OfferAddRepairUnit:
+		return asset.ImgTileRepairUnit, false
+	case core.OfferAddArmor:
+		return asset.ImgTileArmor, false
 	case core.OfferNippers:
 		return asset.ImgNipper, false
 	default: // OfferAddJunk
@@ -840,9 +851,13 @@ func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool)
 		}
 		return name, weaponDescL(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
 	case core.Junk:
-		return junkNameL(c.Name()), junkDescL(c.Name(), c.Tall), core.JunkImageKey(c.DeviceName), c.Tall
+		return junkNameL(c.Name()), junkDescL(c.Name()), core.JunkImageKey(c.DeviceName), c.Tall
 	case core.Capacitor:
 		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor, false
+	case core.RepairUnit:
+		return lang.Text("comp-repair-unit"), lang.Text("comp-repair-unit-desc"), asset.ImgTileRepairUnit, false
+	case core.Armor:
+		return lang.Text("comp-armor"), lang.Text("comp-armor-desc"), asset.ImgTileArmor, false
 	default: // plain tile (or empty)
 		return lang.Text("comp-wire-name"), lang.Text("comp-wire-desc"), asset.ImgTile, false
 	}
@@ -867,11 +882,11 @@ func tileBase(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64)
 	if tr.IsGenerator(idx) {
 		return asset.ImgTileGenerator, 1
 	}
-	if _, ok := tile.Component.(core.Capacitor); ok {
+	if key, ok := equipmentTileKey(tile.Component); ok {
 		if power <= 0 {
-			return asset.ImgTileCapacitor, 0.45 // dim: disconnected capacitor
+			return key, 0.45 // dim: disconnected equipment
 		}
-		return asset.ImgTileCapacitor, 1
+		return key, 1
 	}
 	// Every other tile (weapon, junk, empty) sits on the same plain base tile; the
 	// weapon barrel / junk device is layered on top afterwards.
@@ -879,6 +894,22 @@ func tileBase(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64)
 		return asset.ImgTile, 0.45 // dim: unpowered tile
 	}
 	return asset.ImgTile, 1
+}
+
+// equipmentTileKey returns the tile image for an equipment component (capacitor,
+// repair unit, armor) and whether comp is such equipment. These tiles have their
+// own base art rather than the plain wire socket.
+func equipmentTileKey(comp core.Component) (string, bool) {
+	switch comp.(type) {
+	case core.Capacitor:
+		return asset.ImgTileCapacitor, true
+	case core.RepairUnit:
+		return asset.ImgTileRepairUnit, true
+	case core.Armor:
+		return asset.ImgTileArmor, true
+	default:
+		return "", false
+	}
 }
 
 // weaponTileKey maps a weapon kind to its turret-tile image key.
@@ -1020,8 +1051,13 @@ func (g *InGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // drawSprite draws the image keyed by key centred on world position pos
 // (transformed by cam), scaled to w×h, rotated by angle, and tinted by
-// (r,gr,b,a). It is the sprite-based replacement for the old drawEntity.
-func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.PointF, w, h, angle float64, r, gr, b, a float32) {
+// (r,gr,b,a). When flipX is true the sprite is mirrored horizontally (via a
+// negative width, see drawing.DrawSprite), used to turn left-facing art to the
+// right. It is the sprite-based replacement for the old drawEntity.
+func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.PointF, w, h, angle float64, r, gr, b, a float32, flipX bool) {
+	if flipX {
+		w = -w
+	}
 	drawing.DrawSprite(screen, drawing.Image(key), pos.X-cam.X, pos.Y-cam.Y, w, h, angle, r, gr, b, a)
 }
 

@@ -26,6 +26,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseDamage:   10,
 			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 10, ProjMaxDist: 640, ProjRadius: 2, BaseRange: 360,
+			Target: core.TargetFarthest,                                                    // picks off the farthest enemy in range
 			Sprite: core.SpriteSniper, ProjDrawW: 4, ProjDrawH: 16, ProjFaceVelocity: true, // long thin dart
 			LevelMult: 1.2,
 		},
@@ -33,6 +34,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseDamage:   1,                     // per tick; ×BeamBaseDuration(30) = 30 over a burst
 			BaseInterval: 1440, MinInterval: 15, // 24s
 			BaseRange:        200,
+			Target:           core.TargetFarthest, // sweeps onto the farthest enemy in range
 			BeamBaseLength:   200,
 			BeamBaseWidth:    6,
 			BeamBaseDuration: 30,
@@ -43,7 +45,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 480, MinInterval: 6, // 8s between bursts
 			ProjSpeed: 5, ProjMaxDist: 240, ProjRadius: 2,
 			Pellets: 10, SpreadRad: 0.2, SpreadRandom: true, BurstGap: 3, // staggered random stream
-			Aim:    core.AimForward, // never locks on; always fires forward
+			Aim:    core.AimForward,                                // never locks on; always fires forward
 			Sprite: core.SpriteGatling, ProjDrawW: 6, ProjDrawH: 6, // small round slug
 			LevelMult: 1.2,
 		},
@@ -61,7 +63,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 480, MinInterval: 6, // 8s between bursts
 			ProjSpeed: 5, ProjMaxDist: 120, ProjRadius: 2, BaseRange: 80, // very short range point defence
 			Pellets: 10, SpreadRad: 0.1, SpreadRandom: true, BurstGap: 2, // tight rapid burst
-			HoldWhenNoTarget: true, // stays charged until something enters range
+			HoldWhenNoTarget: true,                                        // stays charged until something enters range
 			Sprite:           core.SpriteCIWS, ProjDrawW: 6, ProjDrawH: 6, // small round tracer
 			LevelMult: 1.2,
 		},
@@ -70,7 +72,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 2, ProjMaxDist: 240, ProjRadius: 6, BaseRange: 240, // slow shell, long lock range
 			ExplodeRadius: 48, ExplodeDamage: 10, // smaller blast than the grenade, only if it expires unhit
-			Mover:  core.NewHomingMover(0.3, 6),                                            // homes onto the nearest enemy (turn force 0.3, cruise speed 6)
+			Mover:  core.NewHomingMover(0.3, 6),                                             // homes onto the nearest enemy (turn force 0.3, cruise speed 6)
 			Sprite: core.SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, // larger shell, turns to face its target
 			LevelMult: 1.2,
 		},

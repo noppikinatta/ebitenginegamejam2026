@@ -32,13 +32,15 @@ offer-add,Add
 offer-upgrade,Upgrade
 offer-nippers,+{{.N}} Nippers
 comp-capacitor,Capacitor
+comp-repair-unit,Repair Unit
+comp-armor,Armor
 
 # --- Pause / cut view ---
 pause-title,PAUSED — click a tile to cut  (Nippers {{.Nippers}})
 pause-help,Cutting disconnects the tile and everything downstream. Space resumes.
-junk-desc,A useless gadget a doctor bolted on. It conducts power but does nothing — a prime tile to cut.
-junk-desc-tall,A giant useless fixture a doctor bolted on. It does nothing but dilute power — a prime tile to cut.
 comp-capacitor-desc,Equipment that raises the turret's fire rate while it stays connected.
+comp-repair-unit-desc,Equipment that repairs 1 HP every few seconds while it stays connected.
+comp-armor-desc,Equipment that reduces the damage of each hit while it stays connected (at least 1 still lands).
 comp-wire-name,Wire
 comp-wire-desc,A bare conductor: it carries power but does nothing on its own. Cut it to reshape the layout.
 
@@ -96,10 +98,10 @@ junk-lava-lamp,Lava Lamp
 junk-oil-heater,Oil Heater
 junk-rice-cooker,Rice Cooker
 junk-modern-art-fountain,Modern Art Fountain
-junk-invisible-cannon,Invisible Cannon
+junk-concept,Concept
 junk-nft-nuclear-missile,NFT Nuclear Missile
 junk-horns,Horns
-junk-ai-targeting-device,AI Targeting Device
+junk-high-end-gpu,High-End GPU
 
 # --- Junk device names (will emit something later) ---
 junk-balloon-service-unit,Balloon Service Unit
@@ -120,10 +122,10 @@ junk-lava-lamp-desc,Hypnotic blobs with zero combat value — a prime tile to cu
 junk-oil-heater-desc,Keeps the turret toasty for no reason. Sips power — a prime tile to cut.
 junk-rice-cooker-desc,Steams a perfect cup of rice mid-battle. Delicious but useless — a prime tile to cut.
 junk-modern-art-fountain-desc,An avant-garde fountain. Critics love it; the tank does not — a prime tile to cut.
-junk-invisible-cannon-desc,A cannon only fools can see. Fires nothing — a prime tile to cut.
+junk-concept-desc,A cannon only fools can see. Fires nothing — a prime tile to cut.
 junk-nft-nuclear-missile-desc,A nuclear missile minted as an NFT. Non-fungible and non-functional — a prime tile to cut.
 junk-horns-desc,Decorative horns. Intimidating but useless — a prime tile to cut.
-junk-ai-targeting-device-desc,An AI that targets nothing in particular. Burns power thinking — a prime tile to cut.
+junk-high-end-gpu-desc,An AI that targets nothing in particular. Burns power thinking — a prime tile to cut.
 junk-balloon-service-unit-desc,Floats cheerful balloons skyward. Harmless flair — a prime tile to cut.
 junk-coffee-maker-desc,Puffs clouds of steam skyward. Smells great and does nothing — a prime tile to cut.
 junk-toaster-desc,Pops toast into the air. Crunchy but useless — a prime tile to cut.

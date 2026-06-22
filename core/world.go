@@ -177,6 +177,7 @@ func (w *World) Update(move geom.PointF) {
 
 	w.Tick++
 	w.updatePlayer(move)
+	w.repairPlayer()
 	w.updateWeapons()
 	w.updateJunkEmitters()
 	w.updateBeams()
@@ -238,6 +239,24 @@ func (w *World) updatePlayer(move geom.PointF) {
 	w.Player.Pos = w.Player.Pos.Add(move.Multiply(w.Player.Speed))
 	if w.Player.invuln > 0 {
 		w.Player.invuln--
+	}
+}
+
+// repairPlayer heals the tank by the connected Repair Units' total HPRegen once
+// every RepairInterval ticks, capped at MaxHP. With no repair units the summed
+// HPRegen is 0, so this is a no-op.
+func (w *World) repairPlayer() {
+	if w.cfg.RepairInterval <= 0 || w.turret == nil {
+		return
+	}
+	w.Player.repairTimer++
+	if w.Player.repairTimer < w.cfg.RepairInterval {
+		return
+	}
+	w.Player.repairTimer = 0
+	w.Player.HP += w.turret.Modifiers().HPRegen
+	if w.Player.HP > w.Player.MaxHP {
+		w.Player.HP = w.Player.MaxHP
 	}
 }
 
@@ -352,7 +371,7 @@ func (w *World) weaponAim(weapon *Weapon, params WeaponParams) float64 {
 		return w.Player.FacingAngle
 	default: // AimLockOn
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-		if target := w.nearestEnemy(w.Player.Pos, params.BaseRange); target != nil {
+		if target := w.targetEnemy(w.Player.Pos, params.BaseRange, params.Target); target != nil {
 			if dir := target.Pos.Subtract(muzzle); dir.Abs() > 0 {
 				// Store the aim relative to the tank's facing so that, when the
 				// target leaves range, the barrel freezes pointing the same way
@@ -395,11 +414,11 @@ func (w *World) updateBeams() {
 	}
 }
 
-// beamDir returns the unit direction a laser burst points: toward the nearest
-// enemy within range (centred on the player), or the burst's captured forward
-// angle when no enemy is locked.
+// beamDir returns the unit direction a laser burst points: toward its target
+// enemy within range (centred on the player; nearest or farthest per the
+// weapon's TargetMode), or the burst's captured forward angle when none is in range.
 func (w *World) beamDir(weapon *Weapon, muzzle geom.PointF, rng float64) geom.PointF {
-	if target := w.nearestEnemy(w.Player.Pos, rng); target != nil {
+	if target := w.targetEnemy(w.Player.Pos, rng, w.cfg.Weapons[weapon.Kind].Target); target != nil {
 		dir := target.Pos.Subtract(muzzle)
 		if d := dir.Abs(); d > 0 {
 			return dir.Multiply(1 / d)
@@ -427,14 +446,25 @@ func (w *World) ActiveBeams() []BeamView {
 	return out
 }
 
+// nearestEnemy returns the closest living enemy within maxRange (nil if none).
 func (w *World) nearestEnemy(from geom.PointF, maxRange float64) *Enemy {
+	return w.targetEnemy(from, maxRange, TargetNearest)
+}
+
+// targetEnemy returns the living enemy within maxRange chosen per mode: the
+// closest (TargetNearest) or the farthest (TargetFarthest). nil if none in range.
+func (w *World) targetEnemy(from geom.PointF, maxRange float64, mode TargetMode) *Enemy {
 	var best *Enemy
-	bestD := maxRange
+	bestD := -1.0
 	for _, e := range w.Enemies {
 		if !e.alive {
 			continue
 		}
-		if d := e.Pos.Distance(from); d <= bestD {
+		d := e.Pos.Distance(from)
+		if d > maxRange {
+			continue
+		}
+		if best == nil || (mode == TargetFarthest && d > bestD) || (mode == TargetNearest && d < bestD) {
 			bestD = d
 			best = e
 		}
@@ -520,7 +550,13 @@ func (w *World) killEnemy(e *Enemy) {
 		w.Gems = append(w.Gems, &Gem{Pos: e.Pos, Value: e.XPValue, alive: true})
 	}
 	if e.DropsNipper {
-		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, alive: true})
+		kind := PickupNipper
+		// Rarely a heart (HP) drops instead of a nipper. rng is nil in manually
+		// built test worlds, which then always drop a nipper.
+		if w.rng != nil && w.rng.Float64() < w.cfg.HeartDropChance {
+			kind = PickupHeart
+		}
+		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: kind, alive: true})
 	}
 	if e.Final && w.State == StatePlaying {
 		w.State = StateCleared // defeating the final boss wins the run
@@ -544,6 +580,16 @@ func (w *World) updateEnemies() {
 }
 
 func (w *World) damagePlayer(dmg float64) {
+	// Armor subtracts a flat amount, but at least 1 damage always lands. turret is
+	// nil in some manually-built test worlds, which then take unarmored damage.
+	if w.turret != nil {
+		if armor := w.turret.Modifiers().Armor; armor > 0 {
+			dmg -= armor
+			if dmg < 1 {
+				dmg = 1
+			}
+		}
+	}
 	w.Player.HP -= dmg
 	w.emitDamage(w.Player.Pos, dmg, true)
 	w.Player.invuln = 30
@@ -574,7 +620,8 @@ func (w *World) updateGems() {
 	}
 }
 
-// updatePickups magnets and collects dropped nippers, granting one per pickup.
+// updatePickups magnets and collects dropped pickups: a nipper grants one
+// nipper, a heart restores HeartHeal HP (capped at MaxHP).
 func (w *World) updatePickups() {
 	pr := w.cfg.Pickup
 	for _, p := range w.Pickups {
@@ -585,11 +632,24 @@ func (w *World) updatePickups() {
 		switch {
 		case d <= pr.PickupDist:
 			p.alive = false
-			w.Player.Nippers++
+			w.collectPickup(p)
 		case d <= pr.MagnetDist && d > 0:
 			dir := w.Player.Pos.Subtract(p.Pos)
 			p.Pos = p.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}
+	}
+}
+
+// collectPickup applies a collected pickup's effect to the player.
+func (w *World) collectPickup(p *Pickup) {
+	switch p.Kind {
+	case PickupHeart:
+		w.Player.HP += w.cfg.HeartHeal
+		if w.Player.HP > w.Player.MaxHP {
+			w.Player.HP = w.Player.MaxHP
+		}
+	default:
+		w.Player.Nippers++
 	}
 }
 
@@ -676,11 +736,17 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		if atCap {
 			continue // out of distinct weapons and can't add tiles
 		}
-		// Otherwise add a new tile: capacitor / weapon / junk.
+		// Otherwise add a new tile: equipment (capacitor / repair / armor) / weapon / junk.
 		switch {
 		case w.rng.Float64() < dd.CapacitorChance:
 			comps = append(comps, Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus})
 			items = append(items, OfferItem{Kind: OfferAddCapacitor, Text: "Capacitor"})
+		case w.rng.Float64() < dd.RepairUnitChance:
+			comps = append(comps, RepairUnit{HealAmount: w.cfg.RepairHealAmount})
+			items = append(items, OfferItem{Kind: OfferAddRepairUnit, Text: "Repair Unit"})
+		case w.rng.Float64() < dd.ArmorChance:
+			comps = append(comps, Armor{Reduction: w.cfg.ArmorReduction})
+			items = append(items, OfferItem{Kind: OfferAddArmor, Text: "Armor"})
 		case w.rng.Float64() < 0.5:
 			kind := pickWeaponKind(w.rng)
 			comps = append(comps, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})

@@ -54,10 +54,10 @@ func TestBeamDPS_HitsEnemyInPath(t *testing.T) {
 }
 
 func TestBeamDPS_SkipsEnemyOutsidePath(t *testing.T) {
-	// The beam tracks the nearest enemy (target), so we need two enemies:
-	// one in the beam path (target) and one to the side (bystander).
-	target := &Enemy{Pos: geom.PointF{X: 0, Y: -80}, HP: 100, Radius: 12, alive: true}
-	bystander := &Enemy{Pos: geom.PointF{X: 200, Y: 0}, HP: 100, Radius: 12, alive: true}
+	// The laser tracks the FARTHEST enemy in range, so the target is placed above
+	// and farther (in the beam path) while a nearer bystander sits off to the side.
+	target := &Enemy{Pos: geom.PointF{X: 0, Y: -150}, HP: 100, Radius: 12, alive: true}
+	bystander := &Enemy{Pos: geom.PointF{X: 80, Y: 0}, HP: 100, Radius: 12, alive: true}
 	w := buildLaserWorld([]*Enemy{target, bystander})
 
 	w.updateBeams()

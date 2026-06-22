@@ -16,6 +16,7 @@ type Player struct {
 	FacingAngle float64 // radians; direction the tank/turret faces. -pi/2 = straight up = forward (default)
 	Nippers     int     // plastic-model nippers: consumed to cut a turret tile mid-combat
 	invuln      int     // i-frame ticks remaining after taking contact damage
+	repairTimer int     // ticks since the last repair-unit heal cycle
 }
 
 // EnemyKind identifies a zako (trash) enemy spawn template, used both to pick
@@ -96,9 +97,19 @@ type Gem struct {
 	alive bool
 }
 
-// Pickup is a dropped nipper that grants one nipper when collected.
+// PickupKind distinguishes what a dropped pickup grants when collected.
+type PickupKind int
+
+const (
+	PickupNipper PickupKind = iota // grants one nipper (default)
+	PickupHeart                    // restores HP
+)
+
+// Pickup is a dropped item a candlestick leaves behind: a nipper, or (rarely) a
+// heart that restores HP. Kind selects which; the zero value is a nipper.
 type Pickup struct {
 	Pos   geom.PointF
+	Kind  PickupKind
 	alive bool
 }
 

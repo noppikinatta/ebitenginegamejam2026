@@ -23,6 +23,7 @@
 | `tank.png` | 48x64 | 自機（戦車）。**上向き**で authoring（砲塔は別途タイルで重なる） |
 | `gem.png` | 8x8 | 経験値ジェム |
 | `nipper.png` | 16x16 | ニッパー（切断回数アイテム） |
+| `heart.png` | 8x8 | ハート（燭台から低確率drop・HP回復） |
 | `projectile.png` | 8x8 | 既定の弾（武器がスプライト未指定の時のフォールバック） |
 | `proj_cannon.png` | **8x12** | キャノン弾（長方形・**進行方向へ回転**。上向き authoring） |
 | `proj_shotgun.png` | 6x6 | ショットガン弾（丸） |
@@ -45,6 +46,8 @@
 | `tile.png` | 24x24 | 全武装/ジャンクが乗る**プレーンな土台タイル** |
 | `tile_generator.png` | 24x24 | 中央ジェネレータ（切断不可・無料の主砲枠） |
 | `tile_capacitor.png` | 24x24 | キャパシタ設備（発射倍率+0.1） |
+| `tile_repair.png` | 24x24 | 修理装置設備（300フレーム毎にHP+1） |
+| `tile_armor.png` | 24x24 | 増加装甲設備（被弾ダメージ-1・最低1は受ける） |
 
 ## 武装バレル（24x48・縦長）
 
@@ -79,10 +82,10 @@
 | `junk_oil_heater.png` | 24x24 | Oil Heater（オイルヒーター） |
 | `junk_rice_cooker.png` | 24x24 | Rice Cooker（炊飯器） |
 | `junk_modern_art_fountain.png` | 24x24 | Modern Art Fountain（泉/現代アート） |
-| `junk_invisible_cannon.png` | 24x24 | Invisible Cannon（愚か者には見えない砲） |
+| `junk_concept.png` | 24x24 | Concept（概念） |
 | `junk_nft_nuclear_missile.png` | 24x24 | NFT Nuclear Missile |
 | `junk_horns.png` | 24x24 | Horns（ツノ） |
-| `junk_ai_targeting_device.png` | 24x24 | AI Targeting Device |
+| `junk_high_end_gpu.png` | 24x24 | High-End GPU（ハイエンドGPU） |
 | `junk_balloon_service_unit.png` | 24x24 | Balloon Service Unit（風船サービス装置） |
 | `junk_coffee_maker.png` | 24x24 | Coffee Maker |
 | `junk_toaster.png` | 24x24 | Toaster |
@@ -99,7 +102,7 @@
 | `enemy.png` | 32x32 | グラント（標準ザコ） |
 | `enemy_swarmer.png` | 28x28 | スウォーマー（高速・低耐久・群れ） |
 | `enemy_brute.png` | 52x52 | ブルート（低速・高耐久・大型） |
-| `candlestick.png` | 32x32 | 燭台（停止・無害・ニッパーdrop） |
+| `candlestick.png` | 32x32 | 燭台（停止・無害・ニッパーdrop／10%でハート） |
 | `boss1.png` | 80x80 | 3分ボス（Prototype Hauler） |
 | `boss2.png` | 80x80 | 6分ボス（Siege Engine） |
 | `boss3.png` | 112x112 | 10分・最終ボス（The Disconnector） |
