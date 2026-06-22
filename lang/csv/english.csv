@@ -36,8 +36,6 @@ comp-capacitor,Capacitor
 # --- Pause / cut view ---
 pause-title,PAUSED — click a tile to cut  (Nippers {{.Nippers}})
 pause-help,Cutting disconnects the tile and everything downstream. Space resumes.
-junk-desc,A useless gadget a doctor bolted on. It conducts power but does nothing — a prime tile to cut.
-junk-desc-tall,A giant useless fixture a doctor bolted on. It does nothing but dilute power — a prime tile to cut.
 comp-capacitor-desc,Equipment that raises the turret's fire rate while it stays connected.
 comp-wire-name,Wire
 comp-wire-desc,A bare conductor: it carries power but does nothing on its own. Cut it to reshape the layout.
