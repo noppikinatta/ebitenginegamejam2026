@@ -6,6 +6,7 @@ require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.9
 	github.com/noppikinatta/bamenn v0.2.1
 	github.com/noppikinatta/nyuuryoku v0.1.0
+	github.com/oov/psd v0.0.0-20260122084234-c463b6a89e2f
 )
 
 require (
@@ -14,6 +15,7 @@ require (
 	github.com/ebitengine/oto/v3 v3.4.0 // indirect
 	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/go-text/typesetting v0.3.0 // indirect
+	github.com/gopherjs/gopherjs v1.20.2 // indirect
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/jfreymuth/oggvorbis v1.0.5 // indirect
