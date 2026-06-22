@@ -79,6 +79,9 @@ type WeaponParams struct {
 	BurstGap     int
 	// Aim selects how the weapon points (lock-on / forward / outward).
 	Aim AimMode
+	// Target selects which in-range enemy a lock-on weapon (and the laser) aims
+	// at: the nearest (default) or the farthest.
+	Target TargetMode
 	// HoldWhenNoTarget keeps a full accumulator charged (instead of firing into
 	// empty space) until an enemy enters range. Used by interception weapons
 	// (CIWS); other weapons fire even with no target.
@@ -117,6 +120,15 @@ const (
 	AimLockOn  AimMode = iota // aim at the nearest enemy in range, else forward
 	AimForward                // always the tank's forward facing (never locks on)
 	AimOutward                // always radially outward through the weapon's tile
+)
+
+// TargetMode selects which in-range enemy a lock-on weapon (or the laser) aims
+// at among the candidates within range.
+type TargetMode int
+
+const (
+	TargetNearest  TargetMode = iota // the closest enemy in range (default)
+	TargetFarthest                   // the farthest enemy in range
 )
 
 // PickupRanges are shared by XP gems and nipper pickups.

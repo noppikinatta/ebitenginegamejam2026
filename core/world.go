@@ -371,7 +371,7 @@ func (w *World) weaponAim(weapon *Weapon, params WeaponParams) float64 {
 		return w.Player.FacingAngle
 	default: // AimLockOn
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
-		if target := w.nearestEnemy(w.Player.Pos, params.BaseRange); target != nil {
+		if target := w.targetEnemy(w.Player.Pos, params.BaseRange, params.Target); target != nil {
 			if dir := target.Pos.Subtract(muzzle); dir.Abs() > 0 {
 				// Store the aim relative to the tank's facing so that, when the
 				// target leaves range, the barrel freezes pointing the same way
@@ -414,11 +414,11 @@ func (w *World) updateBeams() {
 	}
 }
 
-// beamDir returns the unit direction a laser burst points: toward the nearest
-// enemy within range (centred on the player), or the burst's captured forward
-// angle when no enemy is locked.
+// beamDir returns the unit direction a laser burst points: toward its target
+// enemy within range (centred on the player; nearest or farthest per the
+// weapon's TargetMode), or the burst's captured forward angle when none is in range.
 func (w *World) beamDir(weapon *Weapon, muzzle geom.PointF, rng float64) geom.PointF {
-	if target := w.nearestEnemy(w.Player.Pos, rng); target != nil {
+	if target := w.targetEnemy(w.Player.Pos, rng, w.cfg.Weapons[weapon.Kind].Target); target != nil {
 		dir := target.Pos.Subtract(muzzle)
 		if d := dir.Abs(); d > 0 {
 			return dir.Multiply(1 / d)
@@ -446,14 +446,25 @@ func (w *World) ActiveBeams() []BeamView {
 	return out
 }
 
+// nearestEnemy returns the closest living enemy within maxRange (nil if none).
 func (w *World) nearestEnemy(from geom.PointF, maxRange float64) *Enemy {
+	return w.targetEnemy(from, maxRange, TargetNearest)
+}
+
+// targetEnemy returns the living enemy within maxRange chosen per mode: the
+// closest (TargetNearest) or the farthest (TargetFarthest). nil if none in range.
+func (w *World) targetEnemy(from geom.PointF, maxRange float64, mode TargetMode) *Enemy {
 	var best *Enemy
-	bestD := maxRange
+	bestD := -1.0
 	for _, e := range w.Enemies {
 		if !e.alive {
 			continue
 		}
-		if d := e.Pos.Distance(from); d <= bestD {
+		d := e.Pos.Distance(from)
+		if d > maxRange {
+			continue
+		}
+		if best == nil || (mode == TargetFarthest && d > bestD) || (mode == TargetNearest && d < bestD) {
 			bestD = d
 			best = e
 		}
