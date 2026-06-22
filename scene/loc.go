@@ -45,6 +45,10 @@ func offerItemText(it core.OfferItem) string {
 		return weaponName(it.Weapon)
 	case core.OfferAddCapacitor:
 		return lang.Text("comp-capacitor")
+	case core.OfferAddRepairUnit:
+		return lang.Text("comp-repair-unit")
+	case core.OfferAddArmor:
+		return lang.Text("comp-armor")
 	case core.OfferNippers:
 		return lang.ExecuteTemplate("offer-nippers", map[string]any{"N": it.Amount})
 	default: // OfferAddJunk

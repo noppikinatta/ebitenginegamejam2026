@@ -32,11 +32,15 @@ offer-add,Add
 offer-upgrade,Upgrade
 offer-nippers,+{{.N}} Nippers
 comp-capacitor,Capacitor
+comp-repair-unit,Repair Unit
+comp-armor,Armor
 
 # --- Pause / cut view ---
 pause-title,PAUSED — click a tile to cut  (Nippers {{.Nippers}})
 pause-help,Cutting disconnects the tile and everything downstream. Space resumes.
 comp-capacitor-desc,Equipment that raises the turret's fire rate while it stays connected.
+comp-repair-unit-desc,Equipment that repairs 1 HP every few seconds while it stays connected.
+comp-armor-desc,Equipment that reduces the damage of each hit while it stays connected (at least 1 still lands).
 comp-wire-name,Wire
 comp-wire-desc,A bare conductor: it carries power but does nothing on its own. Cut it to reshape the layout.
 

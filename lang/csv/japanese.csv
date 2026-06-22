@@ -32,11 +32,15 @@ offer-add,追加
 offer-upgrade,強化
 offer-nippers,ニッパー +{{.N}}
 comp-capacitor,キャパシタ
+comp-repair-unit,修理装置
+comp-armor,増加装甲
 
 # --- ポーズ / 切断ビュー ---
 pause-title,ポーズ中 — タイルをクリックして切断  (ニッパー {{.Nippers}})
 pause-help,切断するとそのタイルと下流すべてが外れる。Spaceで再開。
 comp-capacitor-desc,接続している間だけ砲塔の発射速度を上げる設備。
+comp-repair-unit-desc,接続している間、数秒ごとにHPを1回復する設備。
+comp-armor-desc,接続している間、被弾ごとのダメージを軽減する設備（最低1は受ける）。
 comp-wire-name,ワイヤー
 comp-wire-desc,電力を通すだけで単体では何もしない導線。切って配置を組み替えよう。
 

@@ -576,6 +576,10 @@ func offerIcon(it core.OfferItem) (key string, weapon bool) {
 		return weaponTileKey(it.Weapon), true
 	case core.OfferAddCapacitor:
 		return asset.ImgTileCapacitor, false
+	case core.OfferAddRepairUnit:
+		return asset.ImgTileRepairUnit, false
+	case core.OfferAddArmor:
+		return asset.ImgTileArmor, false
 	case core.OfferNippers:
 		return asset.ImgNipper, false
 	default: // OfferAddJunk
@@ -850,6 +854,10 @@ func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool)
 		return junkNameL(c.Name()), junkDescL(c.Name()), core.JunkImageKey(c.DeviceName), c.Tall
 	case core.Capacitor:
 		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor, false
+	case core.RepairUnit:
+		return lang.Text("comp-repair-unit"), lang.Text("comp-repair-unit-desc"), asset.ImgTileRepairUnit, false
+	case core.Armor:
+		return lang.Text("comp-armor"), lang.Text("comp-armor-desc"), asset.ImgTileArmor, false
 	default: // plain tile (or empty)
 		return lang.Text("comp-wire-name"), lang.Text("comp-wire-desc"), asset.ImgTile, false
 	}
@@ -874,11 +882,11 @@ func tileBase(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64)
 	if tr.IsGenerator(idx) {
 		return asset.ImgTileGenerator, 1
 	}
-	if _, ok := tile.Component.(core.Capacitor); ok {
+	if key, ok := equipmentTileKey(tile.Component); ok {
 		if power <= 0 {
-			return asset.ImgTileCapacitor, 0.45 // dim: disconnected capacitor
+			return key, 0.45 // dim: disconnected equipment
 		}
-		return asset.ImgTileCapacitor, 1
+		return key, 1
 	}
 	// Every other tile (weapon, junk, empty) sits on the same plain base tile; the
 	// weapon barrel / junk device is layered on top afterwards.
@@ -886,6 +894,22 @@ func tileBase(tr *core.Turret, idx hexmap.Index, tile *core.Tile, power float64)
 		return asset.ImgTile, 0.45 // dim: unpowered tile
 	}
 	return asset.ImgTile, 1
+}
+
+// equipmentTileKey returns the tile image for an equipment component (capacitor,
+// repair unit, armor) and whether comp is such equipment. These tiles have their
+// own base art rather than the plain wire socket.
+func equipmentTileKey(comp core.Component) (string, bool) {
+	switch comp.(type) {
+	case core.Capacitor:
+		return asset.ImgTileCapacitor, true
+	case core.RepairUnit:
+		return asset.ImgTileRepairUnit, true
+	case core.Armor:
+		return asset.ImgTileArmor, true
+	default:
+		return "", false
+	}
 }
 
 // weaponTileKey maps a weapon kind to its turret-tile image key.

@@ -177,6 +177,7 @@ func (w *World) Update(move geom.PointF) {
 
 	w.Tick++
 	w.updatePlayer(move)
+	w.repairPlayer()
 	w.updateWeapons()
 	w.updateJunkEmitters()
 	w.updateBeams()
@@ -238,6 +239,24 @@ func (w *World) updatePlayer(move geom.PointF) {
 	w.Player.Pos = w.Player.Pos.Add(move.Multiply(w.Player.Speed))
 	if w.Player.invuln > 0 {
 		w.Player.invuln--
+	}
+}
+
+// repairPlayer heals the tank by the connected Repair Units' total HPRegen once
+// every RepairInterval ticks, capped at MaxHP. With no repair units the summed
+// HPRegen is 0, so this is a no-op.
+func (w *World) repairPlayer() {
+	if w.cfg.RepairInterval <= 0 || w.turret == nil {
+		return
+	}
+	w.Player.repairTimer++
+	if w.Player.repairTimer < w.cfg.RepairInterval {
+		return
+	}
+	w.Player.repairTimer = 0
+	w.Player.HP += w.turret.Modifiers().HPRegen
+	if w.Player.HP > w.Player.MaxHP {
+		w.Player.HP = w.Player.MaxHP
 	}
 }
 
@@ -550,6 +569,16 @@ func (w *World) updateEnemies() {
 }
 
 func (w *World) damagePlayer(dmg float64) {
+	// Armor subtracts a flat amount, but at least 1 damage always lands. turret is
+	// nil in some manually-built test worlds, which then take unarmored damage.
+	if w.turret != nil {
+		if armor := w.turret.Modifiers().Armor; armor > 0 {
+			dmg -= armor
+			if dmg < 1 {
+				dmg = 1
+			}
+		}
+	}
 	w.Player.HP -= dmg
 	w.emitDamage(w.Player.Pos, dmg, true)
 	w.Player.invuln = 30
@@ -696,11 +725,17 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		if atCap {
 			continue // out of distinct weapons and can't add tiles
 		}
-		// Otherwise add a new tile: capacitor / weapon / junk.
+		// Otherwise add a new tile: equipment (capacitor / repair / armor) / weapon / junk.
 		switch {
 		case w.rng.Float64() < dd.CapacitorChance:
 			comps = append(comps, Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus})
 			items = append(items, OfferItem{Kind: OfferAddCapacitor, Text: "Capacitor"})
+		case w.rng.Float64() < dd.RepairUnitChance:
+			comps = append(comps, RepairUnit{HealAmount: w.cfg.RepairHealAmount})
+			items = append(items, OfferItem{Kind: OfferAddRepairUnit, Text: "Repair Unit"})
+		case w.rng.Float64() < dd.ArmorChance:
+			comps = append(comps, Armor{Reduction: w.cfg.ArmorReduction})
+			items = append(items, OfferItem{Kind: OfferAddArmor, Text: "Armor"})
 		case w.rng.Float64() < 0.5:
 			kind := pickWeaponKind(w.rng)
 			comps = append(comps, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})
