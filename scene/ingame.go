@@ -356,15 +356,18 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	g.drawGrid(screen, cam)
 
 	for _, gem := range w.Gems {
-		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1)
+		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1, false)
 	}
 	for _, pk := range w.Pickups {
-		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 16, 16, 0, 1, 1, 1, 1)
+		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 16, 16, 0, 1, 1, 1, 1, false)
 	}
 	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {
 		sz := e.Radius * 2 // sprite footprint follows the collision radius
-		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1)
+		// Art faces slightly left; mirror it to face right when the enemy is left
+		// of the tank, so enemies always turn toward the player.
+		faceRight := e.Pos.X < w.Player.Pos.X
+		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1, faceRight)
 	}
 	for _, p := range w.Projectiles {
 		// Weapons and junk emitters tag projectiles with their own sprite key and
@@ -389,14 +392,14 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		if p.FaceVelocity && p.Vel.Abs() > 0 {
 			angle = p.Vel.Angle() + math.Pi/2
 		}
-		drawSprite(screen, cam, key, p.Pos, dw, dh, angle, 1, 1, 1, 1)
+		drawSprite(screen, cam, key, p.Pos, dw, dh, angle, 1, 1, 1, 1, false)
 	}
 	g.drawBeams(screen, cam)
 
 	// Player tank (tall sprite, authored pointing up; rotate to face movement
 	// using the same smoothed angle as the turret so body and turret ease
 	// together). Collision radius is separate, in core.
-	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1)
+	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1, false)
 
 	// Turret miniature on top of the tank body, rotated to face movement direction.
 	g.drawTurretCombat(screen, cam)
@@ -1020,8 +1023,13 @@ func (g *InGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // drawSprite draws the image keyed by key centred on world position pos
 // (transformed by cam), scaled to w×h, rotated by angle, and tinted by
-// (r,gr,b,a). It is the sprite-based replacement for the old drawEntity.
-func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.PointF, w, h, angle float64, r, gr, b, a float32) {
+// (r,gr,b,a). When flipX is true the sprite is mirrored horizontally (via a
+// negative width, see drawing.DrawSprite), used to turn left-facing art to the
+// right. It is the sprite-based replacement for the old drawEntity.
+func drawSprite(screen *ebiten.Image, cam geom.PointF, key string, pos geom.PointF, w, h, angle float64, r, gr, b, a float32, flipX bool) {
+	if flipX {
+		w = -w
+	}
 	drawing.DrawSprite(screen, drawing.Image(key), pos.X-cam.X, pos.Y-cam.Y, w, h, angle, r, gr, b, a)
 }
 

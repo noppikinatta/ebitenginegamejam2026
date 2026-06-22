@@ -34,6 +34,8 @@ func Image(key string) *ebiten.Image {
 // DrawSprite draws img centred at screen position (cx, cy), scaled to fit a
 // w×h box, rotated by angle radians around its centre, and tinted by (r,g,b,a).
 // Scaling lets art authored at any resolution match the intended footprint.
+// A negative w mirrors the sprite horizontally around its centre (the footprint
+// stays |w| wide); likewise a negative h mirrors vertically.
 // Only a DrawImageOptions value is allocated per call (no per-frame images).
 func DrawSprite(dst, img *ebiten.Image, cx, cy, w, h, angle float64, r, g, b, a float32) {
 	bounds := img.Bounds()

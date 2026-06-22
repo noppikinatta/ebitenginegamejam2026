@@ -10,19 +10,23 @@ import (
 // drawn with decreasing alpha (and a slight swell), and culled when spent. The
 // sprite key/size are resolved at spawn since the Enemy is already gone.
 type deathFX struct {
-	pos  geom.PointF
-	key  string  // resolved sprite key
-	size float64 // base draw size (Radius*2)
-	age  int
+	pos       geom.PointF
+	key       string  // resolved sprite key
+	size      float64 // base draw size (Radius*2)
+	age       int
+	faceRight bool // mirror horizontally, matching the enemy's facing at death
 }
 
-// spawnDeathFX turns this tick's enemy deaths into fading sprites.
+// spawnDeathFX turns this tick's enemy deaths into fading sprites. The corpse
+// keeps the facing the enemy had when it died (toward the tank), resolved here
+// from the death position relative to the player so core stays unaware of it.
 func (g *InGame) spawnDeathFX() {
 	for _, ev := range g.world.DeathEvents {
 		g.deaths = append(g.deaths, deathFX{
-			pos:  ev.Pos,
-			key:  enemySpriteKeyFor(ev.Sprite, ev.Kind, ev.IsBoss, ev.DropsNipper),
-			size: ev.Radius * 2,
+			pos:       ev.Pos,
+			key:       enemySpriteKeyFor(ev.Sprite, ev.Kind, ev.IsBoss, ev.DropsNipper),
+			size:      ev.Radius * 2,
+			faceRight: ev.Pos.X < g.world.Player.Pos.X,
 		})
 	}
 }
@@ -46,6 +50,6 @@ func (g *InGame) drawDeathFX(screen *ebiten.Image, cam geom.PointF) {
 		frac := float64(d.age) / deathFadeTicks // 0 -> 1 across the fade
 		a := float32(1 - frac)
 		sz := d.size * (1 + (deathGrow-1)*frac)
-		drawSprite(screen, cam, d.key, d.pos, sz, sz, 0, a, a, a, a)
+		drawSprite(screen, cam, d.key, d.pos, sz, sz, 0, a, a, a, a, d.faceRight)
 	}
 }
