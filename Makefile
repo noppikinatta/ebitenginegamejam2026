@@ -28,7 +28,7 @@ sound-pak:
 # After running, wire asset/sound.go to fileTypeOgg + the recorded loop lengths
 # (see the printed snippet / the .ogg.loop files).
 bgm-ogg:
-	go run tools/wav2ogg/main.go asset/sound/bgm asset/sound/bgm/bgm_title.wav asset/sound/bgm/bgm_game.wav
+	go run tools/wav2ogg/main.go asset/sound/bgm asset/etc/bgm_title.wav asset/etc/bgm_game.wav
 
 # Regenerate the per-type junk placeholder images into asset/img.
 junk-img:
