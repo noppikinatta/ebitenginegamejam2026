@@ -79,10 +79,10 @@
 | `junk_oil_heater.png` | 24x24 | Oil Heater（オイルヒーター） |
 | `junk_rice_cooker.png` | 24x24 | Rice Cooker（炊飯器） |
 | `junk_modern_art_fountain.png` | 24x24 | Modern Art Fountain（泉/現代アート） |
-| `junk_invisible_cannon.png` | 24x24 | Invisible Cannon（愚か者には見えない砲） |
+| `junk_concept.png` | 24x24 | Concept（概念） |
 | `junk_nft_nuclear_missile.png` | 24x24 | NFT Nuclear Missile |
 | `junk_horns.png` | 24x24 | Horns（ツノ） |
-| `junk_ai_targeting_device.png` | 24x24 | AI Targeting Device |
+| `junk_high_end_gpu.png` | 24x24 | High-End GPU（ハイエンドGPU） |
 | `junk_balloon_service_unit.png` | 24x24 | Balloon Service Unit（風船サービス装置） |
 | `junk_coffee_maker.png` | 24x24 | Coffee Maker |
 | `junk_toaster.png` | 24x24 | Toaster |

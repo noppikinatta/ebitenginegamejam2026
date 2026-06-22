@@ -68,10 +68,10 @@
 - オイルヒーター (Oil Heater)
 - 炊飯器 (Rice Cooker)
 - 泉(現代アート) (Modern Art Fountain)
-- 愚か者には見えないキャノン砲 (Invisible Cannon)
+- 概念 (Concept)
 - NFT核ミサイル (NFT Nuclear Missile)
 - ツノ (Horns)
-- AI照準装置 (AI Targeting Device)
+- ハイエンドGPU (High-End GPU)
 
 ---
 
