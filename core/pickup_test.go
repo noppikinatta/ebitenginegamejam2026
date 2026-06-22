@@ -1,6 +1,7 @@
 package core
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/noppikinatta/ebitenginegamejam2026/geom"
@@ -45,6 +46,49 @@ func TestUpdatePickups_CollectGrantsNipper(t *testing.T) {
 	}
 	if w.Pickups[0].alive {
 		t.Errorf("collected pickup should be marked dead")
+	}
+}
+
+func TestKillEnemy_HeartDropChanceDropsHeart(t *testing.T) {
+	cfg := testConfig()
+	cfg.HeartDropChance = 1 // force a heart instead of a nipper
+	w := &World{Player: &Player{}, State: StatePlaying, cfg: cfg, rng: rand.New(rand.NewSource(1))}
+	e := &Enemy{Pos: geom.PointF{}, DropsNipper: true, alive: true}
+
+	w.killEnemy(e)
+
+	if len(w.Pickups) != 1 {
+		t.Fatalf("candlestick should drop 1 pickup, got %d", len(w.Pickups))
+	}
+	if w.Pickups[0].Kind != PickupHeart {
+		t.Errorf("with HeartDropChance 1 the drop should be a heart, got kind %v", w.Pickups[0].Kind)
+	}
+}
+
+func TestUpdatePickups_HeartHealsCappedAtMaxHP(t *testing.T) {
+	cfg := testConfig()
+	cfg.HeartHeal = 30
+	cases := []struct {
+		name       string
+		hp, wantHP float64
+	}{
+		{"below cap", 50, 80},
+		{"clamped to max", 90, 100},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			w := &World{Player: &Player{Pos: geom.PointF{}, HP: c.hp, MaxHP: 100}, cfg: cfg}
+			w.Pickups = []*Pickup{{Pos: geom.PointF{}, Kind: PickupHeart, alive: true}}
+
+			w.updatePickups()
+
+			if w.Player.HP != c.wantHP {
+				t.Errorf("HP = %v, want %v after collecting a heart", w.Player.HP, c.wantHP)
+			}
+			if w.Player.Nippers != 0 {
+				t.Errorf("a heart should not grant nippers, got %d", w.Player.Nippers)
+			}
+		})
 	}
 }
 

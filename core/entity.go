@@ -96,9 +96,19 @@ type Gem struct {
 	alive bool
 }
 
-// Pickup is a dropped nipper that grants one nipper when collected.
+// PickupKind distinguishes what a dropped pickup grants when collected.
+type PickupKind int
+
+const (
+	PickupNipper PickupKind = iota // grants one nipper (default)
+	PickupHeart                    // restores HP
+)
+
+// Pickup is a dropped item a candlestick leaves behind: a nipper, or (rarely) a
+// heart that restores HP. Kind selects which; the zero value is a nipper.
 type Pickup struct {
 	Pos   geom.PointF
+	Kind  PickupKind
 	alive bool
 }
 

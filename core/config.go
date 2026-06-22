@@ -9,6 +9,8 @@ type Config struct {
 	StartingNippers        int     // nippers the player begins every run with
 	MaxTurretTiles         int     // soft cap on turret size; forces non-tile offers
 	CandlestickInterval    int     // ticks between candlestick spawns
+	HeartDropChance        float64 // chance a candlestick drops a heart (HP) instead of a nipper
+	HeartHeal              float64 // HP restored when a heart pickup is collected
 	XPToNextGrowth         float64 // XPToNext multiplier applied each level-up
 	CapacitorFireRateBonus float64 // fire-rate multiplier added per connected Capacitor equipment
 

@@ -16,6 +16,7 @@ const (
 	ImgCandlestick  = "candlestick"
 	ImgGem          = "gem"
 	ImgNipper       = "nipper"
+	ImgHeart        = "heart" // HP pickup dropped (rarely) by candlesticks
 	ImgProjectile   = "projectile"
 
 	// Turret tiles (24x24).

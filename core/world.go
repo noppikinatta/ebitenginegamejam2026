@@ -520,7 +520,13 @@ func (w *World) killEnemy(e *Enemy) {
 		w.Gems = append(w.Gems, &Gem{Pos: e.Pos, Value: e.XPValue, alive: true})
 	}
 	if e.DropsNipper {
-		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, alive: true})
+		kind := PickupNipper
+		// Rarely a heart (HP) drops instead of a nipper. rng is nil in manually
+		// built test worlds, which then always drop a nipper.
+		if w.rng != nil && w.rng.Float64() < w.cfg.HeartDropChance {
+			kind = PickupHeart
+		}
+		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: kind, alive: true})
 	}
 	if e.Final && w.State == StatePlaying {
 		w.State = StateCleared // defeating the final boss wins the run
@@ -574,7 +580,8 @@ func (w *World) updateGems() {
 	}
 }
 
-// updatePickups magnets and collects dropped nippers, granting one per pickup.
+// updatePickups magnets and collects dropped pickups: a nipper grants one
+// nipper, a heart restores HeartHeal HP (capped at MaxHP).
 func (w *World) updatePickups() {
 	pr := w.cfg.Pickup
 	for _, p := range w.Pickups {
@@ -585,11 +592,24 @@ func (w *World) updatePickups() {
 		switch {
 		case d <= pr.PickupDist:
 			p.alive = false
-			w.Player.Nippers++
+			w.collectPickup(p)
 		case d <= pr.MagnetDist && d > 0:
 			dir := w.Player.Pos.Subtract(p.Pos)
 			p.Pos = p.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}
+	}
+}
+
+// collectPickup applies a collected pickup's effect to the player.
+func (w *World) collectPickup(p *Pickup) {
+	switch p.Kind {
+	case PickupHeart:
+		w.Player.HP += w.cfg.HeartHeal
+		if w.Player.HP > w.Player.MaxHP {
+			w.Player.HP = w.Player.MaxHP
+		}
+	default:
+		w.Player.Nippers++
 	}
 }
 

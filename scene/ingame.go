@@ -359,7 +359,11 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1, false)
 	}
 	for _, pk := range w.Pickups {
-		drawSprite(screen, cam, asset.ImgNipper, pk.Pos, 16, 16, 0, 1, 1, 1, 1, false)
+		key, sz := asset.ImgNipper, 16.0
+		if pk.Kind == core.PickupHeart {
+			key, sz = asset.ImgHeart, 8.0 // hearts draw at the gem's 8×8 footprint
+		}
+		drawSprite(screen, cam, key, pk.Pos, sz, sz, 0, 1, 1, 1, 1, false)
 	}
 	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {

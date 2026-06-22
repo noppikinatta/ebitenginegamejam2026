@@ -17,6 +17,8 @@ func NewConfig() core.Config {
 		StartingNippers:        3,    // nippers the player begins every run with
 		MaxTurretTiles:         40,   // soft cap on turret size; forces non-tile offers
 		CandlestickInterval:    600,  // ticks between candlestick spawns (~10 s at 60 TPS)
+		HeartDropChance:        0.1,  // 10% of candlestick drops are a heart (HP) instead of a nipper
+		HeartHeal:              30,   // HP restored when a heart is collected
 		XPToNextGrowth:         1.25, // XPToNext multiplier applied each level-up
 		CapacitorFireRateBonus: 0.1,  // each connected Capacitor adds +0.1 to the fire-rate multiplier
 

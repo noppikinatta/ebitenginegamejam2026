@@ -19,6 +19,8 @@ func testConfig() Config {
 		StartingNippers:        3,
 		MaxTurretTiles:         40,
 		CandlestickInterval:    600,
+		HeartDropChance:        0.1,
+		HeartHeal:              30,
 		XPToNextGrowth:         1.25,
 		CapacitorFireRateBonus: 0.1,
 		Player:                 Player{HP: 100, MaxHP: 100, Speed: 3, Radius: 36, Level: 1, XPToNext: 10},
