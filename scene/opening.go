@@ -283,7 +283,7 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), opCenterX, tankY, tankDrawW*opZoom, tankDrawH*opZoom, 0, 1, 1, 1, 1)
 
 	// The real run turret grows outward from the central generator: each tile
-	// flies from the tank centre to its hex slot, staggered in center-out order.
+	// flies in from off-screen to its hex slot, staggered in center-out order.
 	o.drawAssembly(screen)
 
 	// Power meter: full while the lone first tile sits, then dropping as the
@@ -333,8 +333,10 @@ func (o *Opening) drawSkipHint(screen *ebiten.Image) {
 func (o *Opening) Layout(outsideWidth, outsideHeight int) (int, int) { return screenW, screenH }
 
 // drawAssembly draws the real run turret mid-assembly: every tile that has begun
-// arriving flies from the tank centre (the generator) out to its hex slot, drawn
-// with the same tile/barrel art as the in-game turret. Tiles point world-up
+// arriving flies in from off-screen to its hex slot, drawn with the same
+// tile/barrel art as the in-game turret. Each tile streaks in along the radial
+// line through its final position, so pieces converge from every edge; the
+// central generator drops straight down from above the tank. Tiles point world-up
 // (theta 0), like the paused cut view, for a clear "being built" read.
 func (o *Opening) drawAssembly(screen *ebiten.Image) {
 	if o.turret == nil {
@@ -355,8 +357,16 @@ func (o *Opening) drawAssembly(screen *ebiten.Image) {
 		}
 		dx, dy := hexLocalOffset(idx, opTile)
 		target := geom.PointF{X: center.X + dx, Y: center.Y + dy}
+		// Start off-screen, opFlyIn px out along the direction of the tile's slot.
+		// The generator (no offset) has no radial direction, so it drops in from
+		// straight above the tank instead.
+		ang := math.Atan2(dy, dx)
+		if dx == 0 && dy == 0 {
+			ang = -math.Pi / 2
+		}
+		start := center.Add(geom.PointFFromPolar(opFlyIn, ang))
 		p := smooth(float64(o.t-(arrive-opFlyDur)) / opFlyDur)
-		vs = append(vs, vis{idx: idx, pos: lerpPt(center, target, p)})
+		vs = append(vs, vis{idx: idx, pos: lerpPt(start, target, p)})
 	}
 	// Paint top-to-bottom so nearer (lower) tiles and their tall fixtures overlay
 	// the ones behind, matching the in-game turret's painter order.
