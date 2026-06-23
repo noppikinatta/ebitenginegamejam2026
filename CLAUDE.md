@@ -109,7 +109,7 @@ go test ./lang/... -run TestName -v
 
 ### Scene System
 
-`scene/sequence.go` — `bamenn.Sequence` でシーン遷移を構成。順序は **Opening(＝タイトル兼用) → Workshop → InGame → Result** で、Result から勝利時=Opening / 敗北時=InGame(リトライ)・Opening(受容) へ分岐ループ。**タイトルは独立シーンではなく Opening のシネマ最終フェーズ**（組み上がった自機＋タイトル画像）で、クリックで Workshop へ。Workshop の「戻る」は `Opening.SkipToTitle()` で演出を飛ばしてタイトル状態へ直行（シネマ再生なし）。各シーンは `Init(...)` で次シーン参照を受け取り `SwitchWithTransition` でフェード遷移。`Result.Init` は `(inGame, opening, meta, seq, tran)`、`Workshop.Init` は `(inGame, opening, meta, seq, tran)` と特殊。
+`scene/sequence.go` — `bamenn.Sequence` でシーン遷移を構成。順序は **Opening(＝タイトル兼用) → Workshop → InGame → Result** で、Result から勝利時=Opening / 敗北時=InGame(リトライ)・Opening(受容) へ分岐ループ。**タイトルは独立シーンではなく Opening のシネマ最終フェーズ**（組み上がった自機＋タイトル画像）で、クリックで Workshop へ（ただし **`metaShoppable(meta)` が false＝買える強化が一つも無いとき**は Workshop を飛ばして InGame へ直行。初回run＝コイン0や全項目MAX時にショップでチラつかせないため。判定はタイトルのクリック時点で行うので遷移は1回）。Workshop の「戻る」は `Opening.SkipToTitle()` で演出を飛ばしてタイトル状態へ直行（シネマ再生なし）。各シーンは `Init(...)` で次シーン参照を受け取り `SwitchWithTransition` でフェード遷移。`Result.Init` は `(inGame, opening, meta, seq, tran)`、`Workshop.Init` は `(inGame, opening, meta, seq, tran)` と特殊。
 
 `CreateSequence` は `wrapperGame` を返す。これは `langSwitcher`（後述）を `Sequence` にかぶせ、全シーン共通で言語切替の入力と表示を処理するラッパー。
 

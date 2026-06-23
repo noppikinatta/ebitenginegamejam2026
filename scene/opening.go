@@ -27,7 +27,9 @@ import (
 type Opening struct {
 	input      *ui.Input
 	runSeed    *runSeed    // seeded here so InGame fights the turret shown assembling
-	nextScene  ebiten.Game // the title
+	meta       *metaHolder // to decide whether the workshop is worth showing on the title click
+	nextScene  ebiten.Game // the workshop (shown when there is something to buy)
+	skipScene  ebiten.Game // InGame, used directly when the workshop has nothing to offer
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
 
@@ -69,12 +71,13 @@ type openingBubble struct {
 // The opening cinematic timeline, scroll speed and centre points are tunable in
 // scene/tuning.go.
 
-func NewOpening(input *ui.Input, seed *runSeed) *Opening {
-	return &Opening{input: input, runSeed: seed}
+func NewOpening(input *ui.Input, seed *runSeed, meta *metaHolder) *Opening {
+	return &Opening{input: input, runSeed: seed, meta: meta}
 }
 
-func (o *Opening) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transition bamenn.Transition) {
+func (o *Opening) Init(nextScene, skipScene ebiten.Game, sequence *bamenn.Sequence, transition bamenn.Transition) {
 	o.nextScene = nextScene
+	o.skipScene = skipScene
 	o.sequence = sequence
 	o.transition = transition
 }
@@ -242,11 +245,16 @@ func (o *Opening) Update() error {
 		o.t = o.doneTick()
 	}
 
-	// On the title (assembled tank + title art), a click advances to the next
-	// scene (the workshop).
+	// On the title (assembled tank + title art), a click advances to the workshop
+	// — but if the player can't buy anything (no coins yet, or everything maxed),
+	// the workshop has nothing to show, so go straight into the run instead.
 	if o.inTitle() && !o.switched && leftClick {
 		o.switched = true
-		o.sequence.SwitchWithTransition(o.nextScene, o.transition)
+		target := o.nextScene
+		if o.meta != nil && !metaShoppable(o.meta.state) {
+			target = o.skipScene
+		}
+		o.sequence.SwitchWithTransition(target, o.transition)
 	}
 	return nil
 }

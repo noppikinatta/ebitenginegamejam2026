@@ -158,6 +158,18 @@ func (w *Workshop) drawRow(screen *ebiten.Image, i int, s core.MetaStat, mx, my 
 
 func (w *Workshop) Layout(outsideWidth, outsideHeight int) (int, int) { return screenW, screenH }
 
+// metaShoppable reports whether the player can buy at least one upgrade right
+// now: some track is not maxed AND is affordable. When false the workshop has
+// nothing to offer, so the title skips it and drops straight into the run.
+func metaShoppable(m core.MetaState) bool {
+	for _, s := range core.MetaStats {
+		if !data.MetaMaxed(s, m.Level(s)) && m.Coins >= data.MetaCost(s, m.Level(s)) {
+			return true
+		}
+	}
+	return false
+}
+
 // metaBonusText is the per-level effect label for a stat, e.g. "+20 / Lv" or
 // "+5% / Lv" for the attack multiplier.
 func metaBonusText(s core.MetaStat) string {
