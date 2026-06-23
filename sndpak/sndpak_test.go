@@ -89,7 +89,7 @@ func TestUnpackTruncated(t *testing.T) {
 		name string
 		keep int // payload bytes retained after the magic header
 	}{
-		{"count varint missing", 0},  // no payload at all
+		{"count varint missing", 0},   // no payload at all
 		{"nameLen varint missing", 1}, // count decoded, then nothing
 		{"name truncated", 2},         // nameLen=4 decoded, name bytes missing
 		{"dataLen varint missing", 6}, // name consumed, then nothing
