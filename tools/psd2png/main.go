@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/draw"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -80,7 +81,7 @@ func exportPSD(path, outDir string) error {
 
 	base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 	seq := 0
-	if err := walk(doc.Layer, base, outDir, &seq); err != nil {
+	if err := walk(doc.Layer, doc.Config.Rect, base, outDir, &seq); err != nil {
 		return err
 	}
 	fmt.Printf("%s: exported %d layer(s)\n", filepath.Base(path), seq)
@@ -88,24 +89,39 @@ func exportPSD(path, outDir string) error {
 }
 
 // walk traverses the layer tree depth-first, writing one PNG per layer that
-// carries pixels. Folders (groups) only descend into their children.
-func walk(layers []psd.Layer, base, outDir string, seq *int) error {
+// carries pixels. Each PNG is sized to the full canvas (canvas) with the layer
+// composited at its position, so every exported asset keeps the same
+// dimensions and relative placement. Folders (groups) only descend into their
+// children.
+func walk(layers []psd.Layer, canvas image.Rectangle, base, outDir string, seq *int) error {
 	for i := range layers {
 		l := &layers[i]
 		if l.HasImage() && l.Picker != nil && !l.Rect.Empty() {
 			out := filepath.Join(outDir, fmt.Sprintf("%s_%02d.png", base, *seq))
-			if err := writePNG(out, l.Picker); err != nil {
+			if err := writePNG(out, composeOnCanvas(canvas, l)); err != nil {
 				return err
 			}
 			*seq++
 		}
 		if len(l.Layer) > 0 {
-			if err := walk(l.Layer, base, outDir, seq); err != nil {
+			if err := walk(l.Layer, canvas, base, outDir, seq); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// composeOnCanvas returns a fully transparent image the size of the canvas with
+// the layer's cropped pixels (l.Picker) drawn at its canvas position (l.Rect).
+// The layer's Picker only holds the minimal non-empty rectangle, so without
+// this the exported PNG would be cropped to that rectangle and lose both its
+// surrounding transparency and its placement. draw.Draw clips automatically if
+// the layer extends past the canvas bounds.
+func composeOnCanvas(canvas image.Rectangle, l *psd.Layer) image.Image {
+	dst := image.NewNRGBA(canvas)
+	draw.Draw(dst, l.Rect, l.Picker, l.Picker.Bounds().Min, draw.Src)
+	return dst
 }
 
 func writePNG(path string, img image.Image) error {
