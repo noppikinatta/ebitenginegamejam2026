@@ -13,8 +13,45 @@ func TestGenerateTurret_TileCount(t *testing.T) {
 	tr := GenerateTurret(cfg, rng)
 
 	n := len(tr.Tiles())
-	if n < 2 || n > cfg.MaxTiles {
-		t.Errorf("tile count=%d, want 2..%d", n, cfg.MaxTiles)
+	want := cfg.WeaponCount + cfg.JunkCount
+	if n != want {
+		t.Errorf("tile count=%d, want %d (WeaponCount+JunkCount)", n, want)
+	}
+}
+
+func TestGenerateTurret_Composition(t *testing.T) {
+	// The starting loadout must be exactly WeaponCount weapons + JunkCount junk,
+	// with no bare Wire tiles, for every seed.
+	for seed := int64(0); seed < 20; seed++ {
+		rng := rand.New(rand.NewSource(seed))
+		cfg := DefaultTurretGenConfig(rng)
+		tr := GenerateTurret(cfg, rng)
+
+		var weapons, junk, wires, other int
+		for _, tile := range tr.Tiles() {
+			switch tile.Component.(type) {
+			case WeaponComponent:
+				weapons++
+			case Junk:
+				junk++
+			case Wire:
+				wires++
+			default:
+				other++
+			}
+		}
+		if weapons != cfg.WeaponCount {
+			t.Errorf("seed %d: weapon count=%d, want %d", seed, weapons, cfg.WeaponCount)
+		}
+		if junk != cfg.JunkCount {
+			t.Errorf("seed %d: junk count=%d, want %d", seed, junk, cfg.JunkCount)
+		}
+		if wires != 0 {
+			t.Errorf("seed %d: got %d Wire tiles, want 0", seed, wires)
+		}
+		if other != 0 {
+			t.Errorf("seed %d: got %d unexpected components", seed, other)
+		}
 	}
 }
 

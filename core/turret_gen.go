@@ -15,21 +15,18 @@ type GeneratorConfig struct {
 
 // TurretGenConfig controls random turret generation.
 type TurretGenConfig struct {
-	// MaxTiles is the target total number of tiles (including generator).
-	MaxTiles int
+	// WeaponCount is the exact number of weapon tiles placed on the turret.
+	WeaponCount int
+
+	// JunkCount is the exact number of junk-device tiles placed on the turret.
+	// The total tile count (including the generator, which also holds a component)
+	// is WeaponCount + JunkCount; no bare Wire tiles are generated.
+	JunkCount int
 
 	// BranchProb is the probability [0,1] that a frontier tile spawns an
 	// additional branch instead of continuing linearly. Higher values produce
 	// more forking, lower values produce longer linear arms.
 	BranchProb float64
-
-	// WeaponDensity is the probability [0,1] that an eligible leaf or mid-arm
-	// tile becomes a weapon (WeaponComponent) rather than a plain Wire.
-	WeaponDensity float64
-
-	// JunkDensity is the probability [0,1] that a non-weapon, non-generator tile
-	// becomes a useless Junk device (which dilutes power) instead of a Wire.
-	JunkDensity float64
 
 	// Generators lists the generator positions and their output power.
 	// For the initial single-generator version, this should have exactly one entry.
@@ -43,14 +40,31 @@ type TurretGenConfig struct {
 func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 	tiles := make(map[hexmap.Index]*Tile)
 
+	// Build the fixed loadout: a shuffled multiset of exactly WeaponCount weapons
+	// and JunkCount junk devices. Composition is deterministic (no bare Wire tiles
+	// are produced); only the placement and which weapon/junk lands on which tile
+	// is randomized. The bag also bounds growth, so the turret ends up with
+	// exactly len(bag) tiles.
+	bag := buildLoadout(cfg, rng)
+	next := 0
+	popComponent := func() Component {
+		c := bag[next]
+		next++
+		return c
+	}
+
 	// Place generator tiles first. The generator is the uncuttable connectivity
 	// root (the anchor the cut-cascade hangs from), but it also holds a real
-	// component (weapon / junk / wire) like any tile, so the central slot isn't
-	// wasted on an empty power tile. It is still excluded from the consumer count,
-	// so a central weapon is effectively a "free" main gun.
+	// component (weapon / junk) like any tile, so the central slot isn't wasted on
+	// an empty power tile. It is still excluded from the consumer count, so a
+	// central weapon is effectively a "free" main gun.
 	genPositions := make([]hexmap.Index, 0, len(cfg.Generators))
 	for _, gc := range cfg.Generators {
-		tiles[gc.Index] = pickComponent(cfg, rng)
+		if next < len(bag) {
+			tiles[gc.Index] = &Tile{Component: popComponent()}
+		} else {
+			tiles[gc.Index] = &Tile{Component: Wire{}}
+		}
 		genPositions = append(genPositions, gc.Index)
 	}
 
@@ -83,7 +97,7 @@ func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 		addCandidates(gc.Index)
 	}
 
-	for len(tiles) < cfg.MaxTiles && len(frontier) > 0 {
+	for next < len(bag) && len(frontier) > 0 {
 		// Pick a random frontier entry.
 		i := rng.Intn(len(frontier))
 		edge := frontier[i]
@@ -96,9 +110,9 @@ func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 			continue
 		}
 
-		// Place the tile with a randomly chosen component.
+		// Place the tile with the next component from the loadout bag.
 		idx := edge.candidate
-		tiles[idx] = pickComponent(cfg, rng)
+		tiles[idx] = &Tile{Component: popComponent()}
 
 		// Optionally branch (add multiple new frontier entries) or grow linearly.
 		addCandidates(idx)
@@ -245,19 +259,21 @@ func randomJunk(rng *rand.Rand) Junk {
 	return junkFromSpec(junkSpecs[rng.Intn(len(junkSpecs))])
 }
 
-// pickComponent returns a tile whose Component is chosen probabilistically.
-func pickComponent(cfg TurretGenConfig, rng *rand.Rand) *Tile {
-	r := rng.Float64()
-	if r < cfg.WeaponDensity {
+// buildLoadout returns the shuffled multiset of components to place on the
+// turret: exactly WeaponCount weapons (random kinds) followed by JunkCount junk
+// devices, then shuffled so the weapons and junk are interleaved across the
+// generated shape. No Wire tiles are included.
+func buildLoadout(cfg TurretGenConfig, rng *rand.Rand) []Component {
+	bag := make([]Component, 0, cfg.WeaponCount+cfg.JunkCount)
+	for i := 0; i < cfg.WeaponCount; i++ {
 		kind := pickWeaponKind(rng)
-		w := NewWeapon(kind.String(), kind)
-		return &Tile{Component: WeaponComponent{Weapon: w}}
+		bag = append(bag, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})
 	}
-	r -= cfg.WeaponDensity
-	if r < cfg.JunkDensity {
-		return &Tile{Component: randomJunk(rng)}
+	for i := 0; i < cfg.JunkCount; i++ {
+		bag = append(bag, randomJunk(rng))
 	}
-	return &Tile{Component: Wire{}}
+	rng.Shuffle(len(bag), func(i, j int) { bag[i], bag[j] = bag[j], bag[i] })
+	return bag
 }
 
 func pickWeaponKind(rng *rand.Rand) WeaponKind {

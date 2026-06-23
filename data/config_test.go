@@ -240,22 +240,14 @@ func TestNewConfig_Spawn(t *testing.T) {
 func TestNewConfig_TurretGen(t *testing.T) {
 	tg := data.NewConfig().TurretGen
 
-	if tg.MaxTiles <= 0 {
-		t.Errorf("MaxTiles should be positive, got %d", tg.MaxTiles)
+	if tg.WeaponCount <= 0 {
+		t.Errorf("WeaponCount should be positive so the run is playable, got %d", tg.WeaponCount)
+	}
+	if tg.JunkCount < 0 {
+		t.Errorf("JunkCount should not be negative, got %d", tg.JunkCount)
 	}
 	if tg.BranchProb < 0 || tg.BranchProb > 1 {
 		t.Errorf("BranchProb should be a probability in [0,1], got %v", tg.BranchProb)
-	}
-	if tg.WeaponDensity < 0 || tg.WeaponDensity > 1 {
-		t.Errorf("WeaponDensity should be in [0,1], got %v", tg.WeaponDensity)
-	}
-	if tg.JunkDensity < 0 || tg.JunkDensity > 1 {
-		t.Errorf("JunkDensity should be in [0,1], got %v", tg.JunkDensity)
-	}
-	// Weapon and junk share the same tile budget; the remainder becomes wire, so
-	// their combined density cannot exceed 1.
-	if tg.WeaponDensity+tg.JunkDensity > 1 {
-		t.Errorf("WeaponDensity+JunkDensity should be <= 1, got %v", tg.WeaponDensity+tg.JunkDensity)
 	}
 	if len(tg.Generators) == 0 {
 		t.Error("TurretGen must define at least one generator")
