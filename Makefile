@@ -1,4 +1,4 @@
-.PHONY: gen run test test-cov build sound-gen sound-pak bgm-ogg junk-img proj-img bg-img
+.PHONY: gen run test test-cov build sound-gen sound-pak bgm-ogg junk-img proj-img bg-img meta-img
 
 gen:
 	go generate ./...
@@ -46,6 +46,12 @@ proj-img:
 # An existing file is SKIPPED; pass FORCE=1 to overwrite.
 bg-img:
 	go run tools/genbgimg/main.go $(if $(FORCE),-force) asset/img/background.png
+
+# Regenerate the persistent-upgrade (workshop) placeholder icons (meta_*.png 24x24)
+# and the coin sprite (coin.png 16x16) into asset/img. Existing files are SKIPPED;
+# pass FORCE=1 to overwrite.
+meta-img:
+	go run tools/genmetaimg/main.go $(if $(FORCE),-force) asset/img
 
 run:
 	go run app/main.go

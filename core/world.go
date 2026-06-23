@@ -242,11 +242,11 @@ func (w *World) updatePlayer(move geom.PointF) {
 	}
 }
 
-// repairPlayer heals the tank by the connected Repair Units' total HPRegen once
-// every RepairInterval ticks, capped at MaxHP. With no repair units the summed
-// HPRegen is 0, so this is a no-op.
+// repairPlayer heals the tank once every RepairInterval ticks, capped at MaxHP,
+// by the meta base regen plus the connected Repair Units' total HPRegen. With no
+// base regen and no repair units the heal is 0, so this is a no-op.
 func (w *World) repairPlayer() {
-	if w.cfg.RepairInterval <= 0 || w.turret == nil {
+	if w.cfg.RepairInterval <= 0 {
 		return
 	}
 	w.Player.repairTimer++
@@ -254,7 +254,11 @@ func (w *World) repairPlayer() {
 		return
 	}
 	w.Player.repairTimer = 0
-	w.Player.HP += w.turret.Modifiers().HPRegen
+	regen := w.cfg.BaseHPRegen
+	if w.turret != nil {
+		regen += w.turret.Modifiers().HPRegen
+	}
+	w.Player.HP += regen
 	if w.Player.HP > w.Player.MaxHP {
 		w.Player.HP = w.Player.MaxHP
 	}
@@ -274,11 +278,23 @@ func wrapAngle(a float64) float64 {
 	return math.Atan2(math.Sin(a), math.Cos(a))
 }
 
+// weaponStats returns a weapon's combat stats with the global meta damage
+// multiplier applied (DamageMult defaults to 0/1 so unset configs are
+// unchanged). Damage and ExplodeDamage scale; geometry and cadence do not.
+func (w *World) weaponStats(weapon *Weapon) WeaponStats {
+	stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
+	if m := w.cfg.DamageMult; m > 0 && m != 1 {
+		stats.Damage *= m
+		stats.ExplodeDamage *= m
+	}
+	return stats
+}
+
 func (w *World) updateWeapons() {
 	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
 		params := w.cfg.Weapons[weapon.Kind]
-		stats := weapon.Stats(params)
+		stats := w.weaponStats(weapon)
 
 		// Smooth the rendered barrel angle toward where the weapon currently aims,
 		// so lock-on barrels visibly track their target (drawing only).
@@ -393,7 +409,7 @@ func (w *World) updateBeams() {
 		}
 		weapon.beamTicksLeft--
 
-		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
+		stats := w.weaponStats(weapon)
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
 		unitDir := w.beamDir(weapon, muzzle, stats.Range)
 		end := muzzle.Add(unitDir.Multiply(stats.BeamLength))
@@ -580,14 +596,17 @@ func (w *World) updateEnemies() {
 }
 
 func (w *World) damagePlayer(dmg float64) {
-	// Armor subtracts a flat amount, but at least 1 damage always lands. turret is
-	// nil in some manually-built test worlds, which then take unarmored damage.
+	// Armor subtracts a flat amount, but at least 1 damage always lands. It is the
+	// sum of the meta base armor and the connected Armor tiles (turret is nil in
+	// some manually-built test worlds, which then only have the base armor).
+	armor := w.cfg.BaseArmor
 	if w.turret != nil {
-		if armor := w.turret.Modifiers().Armor; armor > 0 {
-			dmg -= armor
-			if dmg < 1 {
-				dmg = 1
-			}
+		armor += w.turret.Modifiers().Armor
+	}
+	if armor > 0 {
+		dmg -= armor
+		if dmg < 1 {
+			dmg = 1
 		}
 	}
 	w.Player.HP -= dmg

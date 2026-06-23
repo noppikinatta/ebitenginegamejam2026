@@ -24,6 +24,7 @@ func NewConfig() core.Config {
 		ArmorReduction:         1,    // damage subtracted per connected Armor (min 1 still lands)
 		XPToNextGrowth:         1.25, // XPToNext multiplier applied each level-up
 		CapacitorFireRateBonus: 0.1,  // each connected Capacitor adds +0.1 to the fire-rate multiplier
+		DamageMult:             1,    // baseline weapon damage multiplier (meta upgrades raise it via ApplyMeta)
 
 		Player:          defaultPlayer(),
 		Pickup:          defaultPickupRanges(),

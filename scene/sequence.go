@@ -11,17 +11,20 @@ import (
 
 func CreateSequence(input *ui.Input) ebiten.Game {
 	rs := &runSeed{}
+	meta := &metaHolder{}
 	opening := NewOpening(input, rs)
 	title := NewTitle(input)
-	inGame := NewInGame(input, rs)
+	workshop := NewWorkshop(input)
+	inGame := NewInGame(input, rs, meta)
 	result := NewResult(input)
 	seq := bamenn.NewSequence(opening)
 	tran := bamenn.NewLinearTransition(5, 10, bamennutil.LinearFillFadingDrawer{Color: color.Black})
 
 	opening.Init(title, seq, tran)
-	title.Init(inGame, seq, tran)
+	title.Init(workshop, seq, tran)               // title → workshop (spend coins, then start)
+	workshop.Init(inGame, title, meta, seq, tran) // start → run, back → title
 	inGame.Init(result, seq, tran)
-	result.Init(inGame, opening, seq, tran)
+	result.Init(inGame, opening, meta, seq, tran)
 
 	return &wrapperGame{
 		langSwitcher: &langSwitcher{},

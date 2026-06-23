@@ -6,6 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/noppikinatta/bamenn"
 	"github.com/noppikinatta/ebitenginegamejam2026/asset"
+	"github.com/noppikinatta/ebitenginegamejam2026/core"
 	"github.com/noppikinatta/ebitenginegamejam2026/drawing"
 	"github.com/noppikinatta/ebitenginegamejam2026/lang"
 	"github.com/noppikinatta/ebitenginegamejam2026/ui"
@@ -17,17 +18,20 @@ type Result struct {
 	input      *ui.Input
 	inGame     *InGame     // source of the win/lose outcome, and the retry target
 	opening    ebiten.Game // restart target
+	meta       *metaHolder // persistent coins/upgrades; this run's reward is banked here
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
+	earned     int // coins awarded for the run just finished (for display)
 }
 
 func NewResult(input *ui.Input) *Result {
 	return &Result{input: input}
 }
 
-func (r *Result) Init(inGame *InGame, opening ebiten.Game, sequence *bamenn.Sequence, transition bamenn.Transition) {
+func (r *Result) Init(inGame *InGame, opening ebiten.Game, meta *metaHolder, sequence *bamenn.Sequence, transition bamenn.Transition) {
 	r.inGame = inGame
 	r.opening = opening
+	r.meta = meta
 	r.sequence = sequence
 	r.transition = transition
 }
@@ -40,8 +44,21 @@ var (
 )
 
 // OnStart keeps the in-game BGM playing into the result screen (shared track, so
-// re-requesting it is a no-op and the music continues seamlessly from the run).
-func (r *Result) OnStart() { asset.PlayBGM(asset.BGMGame) }
+// re-requesting it is a no-op and the music continues seamlessly from the run),
+// and banks the coins earned this run (win or lose) into the persistent state.
+// It runs once per result entry, so each finished run is rewarded exactly once.
+func (r *Result) OnStart() {
+	asset.PlayBGM(asset.BGMGame)
+	kills, tick := r.inGame.RunStats()
+	r.earned = core.EarnedCoins(kills, tick)
+	r.meta.state.Coins += r.earned
+}
+
+// drawReward shows the run's coin reward and the new balance, centred at y.
+func (r *Result) drawReward(screen *ebiten.Image, y float64) {
+	drawCoinAmount(screen, lang.ExecuteTemplate("result-earned", map[string]any{"N": r.earned}), screenW/2-140, y, 22)
+	drawCoinAmount(screen, lang.ExecuteTemplate("result-total", map[string]any{"N": r.meta.state.Coins}), screenW/2+20, y, 22)
+}
 
 func (r *Result) Update() error {
 	if !r.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {
@@ -69,6 +86,7 @@ func (r *Result) Draw(screen *ebiten.Image) {
 	if r.inGame.Outcome() == OutcomeWin {
 		screen.Fill(color.RGBA{10, 18, 12, 255})
 		drawTelopC(screen, lang.Text("result-win"), screenW/2, 280, 40, 0.8, 1, 0.8, 1)
+		r.drawReward(screen, 370)
 		resReturnBtn.draw(screen, resReturnBtn.hit(mx, my))
 		return
 	}
@@ -76,6 +94,7 @@ func (r *Result) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{18, 10, 10, 255})
 	drawTelopC(screen, lang.Text("result-lose-1"), screenW/2, 250, 38, 1, 0.8, 0.8, 1)
 	drawTelopC(screen, lang.Text("result-lose-2"), screenW/2, 320, 26, 0.85, 0.7, 0.7, 1)
+	r.drawReward(screen, 390)
 	resRetryBtn.draw(screen, resRetryBtn.hit(mx, my))
 	resAcceptBtn.draw(screen, resAcceptBtn.hit(mx, my))
 }

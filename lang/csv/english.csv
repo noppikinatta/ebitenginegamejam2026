@@ -50,6 +50,19 @@ result-lose-2,"We toil four hours a day, with only four days off a week"
 btn-return,Back to Opening
 btn-retry,Retry
 btn-accept,Accept the outcome
+result-earned,Earned {{.N}}
+result-total,Total {{.N}}
+
+# --- Workshop (persistent upgrades) ---
+workshop-title,WORKSHOP
+workshop-start,Start Run
+workshop-back,Back
+workshop-maxed,MAX
+meta-hp-name,Max HP
+meta-armor-name,Armor
+meta-regen-name,Repair
+meta-speed-name,Speed
+meta-attack-name,Attack
 
 # --- Language switcher ---
 lang-current,Current Language: {{.Lang}}
