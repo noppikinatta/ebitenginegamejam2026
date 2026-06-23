@@ -152,20 +152,30 @@ type SpawnSpec struct {
 	CandleDistRange float64 // random extra distance beyond CandleDist
 }
 
-// DoctorSpec controls the balance of the three level-up offer types:
-//   - Nippers: spare tile cuts.
-//   - Weapon upgrade: selected weapons gain +1 Level.
-//   - Tile bundle: 1-MaxBundleTiles new tiles, each 50% weapon / 50% junk.
+// DoctorSpec controls the balance of level-up offers. A doctor proposes
+// 1..MaxItems items; each item is independently one of four kinds, picked by
+// weight. The four weights need not sum to 1 — only their ratios matter (they
+// are normalised), so the headline balance is easy to tune.
+//
+//   - WeaponAdd: bolt on a new "useful" tile, picked uniformly from the weapon
+//     kinds plus the equipment tiles (capacitor / repair unit / armor).
+//   - WeaponUpgrade: level up a random equipped weapon (falls back to WeaponAdd
+//     when nothing is equipped yet).
+//   - Junk: bolt on a useless junk tile.
+//   - Nippers: hand over NipperMin..NipperMax spare tile cuts.
+//
+// A WeaponAdd or Junk item that would push the turret past MaxTurretTiles falls
+// back to a Nippers line instead, so an offer never grows it past the cap.
 type DoctorSpec struct {
-	NipperChance     float64 // probability of a nipper offer (evaluated first)
-	UpgradeChance    float64 // cumulative: upgrade if r < UpgradeChance after nipper check
-	NipperMin        int     // minimum nippers per nipper offer
-	NipperMax        int     // maximum nippers per nipper offer
-	MaxUpgrades      int     // max weapons upgraded per upgrade offer
-	MaxBundleTiles   int     // max tiles added per tile-bundle offer
-	CapacitorChance  float64 // per bundle tile, probability it is a Capacitor (else weapon/junk)
-	RepairUnitChance float64 // per bundle tile, probability it is a Repair Unit
-	ArmorChance      float64 // per bundle tile, probability it is an Armor tile
+	NipperWeight        float64 // relative weight of a Nippers item
+	WeaponAddWeight     float64 // relative weight of a new weapon/equipment tile
+	WeaponUpgradeWeight float64 // relative weight of a weapon upgrade
+	JunkWeight          float64 // relative weight of a junk tile
+
+	NipperMin int // minimum nippers per nipper line
+	NipperMax int // maximum nippers per nipper line
+
+	MaxItems int // an offer carries 1..MaxItems items
 }
 
 // EnemyStats is the spawn template for one zako (trash) enemy kind. Only HP

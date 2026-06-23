@@ -694,90 +694,70 @@ var doctorTitles = []string{
 	"Doctor", "Professor", "Doktor", "Instructor", "Master",
 }
 
-// rollChoices builds three "doctor" offers. Each level-up grows the turret:
-// the chosen doctor bolts a new tile (weapon or useless junk) onto a random
-// spot — or, occasionally, hands over spare nippers instead.
+// rollChoices builds three "doctor" offers for the level-up screen. Each offer
+// is rolled independently; see rollDoctorChoice for the per-item breakdown.
 func (w *World) rollChoices() {
-	atCap := w.turret.TileCount() >= w.cfg.MaxTurretTiles
 	choices := make([]Upgrade, 0, 3)
 	for i := 0; i < 3; i++ {
-		choices = append(choices, w.rollDoctorChoice(atCap))
+		choices = append(choices, w.rollDoctorChoice())
 	}
 	w.Choices = choices
 }
 
-// rollDoctorChoice produces a single doctor proposal. A proposal is either:
-//   - a Nippers offer (~NipperChance, also forced when capped with no weapons to
-//     upgrade): spare nippers to fund future cuts; or
-//   - a "build" offer: 1-MaxBundleTiles items, each independently a weapon
-//     upgrade or a new tile (weapon / junk / capacitor). Adds and upgrades are
-//     mixed freely within the one proposal.
+// rollDoctorChoice produces a single doctor proposal: 1..MaxItems items, each
+// independently one of four kinds chosen by DoctorSpec weight —
+//   - WeaponAdd: bolt on a new weapon or equipment tile (rollAddable);
+//   - WeaponUpgrade: level up a random equipped weapon (falls back to WeaponAdd
+//     when nothing is equipped yet);
+//   - Junk: bolt on a useless junk tile;
+//   - Nippers: hand over spare tile cuts.
 //
-// atCap forces every build item to be an upgrade (no new tiles) so the turret
-// doesn't exceed maxTurretTiles.
-func (w *World) rollDoctorChoice(atCap bool) Upgrade {
+// Tile-adding items (WeaponAdd / Junk) fall back to a Nippers line once the
+// turret — counting tiles already queued by this same offer — has reached
+// MaxTurretTiles, so an offer never grows it past the cap.
+func (w *World) rollDoctorChoice() Upgrade {
 	title := doctorTitles[w.rng.Intn(len(doctorTitles))]
 	alphabet := string(rune('A' + w.rng.Intn(26)))
-	r := w.rng.Float64()
-	activeWeapons := w.turret.ActiveWeapons()
 	dd := w.cfg.Doctor
+	activeWeapons := w.turret.ActiveWeapons()
 
-	// Nippers proposal. Also the only option when capped with nothing to upgrade.
-	if r < dd.NipperChance || (atCap && len(activeWeapons) == 0) {
-		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
-		return Upgrade{
-			Doctor:         title,
-			DoctorAlphabet: alphabet,
-			Items:          []OfferItem{{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)}},
-			Apply:          func(world *World) { world.Player.Nippers += n },
-		}
-	}
-
-	// Build proposal: a mix of upgrades and tile additions.
-	itemCount := 1 + w.rng.Intn(dd.MaxBundleTiles)
-	// Shuffled pool of existing weapons so upgrade items target distinct weapons.
-	perm := w.rng.Perm(len(activeWeapons))
-	upIdx := 0
-	if atCap && itemCount > len(activeWeapons) {
-		itemCount = len(activeWeapons) // every item must be an upgrade
-	}
-
-	pUpgrade := upgradeShare(dd)
+	itemCount := 1 + w.rng.Intn(dd.MaxItems)
 	items := make([]OfferItem, 0, itemCount)
+	var nippers int        // total nippers granted on Apply
 	var upgrades []*Weapon // existing weapons to level on Apply
 	var comps []Component  // new tiles to add on Apply
 
 	for k := 0; k < itemCount; k++ {
-		canUpgrade := upIdx < len(activeWeapons)
-		if canUpgrade && (atCap || w.rng.Float64() < pUpgrade) {
-			wp := activeWeapons[perm[upIdx]]
-			upIdx++
+		kind := w.pickOfferKind(dd)
+
+		// An upgrade has nothing to target before any weapon is equipped.
+		if kind == OfferUpgrade && len(activeWeapons) == 0 {
+			kind = OfferAddWeapon
+		}
+		// Tile-adding items respect the cap (counting this offer's own queue).
+		if kind == OfferAddWeapon || kind == OfferAddJunk {
+			if w.turret.TileCount()+len(comps) >= w.cfg.MaxTurretTiles {
+				kind = OfferNippers
+			}
+		}
+
+		switch kind {
+		case OfferNippers:
+			n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
+			nippers += n
+			items = append(items, OfferItem{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)})
+		case OfferUpgrade:
+			wp := activeWeapons[w.rng.Intn(len(activeWeapons))]
 			upgrades = append(upgrades, wp)
 			items = append(items, OfferItem{Kind: OfferUpgrade, Weapon: wp.Kind, Text: wp.Name})
-			continue
-		}
-		if atCap {
-			continue // out of distinct weapons and can't add tiles
-		}
-		// Otherwise add a new tile: equipment (capacitor / repair / armor) / weapon / junk.
-		switch {
-		case w.rng.Float64() < dd.CapacitorChance:
-			comps = append(comps, Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus})
-			items = append(items, OfferItem{Kind: OfferAddCapacitor, Text: "Capacitor"})
-		case w.rng.Float64() < dd.RepairUnitChance:
-			comps = append(comps, RepairUnit{HealAmount: w.cfg.RepairHealAmount})
-			items = append(items, OfferItem{Kind: OfferAddRepairUnit, Text: "Repair Unit"})
-		case w.rng.Float64() < dd.ArmorChance:
-			comps = append(comps, Armor{Reduction: w.cfg.ArmorReduction})
-			items = append(items, OfferItem{Kind: OfferAddArmor, Text: "Armor"})
-		case w.rng.Float64() < 0.5:
-			kind := pickWeaponKind(w.rng)
-			comps = append(comps, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})
-			items = append(items, OfferItem{Kind: OfferAddWeapon, Weapon: kind, Text: kind.String()})
-		default:
+		case OfferAddJunk:
 			j := randomJunk(w.rng)
 			comps = append(comps, j)
 			items = append(items, OfferItem{Kind: OfferAddJunk, Text: j.DeviceName})
+		default: // OfferAddWeapon: a new weapon or equipment tile
+			comp, item := w.rollAddable()
+			comps = append(comps, comp)
+			items = append(items, item)
 		}
 	}
 
@@ -786,34 +766,67 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 		DoctorAlphabet: alphabet,
 		Items:          items,
 		Apply: func(world *World) {
+			world.Player.Nippers += nippers
 			for _, wp := range upgrades {
 				wp.Level++
 			}
-			for _, comp := range comps {
-				world.turret.AddTile(comp, world.rng)
+			if len(comps) > 0 {
+				for _, comp := range comps {
+					world.turret.AddTile(comp, world.rng)
+				}
+				world.Player.Weapons = world.turret.ActiveWeapons()
+				world.primeNewWeapons()
 			}
-			world.Player.Weapons = world.turret.ActiveWeapons()
-			world.primeNewWeapons()
 		},
 	}
 }
 
-// upgradeShare is the probability a build item is an upgrade (vs a new tile),
-// derived from the doctor probabilities: the upgrade mass over the non-nipper
-// mass. Falls back to 0.5 when the masses are degenerate.
-func upgradeShare(dd DoctorSpec) float64 {
-	upMass := dd.UpgradeChance - dd.NipperChance
-	tileMass := 1 - dd.UpgradeChance
-	if upMass < 0 {
-		upMass = 0
+// pickOfferKind selects one offer kind by DoctorSpec weight. The four weights
+// are normalised by their total (only their ratios matter); a non-positive
+// total degenerates to a junk tile.
+func (w *World) pickOfferKind(dd DoctorSpec) OfferKind {
+	total := dd.NipperWeight + dd.WeaponAddWeight + dd.WeaponUpgradeWeight + dd.JunkWeight
+	if total <= 0 {
+		return OfferAddJunk
 	}
-	if tileMass < 0 {
-		tileMass = 0
+	r := w.rng.Float64() * total
+	if r < dd.NipperWeight {
+		return OfferNippers
 	}
-	if total := upMass + tileMass; total > 0 {
-		return upMass / total
+	r -= dd.NipperWeight
+	if r < dd.WeaponAddWeight {
+		return OfferAddWeapon
 	}
-	return 0.5
+	r -= dd.WeaponAddWeight
+	if r < dd.WeaponUpgradeWeight {
+		return OfferUpgrade
+	}
+	return OfferAddJunk
+}
+
+// rollAddable picks a new "useful" tile uniformly from the weapon kinds plus the
+// three equipment tiles (capacitor / repair unit / armor), returning the
+// component to bolt on and the matching offer line. Weapons and equipment share
+// one pool because both are useful additions (unlike inert junk).
+func (w *World) rollAddable() (Component, OfferItem) {
+	const equipCount = 3
+	i := w.rng.Intn(weaponKindCount + equipCount)
+	if i < weaponKindCount {
+		kind := WeaponKind(i)
+		return WeaponComponent{Weapon: NewWeapon(kind.String(), kind)},
+			OfferItem{Kind: OfferAddWeapon, Weapon: kind, Text: kind.String()}
+	}
+	switch i - weaponKindCount {
+	case 0:
+		return Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus},
+			OfferItem{Kind: OfferAddCapacitor, Text: "Capacitor"}
+	case 1:
+		return RepairUnit{HealAmount: w.cfg.RepairHealAmount},
+			OfferItem{Kind: OfferAddRepairUnit, Text: "Repair Unit"}
+	default:
+		return Armor{Reduction: w.cfg.ArmorReduction},
+			OfferItem{Kind: OfferAddArmor, Text: "Armor"}
+	}
 }
 
 // defaultSpawnInterval is used only if the active phase has no Interval set.

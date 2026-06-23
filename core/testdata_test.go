@@ -29,7 +29,7 @@ func testConfig() Config {
 		Player:                 Player{HP: 100, MaxHP: 100, Speed: 3, Radius: 36, Level: 1, XPToNext: 10},
 		Pickup:                 PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 4},
 		Spawn:                  SpawnSpec{EnemyDist: 520, CandleDist: 220, CandleDistRange: 220},
-		Doctor:                 DoctorSpec{NipperChance: 0.25, UpgradeChance: 0.625, NipperMin: 5, NipperMax: 10, MaxUpgrades: 3, MaxBundleTiles: 3, CapacitorChance: 0.15, RepairUnitChance: 0.1, ArmorChance: 0.1},
+		Doctor:                 DoctorSpec{NipperWeight: 0.25, WeaponAddWeight: 0.25, WeaponUpgradeWeight: 0.10, JunkWeight: 0.40, NipperMin: 5, NipperMax: 10, MaxItems: 3},
 		EnemyKinds:             testEnemyKinds(),
 		HPDoublingTicks:        18000,
 		SpawnPhases:            testSpawnPhases(),

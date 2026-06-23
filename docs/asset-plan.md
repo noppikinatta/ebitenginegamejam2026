@@ -28,7 +28,7 @@
   - ※HP/速/ダメージ・スポーン重み・`HPDoublingTicks` 等はすべて初期値、要バランス調整。実アート未着手（grunt/candlestick以外はプレースホルダ）。ボス専用挙動（召喚・弾幕等）は未実装＝ただの大型追尾
 
 ## 設備
-- キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のタイルバンドルで `DoctorSpec.CapacitorChance`(=0.15) の確率で出現
+- キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のレベルアップ提案で「武器/設備の追加（`WeaponAdd`）」が引かれたとき、武器8種＋設備3種の均等プール（`rollAddable`）から出現
   - 将来拡張: `Modifier` に `MaxHPAdd` 等を足せば増加装甲のような設備も同じ仕組みで追加可能
 
 > **実装状況**：全ジャンクは `core/turret_gen.go` の `junkSpecs` レジストリ（`junkSpec{Name, Tall, Emitter}`）にデータ定義済み。装飾ジャンクは inert（電力を薄めるだけ）。表示名は `asset/lang/*.csv` の `junk-<slug>` キーで多言語化。画像は `tile_junk` 共用（Tall のみ `junk_tower`）。`Emitter`（`*EmitterSpec`）が設定されたジャンクのみ弾を出す。
