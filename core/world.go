@@ -242,11 +242,11 @@ func (w *World) updatePlayer(move geom.PointF) {
 	}
 }
 
-// repairPlayer heals the tank by the connected Repair Units' total HPRegen once
-// every RepairInterval ticks, capped at MaxHP. With no repair units the summed
-// HPRegen is 0, so this is a no-op.
+// repairPlayer heals the tank once every RepairInterval ticks, capped at MaxHP,
+// by the meta base regen plus the connected Repair Units' total HPRegen. With no
+// base regen and no repair units the heal is 0, so this is a no-op.
 func (w *World) repairPlayer() {
-	if w.cfg.RepairInterval <= 0 || w.turret == nil {
+	if w.cfg.RepairInterval <= 0 {
 		return
 	}
 	w.Player.repairTimer++
@@ -254,7 +254,11 @@ func (w *World) repairPlayer() {
 		return
 	}
 	w.Player.repairTimer = 0
-	w.Player.HP += w.turret.Modifiers().HPRegen
+	regen := w.cfg.BaseHPRegen
+	if w.turret != nil {
+		regen += w.turret.Modifiers().HPRegen
+	}
+	w.Player.HP += regen
 	if w.Player.HP > w.Player.MaxHP {
 		w.Player.HP = w.Player.MaxHP
 	}
@@ -274,11 +278,23 @@ func wrapAngle(a float64) float64 {
 	return math.Atan2(math.Sin(a), math.Cos(a))
 }
 
+// weaponStats returns a weapon's combat stats with the global meta damage
+// multiplier applied (DamageMult defaults to 0/1 so unset configs are
+// unchanged). Damage and ExplodeDamage scale; geometry and cadence do not.
+func (w *World) weaponStats(weapon *Weapon) WeaponStats {
+	stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
+	if m := w.cfg.DamageMult; m > 0 && m != 1 {
+		stats.Damage *= m
+		stats.ExplodeDamage *= m
+	}
+	return stats
+}
+
 func (w *World) updateWeapons() {
 	fireMult := w.FireRateMultiplier()
 	for _, weapon := range w.Player.Weapons {
 		params := w.cfg.Weapons[weapon.Kind]
-		stats := weapon.Stats(params)
+		stats := w.weaponStats(weapon)
 
 		// Smooth the rendered barrel angle toward where the weapon currently aims,
 		// so lock-on barrels visibly track their target (drawing only).
@@ -393,7 +409,7 @@ func (w *World) updateBeams() {
 		}
 		weapon.beamTicksLeft--
 
-		stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
+		stats := w.weaponStats(weapon)
 		muzzle := w.Player.Pos.Add(MuzzleOffset(weapon.TileIdx, w.Player.FacingAngle))
 		unitDir := w.beamDir(weapon, muzzle, stats.Range)
 		end := muzzle.Add(unitDir.Multiply(stats.BeamLength))
@@ -580,14 +596,17 @@ func (w *World) updateEnemies() {
 }
 
 func (w *World) damagePlayer(dmg float64) {
-	// Armor subtracts a flat amount, but at least 1 damage always lands. turret is
-	// nil in some manually-built test worlds, which then take unarmored damage.
+	// Armor subtracts a flat amount, but at least 1 damage always lands. It is the
+	// sum of the meta base armor and the connected Armor tiles (turret is nil in
+	// some manually-built test worlds, which then only have the base armor).
+	armor := w.cfg.BaseArmor
 	if w.turret != nil {
-		if armor := w.turret.Modifiers().Armor; armor > 0 {
-			dmg -= armor
-			if dmg < 1 {
-				dmg = 1
-			}
+		armor += w.turret.Modifiers().Armor
+	}
+	if armor > 0 {
+		dmg -= armor
+		if dmg < 1 {
+			dmg = 1
 		}
 	}
 	w.Player.HP -= dmg
@@ -667,10 +686,12 @@ func (w *World) addXP(v float64) {
 	}
 }
 
-// doctorNames are the eccentric doctors who keep bolting things onto the tank.
-var doctorNames = []string{
-	"Volt", "Sprocket", "Fizz", "Cogsworth", "Ohm",
-	"Wattson", "Pixel", "Gizmo", "Tinker", "Bolt",
+// doctorTitles are the honorifics of the eccentric doctors who keep bolting
+// things onto the tank. A doctor's full name is a title plus a random uppercase
+// letter (e.g. "Doctor X"); the scene formats the two via a per-language
+// template so the letter can sit before or after the title.
+var doctorTitles = []string{
+	"Doctor", "Professor", "Doktor", "Instructor", "Master",
 }
 
 // rollChoices builds three "doctor" offers. Each level-up grows the turret:
@@ -695,7 +716,8 @@ func (w *World) rollChoices() {
 // atCap forces every build item to be an upgrade (no new tiles) so the turret
 // doesn't exceed maxTurretTiles.
 func (w *World) rollDoctorChoice(atCap bool) Upgrade {
-	doc := doctorNames[w.rng.Intn(len(doctorNames))]
+	title := doctorTitles[w.rng.Intn(len(doctorTitles))]
+	alphabet := string(rune('A' + w.rng.Intn(26)))
 	r := w.rng.Float64()
 	activeWeapons := w.turret.ActiveWeapons()
 	dd := w.cfg.Doctor
@@ -704,9 +726,10 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	if r < dd.NipperChance || (atCap && len(activeWeapons) == 0) {
 		n := dd.NipperMin + w.rng.Intn(dd.NipperMax-dd.NipperMin+1)
 		return Upgrade{
-			Doctor: doc,
-			Items:  []OfferItem{{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)}},
-			Apply:  func(world *World) { world.Player.Nippers += n },
+			Doctor:         title,
+			DoctorAlphabet: alphabet,
+			Items:          []OfferItem{{Kind: OfferNippers, Amount: n, Text: fmt.Sprintf("+%d Nippers", n)}},
+			Apply:          func(world *World) { world.Player.Nippers += n },
 		}
 	}
 
@@ -759,8 +782,9 @@ func (w *World) rollDoctorChoice(atCap bool) Upgrade {
 	}
 
 	return Upgrade{
-		Doctor: doc,
-		Items:  items,
+		Doctor:         title,
+		DoctorAlphabet: alphabet,
+		Items:          items,
 		Apply: func(world *World) {
 			for _, wp := range upgrades {
 				wp.Level++

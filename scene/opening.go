@@ -27,15 +27,20 @@ import (
 type Opening struct {
 	input      *ui.Input
 	runSeed    *runSeed    // seeded here so InGame fights the turret shown assembling
-	nextScene  ebiten.Game // the title
+	meta       *metaHolder // to decide whether the workshop is worth showing on the title click
+	nextScene  ebiten.Game // the workshop (shown when there is something to buy)
+	skipScene  ebiten.Game // InGame, used directly when the workshop has nothing to offer
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
 
 	t        int // ticks since this play of the cinematic started
 	switched bool
-	rng      *rand.Rand
-	aliens   []*openingAlien
-	bubbles  []openingBubble
+	// startAtTitle makes the next entry jump straight to the title state (skipping
+	// the cinematic). Set when returning from the workshop so the intro isn't replayed.
+	startAtTitle bool
+	rng          *rand.Rand
+	aliens       []*openingAlien
+	bubbles      []openingBubble
 
 	// The run's real turret, plus a center-out ordering of its tiles and their
 	// power map, used to animate the assembly and draw each tile faithfully.
@@ -66,15 +71,25 @@ type openingBubble struct {
 // The opening cinematic timeline, scroll speed and centre points are tunable in
 // scene/tuning.go.
 
-func NewOpening(input *ui.Input, seed *runSeed) *Opening {
-	return &Opening{input: input, runSeed: seed}
+func NewOpening(input *ui.Input, seed *runSeed, meta *metaHolder) *Opening {
+	return &Opening{input: input, runSeed: seed, meta: meta}
 }
 
-func (o *Opening) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transition bamenn.Transition) {
+func (o *Opening) Init(nextScene, skipScene ebiten.Game, sequence *bamenn.Sequence, transition bamenn.Transition) {
 	o.nextScene = nextScene
+	o.skipScene = skipScene
 	o.sequence = sequence
 	o.transition = transition
 }
+
+// SkipToTitle makes the next entry of the opening jump straight to the title
+// state, skipping the cinematic. The workshop calls it when the player backs out
+// so they don't have to rewatch the intro.
+func (o *Opening) SkipToTitle() { o.startAtTitle = true }
+
+// inTitle reports whether the cinematic has finished and the scene is now showing
+// the title (assembled tank + title art), waiting for a click to continue.
+func (o *Opening) inTitle() bool { return o.t >= o.doneTick() }
 
 // OnStart restarts the cinematic each time the scene is entered and starts the
 // title BGM (shared with the title screen, so the music carries over seamlessly).
@@ -105,7 +120,14 @@ func (o *Opening) reset() {
 	// uses the same maths as the in-game gauge.
 	o.powerCurve = cfg.PowerCurve
 	o.fireMin, o.fireMax = fireRateBounds(cfg.PowerCurve)
-	o.powerFill = o.powerMeterTarget() // snap to full (no tiles connected yet)
+
+	// Returning from the workshop jumps straight to the fully-assembled title so
+	// the intro isn't replayed; the meter then reflects the final (diluted) power.
+	if o.startAtTitle {
+		o.t = o.doneTick()
+		o.startAtTitle = false
+	}
+	o.powerFill = o.powerMeterTarget()
 
 	o.aliens = o.aliens[:0]
 	for i := 0; i < 9; i++ {
@@ -208,18 +230,31 @@ func (o *Opening) Update() error {
 	// each pile-on tile lands (mirroring the in-game gauge's easing).
 	o.powerFill += (o.powerMeterTarget() - o.powerFill) * 0.18
 
+	leftClick := o.input.Mouse != nil && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft)
+
 	// During the aliens scene a click ends it and jumps into the assembly demo
 	// (the tank rolls in and the doctors bolt on weapons). The lockout keeps a
 	// click carried over from the previous scene from skipping instantly.
-	if o.t > 20 && o.t < opAliensEnd && o.input.Mouse != nil && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft) {
+	if o.t > 20 && o.t < opAliensEnd && leftClick {
 		o.t = opAliensEnd
 	}
 
-	// Holding Space skips the whole opening to the title; otherwise it advances on
-	// its own once the assembly settles.
-	if !o.switched && (o.t >= o.doneTick() || o.spaceHeld() >= opSkipHoldTicks) {
+	// Holding Space skips the cinematic straight to the title state (it no longer
+	// jumps scenes — the title is now this scene's terminal phase).
+	if !o.inTitle() && o.spaceHeld() >= opSkipHoldTicks {
+		o.t = o.doneTick()
+	}
+
+	// On the title (assembled tank + title art), a click advances to the workshop
+	// — but if the player can't buy anything (no coins yet, or everything maxed),
+	// the workshop has nothing to show, so go straight into the run instead.
+	if o.inTitle() && !o.switched && leftClick {
 		o.switched = true
-		o.sequence.SwitchWithTransition(o.nextScene, o.transition)
+		target := o.nextScene
+		if o.meta != nil && !metaShoppable(o.meta.state) {
+			target = o.skipScene
+		}
+		o.sequence.SwitchWithTransition(target, o.transition)
 	}
 	return nil
 }
@@ -234,6 +269,13 @@ func (o *Opening) spaceHeld() int {
 }
 
 func (o *Opening) Draw(screen *ebiten.Image) {
+	// Once the cinematic settles, this scene becomes the title: the assembled tank
+	// stays on screen under the title art, waiting for a click to continue.
+	if o.inTitle() {
+		o.drawTitle(screen)
+		return
+	}
+
 	// Background: held still while the aliens attack, then scrolled top-to-bottom
 	// during the launch demo so the screen-stationary tank reads as driving
 	// upward (the scenery slides down past it). The scroll matches the in-game
@@ -302,6 +344,20 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 	}
 
 	o.drawSkipHint(screen)
+}
+
+// drawTitle renders the title screen: the real run's fully-assembled tank (kept
+// from the cinematic) under the full-screen title art, with a pulsing prompt.
+// The title art fills the layout, so dropping in a 1280x720 asset shows 1:1; the
+// tank is drawn on top so it always stays visible (reposition via opCenterX/Y).
+func (o *Opening) drawTitle(screen *ebiten.Image) {
+	drawing.DrawSprite(screen, drawing.Image("title"), screenW/2, screenH/2, screenW, screenH, 0, 1, 1, 1, 1)
+
+	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), opCenterX, opCenterY, tankDrawW*opZoom, tankDrawH*opZoom, 0, 1, 1, 1, 1)
+	o.drawAssembly(screen) // every tile sits at its final slot once inTitle()
+
+	blink := float32(0.7 + 0.3*math.Sin(float64(o.t)*0.12))
+	drawTelopC(screen, lang.Text("title-start"), opCenterX, screenH-100, 26, 1, 1, 0.85, blink)
 }
 
 // drawSkipHint shows the "hold Space to skip" prompt bottom-right, brightening as

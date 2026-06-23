@@ -33,7 +33,8 @@ const combatTileSize = core.TurretTileSize
 type InGame struct {
 	input      *ui.Input
 	world      *core.World
-	runSeed    *runSeed // shared seed source: opening's turret seed, or fresh on retry
+	runSeed    *runSeed    // shared seed source: opening's turret seed, or fresh on retry
+	meta       *metaHolder // shared persistent upgrades, folded into the run config
 	nextScene  ebiten.Game
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
@@ -68,11 +69,27 @@ type InGame struct {
 	hpShake int
 }
 
-func NewInGame(input *ui.Input, seed *runSeed) *InGame {
+func NewInGame(input *ui.Input, seed *runSeed, meta *metaHolder) *InGame {
 	return &InGame{
 		input:   input,
 		runSeed: seed,
+		meta:    meta,
 	}
+}
+
+// runConfig builds the balance config for a fresh run with the player's
+// persistent upgrades folded in.
+func (g *InGame) runConfig() core.Config {
+	return data.ApplyMeta(data.NewConfig(), g.meta.state)
+}
+
+// RunStats reports the finished run's kill count and elapsed ticks, for the
+// result screen to compute the coin reward. Zero before a world exists.
+func (g *InGame) RunStats() (kills, tick int) {
+	if g.world == nil {
+		return 0, 0
+	}
+	return g.world.Kills, g.world.Tick
 }
 
 // Outcome reports how the last run ended, for the result screen to branch on.
@@ -111,7 +128,7 @@ func (g *InGame) Init(nextScene ebiten.Game, sequence *bamenn.Sequence, transiti
 func (g *InGame) OnStart() {
 	// Use the seed the opening generated its turret from (so the run matches the
 	// cinematic); a retry from the result screen has no pending seed and rolls fresh.
-	g.world = core.NewWorld(g.runSeed.take(), data.NewConfig())
+	g.world = core.NewWorld(g.runSeed.take(), g.runConfig())
 	g.paused = false
 	g.popups = g.popups[:0]
 	g.deaths = g.deaths[:0]
@@ -181,7 +198,7 @@ func (g *InGame) powerGaugeTarget() float64 {
 
 func (g *InGame) Update() error {
 	if g.world == nil {
-		g.world = core.NewWorld(g.runSeed.take(), data.NewConfig())
+		g.world = core.NewWorld(g.runSeed.take(), g.runConfig())
 		g.turretRenderedAngle = g.world.Player.FacingAngle
 	}
 	if g.rng == nil {
@@ -519,7 +536,7 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 		drawing.DrawText(screen, fmt.Sprintf("%d", i+1), 22, opt)
 		opt = &ebiten.DrawImageOptions{}
 		opt.GeoM.Translate(x+46, cardY+16)
-		drawing.DrawTextTemplate(screen, "card-doctor", map[string]any{"Name": doctorNameL(c.Doctor)}, 20, opt)
+		drawing.DrawText(screen, doctorNameL(c.Doctor, c.DoctorAlphabet), 20, opt)
 
 		// One line per item: label, icon, then name.
 		itemY := cardY + 62.0

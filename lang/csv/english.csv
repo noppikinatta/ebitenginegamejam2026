@@ -27,7 +27,6 @@ victory-detail,The Disconnector is destroyed. Click to continue.
 # --- Level-up offers ---
 levelup-title,LEVEL UP — Lv {{.Level}}
 levelup-instruction,Three doctors approach. Choose one (click a card or press 1/2/3).
-card-doctor,Dr. {{.Name}}
 offer-add,Add
 offer-upgrade,Upgrade
 offer-nippers,+{{.N}} Nippers
@@ -51,6 +50,19 @@ result-lose-2,"We toil four hours a day, with only four days off a week"
 btn-return,Back to Opening
 btn-retry,Retry
 btn-accept,Accept the outcome
+result-earned,Earned {{.N}}
+result-total,Total {{.N}}
+
+# --- Workshop (persistent upgrades) ---
+workshop-title,WORKSHOP
+workshop-start,Start Run
+workshop-back,Back
+workshop-maxed,MAX
+meta-hp-name,Max HP
+meta-armor-name,Armor
+meta-regen-name,Repair
+meta-speed-name,Speed
+meta-attack-name,Attack
 
 # --- Language switcher ---
 lang-current,Current Language: {{.Lang}}
@@ -75,17 +87,12 @@ weapon-grenade-desc,Lobs a shell outward that explodes where it lands.
 weapon-ciws-desc,"Point defence: holds fire until an enemy is close, then unleashes a burst."
 weapon-missile-desc,Launches a homing missile that explodes on impact.
 
-# --- Doctor names ---
-doctor-volt,Volt
-doctor-sprocket,Sprocket
-doctor-fizz,Fizz
-doctor-cogsworth,Cogsworth
-doctor-ohm,Ohm
-doctor-wattson,Wattson
-doctor-pixel,Pixel
-doctor-gizmo,Gizmo
-doctor-tinker,Tinker
-doctor-bolt,Bolt
+# --- Doctor name templates (title + random letter via {{.Alphabet}}) ---
+doctor-name-doctor,Doctor {{.Alphabet}}
+doctor-name-professor,Professor {{.Alphabet}}
+doctor-name-doktor,Doktor {{.Alphabet}}
+doctor-name-instructor,Instructor {{.Alphabet}}
+doctor-name-master,Master {{.Alphabet}}
 
 # --- Junk device names (inert novelties) ---
 junk-unusual-banana,Unusual Banana

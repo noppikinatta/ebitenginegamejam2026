@@ -23,11 +23,17 @@ func weaponDescL(k core.WeaponKind) string {
 	return lang.Text("weapon-" + kindSlug(k) + "-desc")
 }
 
+// doctorNameL formats a doctor's full name from its title (e.g. "Doctor") and
+// random letter via a per-language template (doctor-name-<title>), so the letter
+// can sit before or after the title depending on the language.
+func doctorNameL(title, alphabet string) string {
+	return lang.ExecuteTemplate("doctor-name-"+slug(title), map[string]any{"Alphabet": alphabet})
+}
+
 // Flavour names originate in core as English strings; resolve them through the
 // CSVs by slug, falling back to the original literal if no entry exists.
-func doctorNameL(name string) string { return lang.TextWithDefault("doctor-"+slug(name), name) }
-func junkNameL(name string) string   { return lang.TextWithDefault("junk-"+slug(name), name) }
-func bossNameL(name string) string   { return lang.TextWithDefault("boss-"+slug(name), name) }
+func junkNameL(name string) string { return lang.TextWithDefault("junk-"+slug(name), name) }
+func bossNameL(name string) string { return lang.TextWithDefault("boss-"+slug(name), name) }
 
 // junkDescL returns the per-device description for a junk, keyed by
 // junk-<slug>-desc. Every junk device has its own entry; a device without one

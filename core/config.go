@@ -17,6 +17,12 @@ type Config struct {
 	XPToNextGrowth         float64 // XPToNext multiplier applied each level-up
 	CapacitorFireRateBonus float64 // fire-rate multiplier added per connected Capacitor equipment
 
+	// Persistent (meta-progression) bonuses, folded in by data.ApplyMeta from the
+	// player's purchased upgrade levels. Defaults (0 / 0 / 1) leave a run unchanged.
+	BaseArmor   float64 // flat damage reduction added to the turret's Armor on every hit
+	BaseHPRegen float64 // HP added to each repair cycle even with no Repair Unit tiles
+	DamageMult  float64 // global weapon damage multiplier (1 = no change)
+
 	Player Player       // starting-stat template (Pos/Weapons/Facing/Nippers set by NewWorld)
 	Pickup PickupRanges // gem/nipper magnet+collect behaviour
 	Spawn  SpawnSpec    // enemy/candlestick placement and timing
