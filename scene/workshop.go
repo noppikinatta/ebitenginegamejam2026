@@ -21,7 +21,7 @@ type Workshop struct {
 	input      *ui.Input
 	meta       *metaHolder
 	startScene ebiten.Game // InGame: begin a run with the current upgrades
-	backScene  ebiten.Game // Title: return without starting
+	opening    *Opening    // back target: the opening, jumped straight to its title state
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
 }
@@ -30,9 +30,9 @@ func NewWorkshop(input *ui.Input) *Workshop {
 	return &Workshop{input: input}
 }
 
-func (w *Workshop) Init(startScene, backScene ebiten.Game, meta *metaHolder, sequence *bamenn.Sequence, transition bamenn.Transition) {
+func (w *Workshop) Init(startScene ebiten.Game, opening *Opening, meta *metaHolder, sequence *bamenn.Sequence, transition bamenn.Transition) {
 	w.startScene = startScene
-	w.backScene = backScene
+	w.opening = opening
 	w.meta = meta
 	w.sequence = sequence
 	w.transition = transition
@@ -80,7 +80,8 @@ func (w *Workshop) Update() error {
 	case wsStartBtn.hit(mx, my):
 		w.sequence.SwitchWithTransition(w.startScene, w.transition)
 	case wsBackBtn.hit(mx, my):
-		w.sequence.SwitchWithTransition(w.backScene, w.transition)
+		w.opening.SkipToTitle() // return to the title without replaying the cinematic
+		w.sequence.SwitchWithTransition(w.opening, w.transition)
 	}
 	return nil
 }
