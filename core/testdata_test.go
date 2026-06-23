@@ -113,11 +113,10 @@ func testParams(kind WeaponKind) WeaponParams {
 
 func testTurretGenConfig() TurretGenConfig {
 	return TurretGenConfig{
-		MaxTiles:      22,
-		BranchProb:    0.35,
-		WeaponDensity: 0.45,
-		JunkDensity:   0.15,
-		Generators:    []GeneratorConfig{{Index: hexmap.IdxXY(0, 0), Power: 100}},
+		WeaponCount: 3,
+		JunkCount:   29,
+		BranchProb:  0.35,
+		Generators:  []GeneratorConfig{{Index: hexmap.IdxXY(0, 0), Power: 100}},
 	}
 }
 
