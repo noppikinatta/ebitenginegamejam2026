@@ -30,6 +30,7 @@ levelup-instruction,Three doctors approach. Choose one (click a card or press 1/
 offer-add,Add
 offer-upgrade,Upgrade
 offer-nippers,+{{.N}} Nippers
+offer-nippers-desc,Used to cut away unwanted parts.
 comp-capacitor,Capacitor
 comp-repair-unit,Repair Unit
 comp-armor,Armor

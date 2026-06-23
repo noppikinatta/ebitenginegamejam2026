@@ -61,3 +61,23 @@ func offerItemText(it core.OfferItem) string {
 		return junkNameL(it.Text)
 	}
 }
+
+// offerItemDesc returns the localised one-line description for a proposal line,
+// matching the copy shown for the same component in the pause/cut info panel
+// (see pauseTileInfo). Nippers carry their own key since they are not a tile.
+func offerItemDesc(it core.OfferItem) string {
+	switch it.Kind {
+	case core.OfferAddWeapon, core.OfferUpgrade:
+		return weaponDescL(it.Weapon)
+	case core.OfferAddCapacitor:
+		return lang.Text("comp-capacitor-desc")
+	case core.OfferAddRepairUnit:
+		return lang.Text("comp-repair-unit-desc")
+	case core.OfferAddArmor:
+		return lang.Text("comp-armor-desc")
+	case core.OfferNippers:
+		return lang.Text("offer-nippers-desc")
+	default: // OfferAddJunk
+		return junkDescL(it.Text)
+	}
+}

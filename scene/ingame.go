@@ -518,6 +518,7 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 
 	n := len(g.world.Choices)
 	mx, my := ebiten.CursorPosition()
+	var hoveredItem *core.OfferItem // item under the cursor, described in the bottom panel
 	for i, c := range g.world.Choices {
 		x := cardX(i, n)
 		hovered := float64(mx) >= x && float64(mx) < x+cardW &&
@@ -538,12 +539,24 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 		opt.GeoM.Translate(x+46, cardY+16)
 		drawing.DrawText(screen, doctorNameL(c.Doctor, c.DoctorAlphabet), 20, opt)
 
-		// One line per item: label, icon, then name.
+		// One line per item: label, icon, then name. Each line's hit box is the
+		// card width by the line stride, so hovering a line shows its info panel.
+		const itemStride = 46.0
 		itemY := cardY + 62.0
-		for _, it := range c.Items {
-			drawOfferItem(screen, it, x+14, itemY)
-			itemY += 46
+		for j := range c.Items {
+			if hovered && float64(my) >= itemY && float64(my) < itemY+itemStride {
+				hoveredItem = &c.Items[j]
+			}
+			drawOfferItem(screen, c.Items[j], x+14, itemY)
+			itemY += itemStride
 		}
+	}
+
+	// Describe the hovered offer line in the shared bottom panel, mirroring the
+	// pause/cut view so the player sees the same copy when picking and when cutting.
+	if hoveredItem != nil {
+		key, weapon := offerIcon(*hoveredItem)
+		drawInfoPanel(screen, offerItemText(*hoveredItem), offerItemDesc(*hoveredItem), key, weapon)
 	}
 }
 
@@ -830,7 +843,13 @@ func (g *InGame) drawPauseTileInfo(screen *ebiten.Image, idx hexmap.Index) {
 		return
 	}
 	name, desc, imgKey, weapon := pauseTileInfo(tile.Component)
+	drawInfoPanel(screen, name, desc, imgKey, weapon)
+}
 
+// drawInfoPanel draws the shared bottom info panel: a preview image on the left
+// plus a name and wrapped description on the right. Used by both the pause/cut
+// view and the level-up offer hover, so the same copy is shown in both places.
+func drawInfoPanel(screen *ebiten.Image, name, desc, imgKey string, weapon bool) {
 	const bx, bh = 24.0, 110.0
 	bw := float64(screenW) - 2*bx
 	by := float64(screenH) - bh - 16
