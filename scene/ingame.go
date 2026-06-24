@@ -376,12 +376,26 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1, false)
 	}
 	for _, pk := range w.Pickups {
-		key, sz := asset.ImgNipper, 16.0
-		if pk.Kind == core.PickupHeart {
-			key, sz = asset.ImgHeart, 8.0 // hearts draw at the gem's 8×8 footprint
+		key := asset.ImgNipper // all pickup art is 16×16, drawn 1:1
+		switch pk.Kind {
+		case core.PickupHeart:
+			key = asset.ImgHeart
+		case core.PickupMagnet:
+			key = asset.ImgMagnet
 		}
-		drawSprite(screen, cam, key, pk.Pos, sz, sz, 0, 1, 1, 1, 1, false)
+		drawSprite(screen, cam, key, pk.Pos, 16, 16, 0, 1, 1, 1, 1, false)
 	}
+	// Player tank (tall sprite, authored pointing up; rotate to face movement
+	// using the same smoothed angle as the turret so body and turret ease
+	// together). Collision radius is separate, in core.
+	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1, false)
+
+	// Turret miniature on top of the tank body, rotated to face movement direction.
+	g.drawTurretCombat(screen, cam)
+
+	// Enemies draw AFTER the tank + turret so they appear in front of the player.
+	// When an enemy reaches the tank it visibly overlaps it, making the moment of
+	// taking damage easy to read instead of the enemy slipping under the tank.
 	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {
 		sz := e.Radius * 2 // sprite footprint follows the collision radius
@@ -391,14 +405,6 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1, faceRight)
 	}
 	g.drawBeams(screen, cam)
-
-	// Player tank (tall sprite, authored pointing up; rotate to face movement
-	// using the same smoothed angle as the turret so body and turret ease
-	// together). Collision radius is separate, in core.
-	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1, false)
-
-	// Turret miniature on top of the tank body, rotated to face movement direction.
-	g.drawTurretCombat(screen, cam)
 
 	// Projectiles draw AFTER the tank + turret so they are never hidden beneath
 	// the ~70px turret miniature. This matters most for the slow homing missile,
@@ -785,9 +791,10 @@ func tallTileSprite(comp core.Component) (key string, ok bool) {
 	return "", false
 }
 
-// drawPause renders the zoomed, upright cut view over a dimmed world: the tank
-// and turret blown up so individual tiles can be clicked to cut. The tile under
-// the mouse is highlighted.
+// drawPause renders the upright cut view over a dimmed world: the tank and
+// turret drawn 1:1 (same scale as combat) so the whole turret stays on screen
+// and individual tiles can be clicked to cut. The tile under the mouse is
+// highlighted.
 func (g *InGame) drawPause(screen *ebiten.Image) {
 	drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.7)
 
@@ -866,16 +873,17 @@ func drawInfoPanel(screen *ebiten.Image, name, desc, imgKey string) {
 	by := float64(screenH) - bh - 16
 	drawing.DrawRect(screen, bx, by, bw, bh, 0.06, 0.07, 0.10, 0.92)
 
-	// Preview image on the left, drawn at native size (1:1) so tall barrels and
-	// tall junk keep their true proportions instead of being squished into a
-	// square. The sprite is bottom-aligned to a fixed baseline (so images of
+	// Preview image on the left, drawn at 2x its native size so tall barrels and
+	// tall junk are easy to read. Aspect is preserved (no squishing into a
+	// square). The sprite is bottom-aligned to a fixed baseline (so images of
 	// different heights all "stand" on the same floor) and horizontally centred
 	// in the icon column from its own width.
 	const iconCenterX = bx + 70 // icon column centre
-	baseline := by + bh - 14    // panel floor the sprite's bottom rests on
+	const iconScale = 2.0
+	baseline := by + bh - 14 // panel floor the sprite's bottom rests on
 	img := drawing.Image(imgKey)
 	b := img.Bounds()
-	iw, ih := float64(b.Dx()), float64(b.Dy())
+	iw, ih := float64(b.Dx())*iconScale, float64(b.Dy())*iconScale
 	drawing.DrawSprite(screen, img, iconCenterX, baseline-ih/2, iw, ih, 0, 1, 1, 1, 1)
 
 	// Name + wrapped description on the right.
@@ -1173,9 +1181,49 @@ func (g *InGame) drawExplosions(screen *ebiten.Image, cam geom.PointF) {
 		f := float32(e.Life) / float32(e.MaxLife)
 		cx := float32(e.Pos.X - cam.X)
 		cy := float32(e.Pos.Y - cam.Y)
+		if e.Firework {
+			drawFireworkBurst(screen, cx, cy, float32(e.Radius), f, e.Hue)
+			continue
+		}
 		// Orange (255,140,0) with premultiplied alpha so it fades to transparent.
 		c := color.RGBA{R: uint8(255 * f), G: uint8(140 * f), B: 0, A: uint8(255 * f)}
 		vector.DrawFilledCircle(screen, cx, cy, float32(e.Radius), c, true)
+	}
+}
+
+// drawFireworkBurst draws a junk firework as a single colored disc (a random
+// hue per shell) instead of the weapon explosion's orange blast, so harmless
+// fireworks are easy to tell apart at a glance. f is Life/MaxLife (1→0); hue
+// (0..1) picks the color.
+func drawFireworkBurst(screen *ebiten.Image, cx, cy, radius, f float32, hue float64) {
+	r, g, b := hsvToRGB(hue, 0.85, 1)
+	// Premultiplied alpha so the disc fades to transparent like the orange one.
+	c := color.RGBA{R: uint8(float32(r) * 255 * f), G: uint8(float32(g) * 255 * f), B: uint8(float32(b) * 255 * f), A: uint8(255 * f)}
+	vector.DrawFilledCircle(screen, cx, cy, radius, c, true)
+}
+
+// hsvToRGB converts HSV (each 0..1, hue wrapping) to RGB in 0..1. Used to give
+// firework sparks vivid, varied colors without a lookup table.
+func hsvToRGB(h, s, v float64) (float64, float64, float64) {
+	h = h - math.Floor(h) // wrap hue into [0,1)
+	i := math.Floor(h * 6)
+	f := h*6 - i
+	p := v * (1 - s)
+	q := v * (1 - f*s)
+	t := v * (1 - (1-f)*s)
+	switch int(i) % 6 {
+	case 0:
+		return v, t, p
+	case 1:
+		return q, v, p
+	case 2:
+		return p, v, t
+	case 3:
+		return p, q, v
+	case 4:
+		return t, p, v
+	default:
+		return v, p, q
 	}
 }
 

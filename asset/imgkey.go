@@ -16,7 +16,8 @@ const (
 	ImgCandlestick  = "candlestick"
 	ImgGem          = "gem"
 	ImgNipper       = "nipper"
-	ImgHeart        = "heart" // HP pickup dropped (rarely) by candlesticks
+	ImgHeart        = "heart"  // HP pickup dropped (rarely) by candlesticks
+	ImgMagnet       = "magnet" // collect-all pickup dropped by mid-bosses
 	ImgProjectile   = "projectile"
 
 	// Turret tiles (24x24).

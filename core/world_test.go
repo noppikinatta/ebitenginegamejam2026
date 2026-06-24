@@ -312,6 +312,50 @@ func TestUpdate_GemPickupGrantsXP(t *testing.T) {
 	}
 }
 
+func TestUpdateGems_KeepsHomingAfterEnteringMagnetRange(t *testing.T) {
+	w := NewWorld(testSeed, testConfig())
+	pr := w.cfg.Pickup
+
+	// Player at origin; gem just inside magnet range so it latches on.
+	w.Player.Pos = geom.PointF{}
+	gem := &Gem{Pos: geom.PointF{X: pr.MagnetDist - 1}, Value: 1, alive: true}
+	w.Gems = []*Gem{gem}
+
+	w.updateGems()
+	if !gem.tracking {
+		t.Fatalf("gem should be tracking after entering magnet range")
+	}
+
+	// Player teleports far beyond magnet range. A non-tracking gem would give
+	// up here; a latched-on gem must still approach the player.
+	w.Player.Pos = geom.PointF{X: 1000}
+	before := gem.Pos.Distance(w.Player.Pos)
+	w.updateGems()
+	after := gem.Pos.Distance(w.Player.Pos)
+	if after >= before {
+		t.Errorf("tracking gem did not approach player: before %.2f, after %.2f", before, after)
+	}
+}
+
+func TestUpdateGems_IdleUntilWithinMagnetRange(t *testing.T) {
+	w := NewWorld(testSeed, testConfig())
+	pr := w.cfg.Pickup
+
+	// Gem well outside magnet range: it should not move or start tracking.
+	w.Player.Pos = geom.PointF{}
+	start := geom.PointF{X: pr.MagnetDist + 50}
+	gem := &Gem{Pos: start, Value: 1, alive: true}
+	w.Gems = []*Gem{gem}
+
+	w.updateGems()
+	if gem.tracking {
+		t.Errorf("gem outside magnet range should not be tracking")
+	}
+	if gem.Pos != start {
+		t.Errorf("gem outside magnet range moved: %v -> %v", start, gem.Pos)
+	}
+}
+
 func TestUpdate_LevelUpPausesForChoice(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 

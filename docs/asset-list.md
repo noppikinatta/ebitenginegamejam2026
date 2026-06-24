@@ -23,7 +23,8 @@
 | `tank.png` | 48x64 | 自機（戦車）。**上向き**で authoring（砲塔は別途タイルで重なる） |
 | `gem.png` | 8x8 | 経験値ジェム |
 | `nipper.png` | 16x16 | ニッパー（切断回数アイテム） |
-| `heart.png` | 8x8 | ハート（燭台から低確率drop・HP回復） |
+| `heart.png` | 16x16 | ハート（燭台から低確率drop・HP回復） |
+| `magnet.png` | 16x16 | マグネット（中ボス1・2がdrop。取得で全ジェム/アイテムを吸引）。`make magnet-img` |
 | `projectile.png` | 8x8 | 既定の弾（武器がスプライト未指定の時のフォールバック） |
 | `proj_cannon.png` | **8x12** | キャノン弾（長方形・**進行方向へ回転**。上向き authoring） |
 | `proj_shotgun.png` | 6x6 | ショットガン弾（丸） |
@@ -122,24 +123,24 @@
 
 > 同じ曲を共有するシーン間（オープニング↔タイトル、ゲーム↔リザルト）は鳴り直さずシームレスに継続。曲が変わる切替時（タイトル→ゲーム開始、ゲーム→オープニング復帰）のみ頭から再生。
 
-### SE（フリー素材可・`raw/` は非コミット→`se.pak`）
+### SE（`asset/sound/se/` に loose wav をコミット・直接埋め込み）
 
-発射音は**武器ごとに別ファイル**。`raw/` に置いて `make sound-pak` で `se.pak` に格納。
+発射音は**武器ごとに別ファイル**。`asset/sound/se/<name>.wav` を `//go:embed sound/se/*.wav` で直接読み込む（pak・難読化なし）。
 
 | ファイル | 用途 |
 |---|---|
-| `asset/sound/raw/fire_cannon.wav` | キャノン発射 |
-| `asset/sound/raw/fire_shotgun.wav` | ショットガン発射 |
-| `asset/sound/raw/fire_sniper.wav` | スナイパー発射 |
-| `asset/sound/raw/fire_laser.wav` | レーザー発射 |
-| `asset/sound/raw/fire_gatling.wav` | ガトリング発射 |
-| `asset/sound/raw/fire_grenade.wav` | グレネード発射 |
-| `asset/sound/raw/fire_ciws.wav` | CIWS発射 |
-| `asset/sound/raw/fire_missile.wav` | ミサイル発射 |
-| `asset/sound/raw/explosion.wav` | 爆発（爆発弾・グレネード等） |
-| `asset/sound/raw/hit.wav` | 自機被弾 |
+| `asset/sound/se/fire_cannon.wav` | キャノン発射 |
+| `asset/sound/se/fire_shotgun.wav` | ショットガン発射 |
+| `asset/sound/se/fire_sniper.wav` | スナイパー発射 |
+| `asset/sound/se/fire_laser.wav` | レーザー発射 |
+| `asset/sound/se/fire_gatling.wav` | ガトリング発射 |
+| `asset/sound/se/fire_grenade.wav` | グレネード発射 |
+| `asset/sound/se/fire_ciws.wav` | CIWS発射 |
+| `asset/sound/se/fire_missile.wav` | ミサイル発射 |
+| `asset/sound/se/explosion.wav` | 爆発（爆発弾・グレネード等） |
+| `asset/sound/se/hit.wav` | 自機被弾 |
 
-> SEは1個だけでも差し替え可（マージ方式）：当該wavを `raw/` に置いて `make sound-pak`。他は既存pakから維持。SE削除は `raw/` から消して `-rebuild`。
+> SEは1個だけでも差し替え可：当該 wav を同名で `asset/sound/se/` に置くだけ（再パック不要）。仮素材は `make sound-gen`（波形生成）で再生成。
 
 ---
 

@@ -523,7 +523,11 @@ func (w *World) updateProjectiles() {
 		if p.Life <= 0 {
 			p.alive = false
 			if p.ExplodeRadius > 0 {
-				w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+				if p.Firework {
+					w.explodeFirework(p.Pos, p.ExplodeRadius)
+				} else {
+					w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+				}
 			}
 			continue
 		}
@@ -574,6 +578,21 @@ func (w *World) explode(center geom.PointF, radius, dmg float64) {
 	}
 }
 
+// explodeFirework queues a purely cosmetic spark burst for firework junk: no
+// area damage, no enemy scan, and a random hue so each shell bursts in its own
+// color. It deliberately skips the weapon explosion SFX so a harmless firework
+// neither looks nor sounds like real ordnance.
+func (w *World) explodeFirework(center geom.PointF, radius float64) {
+	w.Explosions = append(w.Explosions, &Explosion{
+		Pos:      center,
+		Radius:   radius,
+		Life:     explosionLife,
+		MaxLife:  explosionLife,
+		Firework: true,
+		Hue:      w.rng.Float64(),
+	})
+}
+
 // updateExplosions ages active explosion effects; compact() drops expired ones.
 func (w *World) updateExplosions() {
 	for _, e := range w.Explosions {
@@ -598,6 +617,11 @@ func (w *World) killEnemy(e *Enemy) {
 			kind = PickupHeart
 		}
 		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: kind, alive: true})
+	}
+	// Mid-bosses (any non-final boss) drop a magnet pickup; collecting it pulls
+	// every gem and pickup on the field to the player at once.
+	if e.IsBoss && !e.Final {
+		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: PickupMagnet, alive: true})
 	}
 	if e.Final && w.State == StatePlaying {
 		w.State = StateCleared // defeating the final boss wins the run
@@ -673,11 +697,14 @@ func (w *World) updateGems() {
 			continue
 		}
 		d := g.Pos.Distance(w.Player.Pos)
+		if d <= pr.MagnetDist {
+			g.tracking = true // entered magnet range: home from now on, even if the player outruns it
+		}
 		switch {
 		case d <= pr.PickupDist:
 			g.alive = false
 			w.addXP(g.Value)
-		case d <= pr.MagnetDist && d > 0:
+		case g.tracking && d > 0:
 			dir := w.Player.Pos.Subtract(g.Pos)
 			g.Pos = g.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}
@@ -693,11 +720,14 @@ func (w *World) updatePickups() {
 			continue
 		}
 		d := p.Pos.Distance(w.Player.Pos)
+		if d <= pr.MagnetDist {
+			p.tracking = true // entered magnet range: home from now on, even if the player outruns it
+		}
 		switch {
 		case d <= pr.PickupDist:
 			p.alive = false
 			w.collectPickup(p)
-		case d <= pr.MagnetDist && d > 0:
+		case p.tracking && d > 0:
 			dir := w.Player.Pos.Subtract(p.Pos)
 			p.Pos = p.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}
@@ -712,8 +742,22 @@ func (w *World) collectPickup(p *Pickup) {
 		if w.Player.HP > w.Player.MaxHP {
 			w.Player.HP = w.Player.MaxHP
 		}
+	case PickupMagnet:
+		w.magnetizeAll()
 	default:
 		w.Player.Nippers++
+	}
+}
+
+// magnetizeAll latches every gem and pickup into permanent homing, so they all
+// fly to the player at once. Triggered by collecting a magnet pickup (dropped by
+// mid-bosses).
+func (w *World) magnetizeAll() {
+	for _, g := range w.Gems {
+		g.tracking = true
+	}
+	for _, p := range w.Pickups {
+		p.tracking = true
 	}
 }
 
