@@ -867,16 +867,17 @@ func drawInfoPanel(screen *ebiten.Image, name, desc, imgKey string) {
 	by := float64(screenH) - bh - 16
 	drawing.DrawRect(screen, bx, by, bw, bh, 0.06, 0.07, 0.10, 0.92)
 
-	// Preview image on the left, drawn at native size (1:1) so tall barrels and
-	// tall junk keep their true proportions instead of being squished into a
-	// square. The sprite is bottom-aligned to a fixed baseline (so images of
+	// Preview image on the left, drawn at 2x its native size so tall barrels and
+	// tall junk are easy to read. Aspect is preserved (no squishing into a
+	// square). The sprite is bottom-aligned to a fixed baseline (so images of
 	// different heights all "stand" on the same floor) and horizontally centred
 	// in the icon column from its own width.
 	const iconCenterX = bx + 70 // icon column centre
-	baseline := by + bh - 14    // panel floor the sprite's bottom rests on
+	const iconScale = 2.0
+	baseline := by + bh - 14 // panel floor the sprite's bottom rests on
 	img := drawing.Image(imgKey)
 	b := img.Bounds()
-	iw, ih := float64(b.Dx()), float64(b.Dy())
+	iw, ih := float64(b.Dx())*iconScale, float64(b.Dy())*iconScale
 	drawing.DrawSprite(screen, img, iconCenterX, baseline-ih/2, iw, ih, 0, 1, 1, 1, 1)
 
 	// Name + wrapped description on the right.
