@@ -382,6 +382,17 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		}
 		drawSprite(screen, cam, key, pk.Pos, sz, sz, 0, 1, 1, 1, 1, false)
 	}
+	// Player tank (tall sprite, authored pointing up; rotate to face movement
+	// using the same smoothed angle as the turret so body and turret ease
+	// together). Collision radius is separate, in core.
+	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1, false)
+
+	// Turret miniature on top of the tank body, rotated to face movement direction.
+	g.drawTurretCombat(screen, cam)
+
+	// Enemies draw AFTER the tank + turret so they appear in front of the player.
+	// When an enemy reaches the tank it visibly overlaps it, making the moment of
+	// taking damage easy to read instead of the enemy slipping under the tank.
 	g.drawDeathFX(screen, cam) // fading corpses, under the live enemies
 	for _, e := range w.Enemies {
 		sz := e.Radius * 2 // sprite footprint follows the collision radius
@@ -391,14 +402,6 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1, faceRight)
 	}
 	g.drawBeams(screen, cam)
-
-	// Player tank (tall sprite, authored pointing up; rotate to face movement
-	// using the same smoothed angle as the turret so body and turret ease
-	// together). Collision radius is separate, in core.
-	drawSprite(screen, cam, asset.ImgTank, w.Player.Pos, tankDrawW, tankDrawH, g.turretRenderedAngle+math.Pi/2, 1, 1, 1, 1, false)
-
-	// Turret miniature on top of the tank body, rotated to face movement direction.
-	g.drawTurretCombat(screen, cam)
 
 	// Projectiles draw AFTER the tank + turret so they are never hidden beneath
 	// the ~70px turret miniature. This matters most for the slow homing missile,
