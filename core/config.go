@@ -184,6 +184,7 @@ type DoctorSpec struct {
 type EnemyStats struct {
 	HPBase  float64
 	Speed   float64
+	Turn    float64 // max per-tick steering toward the player; 0 = instant follow (re-aim every tick)
 	Radius  float64
 	Damage  float64
 	XPValue float64
@@ -225,6 +226,7 @@ type BossSpec struct {
 	Name    string
 	HP      float64
 	Speed   float64
+	Turn    float64 // max per-tick steering toward the player; 0 = instant follow (re-aim every tick)
 	Radius  float64
 	Damage  float64
 	XPValue float64

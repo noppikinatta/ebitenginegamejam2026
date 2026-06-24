@@ -600,6 +600,40 @@ func TestUpdate_EnemyChasesPlayer(t *testing.T) {
 	}
 }
 
+// TestUpdate_EnemyTurnLimitsSteering: an enemy with Turn>0 banks toward the
+// player by at most Turn per tick instead of snapping its heading (the
+// instant-follow behaviour of Turn==0).
+func TestUpdate_EnemyTurnLimitsSteering(t *testing.T) {
+	w := NewWorld(testSeed, testConfig())
+	w.Player.Pos = geom.PointF{X: 0, Y: 0}
+
+	// Enemy to the right, currently heading straight up — i.e. 90° off the bearing
+	// to the player (straight left). An instant follower would re-aim fully left in
+	// one tick; the turn cap lets it bend only a little.
+	const speed, turn = 2.0, 0.1
+	e := &Enemy{
+		Pos:   geom.PointF{X: 100, Y: 0},
+		Vel:   geom.PointF{X: 0, Y: -speed},
+		Speed: speed, Turn: turn, Radius: 8, alive: true,
+	}
+	w.Enemies = append(w.Enemies, e)
+
+	w.Update(noMove())
+
+	// Some leftward (-X) steering toward the player should be applied...
+	if e.Vel.X >= 0 {
+		t.Errorf("expected steering toward player (Vel.X < 0), got %.4f", e.Vel.X)
+	}
+	// ...but clamped to `turn`, nowhere near the full -speed an instant follow snaps to.
+	if e.Vel.X < -turn-1e-9 {
+		t.Errorf("turn cap exceeded: Vel.X = %.4f, want >= %.4f", e.Vel.X, -turn)
+	}
+	// Speed stays capped at Speed.
+	if s := e.Vel.Abs(); s > speed+1e-9 {
+		t.Errorf("speed exceeded cap: |Vel| = %.4f, want <= %.2f", s, speed)
+	}
+}
+
 // ── 10. Projectile life expiry ────────────────────────────────────────────────
 
 func TestUpdate_ProjectileExpiresAfterLifeTicks(t *testing.T) {
