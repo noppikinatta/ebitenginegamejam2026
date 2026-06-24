@@ -18,6 +18,7 @@ type Result struct {
 	input      *ui.Input
 	inGame     *InGame     // source of the win/lose outcome, and the retry target
 	opening    ebiten.Game // restart target
+	workshop   ebiten.Game // retry detour when there are upgrades to buy
 	meta       *metaHolder // persistent coins/upgrades; this run's reward is banked here
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
@@ -28,9 +29,10 @@ func NewResult(input *ui.Input) *Result {
 	return &Result{input: input}
 }
 
-func (r *Result) Init(inGame *InGame, opening ebiten.Game, meta *metaHolder, sequence *bamenn.Sequence, transition bamenn.Transition) {
+func (r *Result) Init(inGame *InGame, opening, workshop ebiten.Game, meta *metaHolder, sequence *bamenn.Sequence, transition bamenn.Transition) {
 	r.inGame = inGame
 	r.opening = opening
+	r.workshop = workshop
 	r.meta = meta
 	r.sequence = sequence
 	r.transition = transition
@@ -72,9 +74,16 @@ func (r *Result) Update() error {
 		return nil
 	}
 	// Loss (or unknown): retry the run, or accept defeat and return to the opening.
+	// Retry detours through the workshop when the player can afford an upgrade (the
+	// run's coins were just banked), so they can spend before re-deploying; with
+	// nothing buyable it goes straight back into the run.
 	switch {
 	case resRetryBtn.hit(mx, my):
-		r.sequence.SwitchWithTransition(r.inGame, r.transition)
+		if metaShoppable(r.meta.state) {
+			r.sequence.SwitchWithTransition(r.workshop, r.transition)
+		} else {
+			r.sequence.SwitchWithTransition(r.inGame, r.transition)
+		}
 	case resAcceptBtn.hit(mx, my):
 		r.sequence.SwitchWithTransition(r.opening, r.transition)
 	}

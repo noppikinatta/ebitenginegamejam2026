@@ -26,7 +26,7 @@ func CreateSequence(input *ui.Input) ebiten.Game {
 	opening.Init(workshop, inGame, seq, tran)       // title → workshop, or → InGame when nothing to buy
 	workshop.Init(inGame, opening, meta, seq, tran) // start → run, back → title
 	inGame.Init(result, seq, tran)
-	result.Init(inGame, opening, meta, seq, tran)
+	result.Init(inGame, opening, workshop, meta, seq, tran) // retry → workshop (if buyable) else run
 
 	return &wrapperGame{
 		langSwitcher: &langSwitcher{},

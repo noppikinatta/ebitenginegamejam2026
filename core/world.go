@@ -69,6 +69,19 @@ func (w *World) ActiveBoss() *Enemy {
 	return nil
 }
 
+// ActiveBosses returns every alive boss on the field, in slice (spawn) order, so
+// the HUD can stack one health bar per boss when a mid-boss is still alive as the
+// next boss spawns (otherwise a single shared bar would overlap).
+func (w *World) ActiveBosses() []*Enemy {
+	var bosses []*Enemy
+	for _, e := range w.Enemies {
+		if e.alive && e.IsBoss {
+			bosses = append(bosses, e)
+		}
+	}
+	return bosses
+}
+
 // Turret exposes the turret grid read-only so the scene layer can draw it.
 func (w *World) Turret() *Turret { return w.turret }
 

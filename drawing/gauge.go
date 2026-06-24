@@ -24,7 +24,7 @@ func (d *GaugeDrawer) Draw(screen *ebiten.Image) {
 	opt := ebiten.DrawImageOptions{}
 	opt.GeoM.Translate(d.TopLeft.X+d.TextOffset.X, d.TopLeft.Y+d.TextOffset.Y)
 
-	DrawText(screen, fmt.Sprint(d.Current), d.FontSize, &opt)
+	DrawText(screen, fmt.Sprintf("%d / %d", d.Current, d.Max), d.FontSize, &opt)
 }
 
 func (d *GaugeDrawer) drawRect(screen *ebiten.Image) {

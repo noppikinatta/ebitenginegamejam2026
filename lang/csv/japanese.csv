@@ -13,7 +13,7 @@ op-hint-skip,Space長押しでスキップ
 
 # --- ゲーム中HUD ---
 hud-pwr,電力
-hud-pwr-mult,x{{.Mult}}
+hud-pwr-mult,{{.Mult}} MW
 hud-stats,Lv {{.Level}}  速度 {{.Spd}}  発射 x{{.Fire}}  ニッパー {{.Nippers}}
 hud-hint,Space：ポーズしてタイルを切断
 hud-time-kills,時間 {{.Min}}:{{.Sec}}  撃破 {{.Kills}}

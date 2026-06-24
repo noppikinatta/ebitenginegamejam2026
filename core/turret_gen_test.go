@@ -66,6 +66,29 @@ func TestGenerateTurret_GeneratorPresent(t *testing.T) {
 	}
 }
 
+func TestGenerateTurret_CenterIsCannon(t *testing.T) {
+	// The central generator must always mount a fixed Cannon so the run can never
+	// be left without a firing weapon (no "詰み" after cutting everything else).
+	gen := hexmap.IdxXY(0, 0)
+	for seed := int64(0); seed < 30; seed++ {
+		rng := rand.New(rand.NewSource(seed))
+		cfg := DefaultTurretGenConfig(rng)
+		tr := GenerateTurret(cfg, rng)
+
+		tile := tr.Tiles()[gen]
+		if tile == nil {
+			t.Fatalf("seed %d: generator tile missing", seed)
+		}
+		wc, ok := tile.Component.(WeaponComponent)
+		if !ok {
+			t.Fatalf("seed %d: center component is %T, want WeaponComponent", seed, tile.Component)
+		}
+		if wc.Weapon.Kind != KindCannon {
+			t.Errorf("seed %d: center weapon kind=%v, want Cannon", seed, wc.Weapon.Kind)
+		}
+	}
+}
+
 func TestGenerateTurret_AllTilesConnected(t *testing.T) {
 	// Every tile should be reachable from the generator via active tile BFS.
 	rng := rand.New(rand.NewSource(7))

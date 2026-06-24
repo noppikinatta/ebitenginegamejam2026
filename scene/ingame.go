@@ -535,8 +535,8 @@ func (g *InGame) drawLevelUp(screen *ebiten.Image) {
 	// Describe the hovered offer line in the shared bottom panel, mirroring the
 	// pause/cut view so the player sees the same copy when picking and when cutting.
 	if hoveredItem != nil {
-		key, weapon := offerIcon(*hoveredItem)
-		drawInfoPanel(screen, offerItemText(*hoveredItem), offerItemDesc(*hoveredItem), key, weapon)
+		key, _ := offerIcon(*hoveredItem)
+		drawInfoPanel(screen, offerItemText(*hoveredItem), offerItemDesc(*hoveredItem), key)
 	}
 }
 
@@ -806,19 +806,19 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0, false)
 	g.drawTileLevels(screen, cx, cy)
 
-	// Highlight the tile under the cursor, plus a cut preview: the collateral
-	// tiles that would cascade-cut are framed in a dimmer white. The hovered
-	// tile's name and description are shown in a panel at the bottom.
+	// Highlight the tile under the cursor in green (the cut target), plus a cut
+	// preview: the collateral tiles that would cascade-cut are framed in red. The
+	// hovered tile's name and description are shown in a panel at the bottom.
 	if idx, ok := g.pauseTileAtCursor(); ok {
 		for pidx := range g.world.Turret().CutPreview(idx) {
 			if pidx == idx {
-				continue // the target itself gets the bright frame below
+				continue // the target itself gets the green frame below
 			}
 			c := tileScreenCenter(pidx, cx, cy, pauseTileSize)
-			drawTileFrame(screen, c.X, c.Y, pauseTileSize, 0.7, 0.7, 0.7, 0.9) // dim: collateral
+			drawTileFrame(screen, c.X, c.Y, pauseTileSize, 0.9, 0.2, 0.2, 0.95) // red: collateral
 		}
 		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
-		drawTileFrame(screen, c.X, c.Y, pauseTileSize, 1, 1, 1, 1) // bright: target
+		drawTileFrame(screen, c.X, c.Y, pauseTileSize, 0.2, 0.9, 0.3, 1) // green: target
 		g.drawPauseTileInfo(screen, idx)
 	}
 }
@@ -853,29 +853,30 @@ func (g *InGame) drawPauseTileInfo(screen *ebiten.Image, idx hexmap.Index) {
 	if tile == nil {
 		return
 	}
-	name, desc, imgKey, weapon := pauseTileInfo(tile.Component)
-	drawInfoPanel(screen, name, desc, imgKey, weapon)
+	name, desc, imgKey := pauseTileInfo(tile.Component)
+	drawInfoPanel(screen, name, desc, imgKey)
 }
 
 // drawInfoPanel draws the shared bottom info panel: a preview image on the left
 // plus a name and wrapped description on the right. Used by both the pause/cut
 // view and the level-up offer hover, so the same copy is shown in both places.
-func drawInfoPanel(screen *ebiten.Image, name, desc, imgKey string, weapon bool) {
+func drawInfoPanel(screen *ebiten.Image, name, desc, imgKey string) {
 	const bx, bh = 24.0, 110.0
 	bw := float64(screenW) - 2*bx
 	by := float64(screenH) - bh - 16
 	drawing.DrawRect(screen, bx, by, bw, bh, 0.06, 0.07, 0.10, 0.92)
 
-	// Preview image on the left (weapon barrels keep their tall aspect ratio).
-	icx, icy := bx+70, by+bh/2
+	// Preview image on the left, drawn at native size (1:1) so tall barrels and
+	// tall junk keep their true proportions instead of being squished into a
+	// square. The sprite is bottom-aligned to a fixed baseline (so images of
+	// different heights all "stand" on the same floor) and horizontally centred
+	// in the icon column from its own width.
+	const iconCenterX = bx + 70 // icon column centre
+	baseline := by + bh - 14    // panel floor the sprite's bottom rests on
 	img := drawing.Image(imgKey)
-	if weapon {
-		b := img.Bounds()
-		h := 84.0
-		drawing.DrawSprite(screen, img, icx, icy, h*float64(b.Dx())/float64(b.Dy()), h, 0, 1, 1, 1, 1)
-	} else {
-		drawing.DrawSprite(screen, img, icx, icy, 72, 72, 0, 1, 1, 1, 1)
-	}
+	b := img.Bounds()
+	iw, ih := float64(b.Dx()), float64(b.Dy())
+	drawing.DrawSprite(screen, img, iconCenterX, baseline-ih/2, iw, ih, 0, 1, 1, 1, 1)
 
 	// Name + wrapped description on the right.
 	tx := bx + 150
@@ -885,28 +886,27 @@ func drawInfoPanel(screen *ebiten.Image, name, desc, imgKey string, weapon bool)
 	drawWrapped(screen, desc, tx, by+58, bw-170, 18)
 }
 
-// pauseTileInfo returns the display name, description, preview image key, and
-// whether the component is a weapon (a tall barrel sprite) for the pause info
-// panel. These strings are UI copy; if the game grows localisation they can move
-// to the lang CSVs.
-func pauseTileInfo(comp core.Component) (name, desc, imgKey string, weapon bool) {
+// pauseTileInfo returns the display name, description, and preview image key for
+// the pause info panel. These strings are UI copy; if the game grows
+// localisation they can move to the lang CSVs.
+func pauseTileInfo(comp core.Component) (name, desc, imgKey string) {
 	switch c := comp.(type) {
 	case core.WeaponComponent:
 		name := weaponName(c.Weapon.Kind)
 		if c.Weapon.Level > 0 {
 			name = fmt.Sprintf("%s  +%d", name, c.Weapon.Level)
 		}
-		return name, weaponDescL(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind), true
+		return name, weaponDescL(c.Weapon.Kind), weaponTileKey(c.Weapon.Kind)
 	case core.Junk:
-		return junkNameL(c.Name()), junkDescL(c.Name()), core.JunkImageKey(c.DeviceName), c.Tall
+		return junkNameL(c.Name()), junkDescL(c.Name()), core.JunkImageKey(c.DeviceName)
 	case core.Capacitor:
-		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor, false
+		return lang.Text("comp-capacitor"), lang.Text("comp-capacitor-desc"), asset.ImgTileCapacitor
 	case core.RepairUnit:
-		return lang.Text("comp-repair-unit"), lang.Text("comp-repair-unit-desc"), asset.ImgTileRepairUnit, false
+		return lang.Text("comp-repair-unit"), lang.Text("comp-repair-unit-desc"), asset.ImgTileRepairUnit
 	case core.Armor:
-		return lang.Text("comp-armor"), lang.Text("comp-armor-desc"), asset.ImgTileArmor, false
+		return lang.Text("comp-armor"), lang.Text("comp-armor-desc"), asset.ImgTileArmor
 	default: // plain tile (or empty)
-		return lang.Text("comp-wire-name"), lang.Text("comp-wire-desc"), asset.ImgTile, false
+		return lang.Text("comp-wire-name"), lang.Text("comp-wire-desc"), asset.ImgTile
 	}
 }
 
@@ -1135,29 +1135,32 @@ func enemySpriteKeyFor(sprite string, kind core.EnemyKind, isBoss, dropsNipper b
 	}
 }
 
-// drawBossBar draws a name + health bar across the top when a boss is on the
-// field, so the player can read the boss fight's progress.
+// drawBossBar draws a name + health bar across the top for every boss on the
+// field, so the player can read the boss fight's progress. When a mid-boss is
+// still alive as the next boss spawns, the bars stack downward (bossBarStride
+// apart) instead of overlapping.
 func (g *InGame) drawBossBar(screen *ebiten.Image) {
-	b := g.world.ActiveBoss()
-	if b == nil {
-		return
-	}
-	const bw, bh, by = 600.0, 16.0, 30.0
+	const bw, bh, by0 = 600.0, 16.0, 30.0
+	const bossBarStride = 44.0 // name (18px) + bar (16px) + gap; one row per boss
 	bx := (screenW - bw) / 2
 
-	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(bx, by-22)
-	drawing.DrawText(screen, bossNameL(b.Name), 18, opt)
+	for i, b := range g.world.ActiveBosses() {
+		by := by0 + float64(i)*bossBarStride
 
-	drawing.DrawRect(screen, bx, by, bw, bh, 0.15, 0.05, 0.08, 1)
-	frac := 0.0
-	if b.MaxHP > 0 {
-		frac = b.HP / b.MaxHP
+		opt := &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(bx, by-22)
+		drawing.DrawText(screen, bossNameL(b.Name), 18, opt)
+
+		drawing.DrawRect(screen, bx, by, bw, bh, 0.15, 0.05, 0.08, 1)
+		frac := 0.0
+		if b.MaxHP > 0 {
+			frac = b.HP / b.MaxHP
+		}
+		if frac < 0 {
+			frac = 0
+		}
+		drawing.DrawRect(screen, bx, by, bw*frac, bh, 0.85, 0.25, 0.30, 1)
 	}
-	if frac < 0 {
-		frac = 0
-	}
-	drawing.DrawRect(screen, bx, by, bw*frac, bh, 0.85, 0.25, 0.30, 1)
 }
 
 // drawExplosions renders each queued explosion as an orange circle that fades
