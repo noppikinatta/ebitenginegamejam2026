@@ -376,11 +376,14 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		drawSprite(screen, cam, asset.ImgGem, gem.Pos, 8, 8, 0, 1, 1, 1, 1, false)
 	}
 	for _, pk := range w.Pickups {
-		key, sz := asset.ImgNipper, 16.0
-		if pk.Kind == core.PickupHeart {
-			key = asset.ImgHeart // heart art is 16×16, drawn 1:1 like the nipper
+		key := asset.ImgNipper // all pickup art is 16×16, drawn 1:1
+		switch pk.Kind {
+		case core.PickupHeart:
+			key = asset.ImgHeart
+		case core.PickupMagnet:
+			key = asset.ImgMagnet
 		}
-		drawSprite(screen, cam, key, pk.Pos, sz, sz, 0, 1, 1, 1, 1, false)
+		drawSprite(screen, cam, key, pk.Pos, 16, 16, 0, 1, 1, 1, 1, false)
 	}
 	// Player tank (tall sprite, authored pointing up; rotate to face movement
 	// using the same smoothed angle as the turret so body and turret ease

@@ -1,4 +1,4 @@
-.PHONY: gen run test test-cov build sound-gen bgm-ogg junk-img proj-img bg-img meta-img
+.PHONY: gen run test test-cov build sound-gen bgm-ogg junk-img proj-img bg-img meta-img magnet-img
 
 gen:
 	go generate ./...
@@ -41,6 +41,11 @@ bg-img:
 # pass FORCE=1 to overwrite.
 meta-img:
 	go run tools/genmetaimg/main.go $(if $(FORCE),-force) asset/img
+
+# Regenerate the magnet pickup placeholder (magnet.png 16x16) into asset/img.
+# An existing file is SKIPPED; pass FORCE=1 to overwrite.
+magnet-img:
+	go run tools/genmagnetimg/main.go $(if $(FORCE),-force) asset/img
 
 run:
 	go run app/main.go

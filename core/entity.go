@@ -117,6 +117,7 @@ type PickupKind int
 const (
 	PickupNipper PickupKind = iota // grants one nipper (default)
 	PickupHeart                    // restores HP
+	PickupMagnet                   // magnetizes every gem & pickup on the field
 )
 
 // Pickup is a dropped item a candlestick leaves behind: a nipper, or (rarely) a

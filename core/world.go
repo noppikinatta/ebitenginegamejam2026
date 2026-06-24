@@ -615,6 +615,11 @@ func (w *World) killEnemy(e *Enemy) {
 		}
 		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: kind, alive: true})
 	}
+	// Mid-bosses (any non-final boss) drop a magnet pickup; collecting it pulls
+	// every gem and pickup on the field to the player at once.
+	if e.IsBoss && !e.Final {
+		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: PickupMagnet, alive: true})
+	}
 	if e.Final && w.State == StatePlaying {
 		w.State = StateCleared // defeating the final boss wins the run
 	}
@@ -734,8 +739,22 @@ func (w *World) collectPickup(p *Pickup) {
 		if w.Player.HP > w.Player.MaxHP {
 			w.Player.HP = w.Player.MaxHP
 		}
+	case PickupMagnet:
+		w.magnetizeAll()
 	default:
 		w.Player.Nippers++
+	}
+}
+
+// magnetizeAll latches every gem and pickup into permanent homing, so they all
+// fly to the player at once. Triggered by collecting a magnet pickup (dropped by
+// mid-bosses).
+func (w *World) magnetizeAll() {
+	for _, g := range w.Gems {
+		g.tracking = true
+	}
+	for _, p := range w.Pickups {
+		p.tracking = true
 	}
 }
 

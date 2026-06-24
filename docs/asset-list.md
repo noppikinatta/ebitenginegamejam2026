@@ -23,7 +23,8 @@
 | `tank.png` | 48x64 | 自機（戦車）。**上向き**で authoring（砲塔は別途タイルで重なる） |
 | `gem.png` | 8x8 | 経験値ジェム |
 | `nipper.png` | 16x16 | ニッパー（切断回数アイテム） |
-| `heart.png` | 8x8 | ハート（燭台から低確率drop・HP回復） |
+| `heart.png` | 16x16 | ハート（燭台から低確率drop・HP回復） |
+| `magnet.png` | 16x16 | マグネット（中ボス1・2がdrop。取得で全ジェム/アイテムを吸引）。`make magnet-img` |
 | `projectile.png` | 8x8 | 既定の弾（武器がスプライト未指定の時のフォールバック） |
 | `proj_cannon.png` | **8x12** | キャノン弾（長方形・**進行方向へ回転**。上向き authoring） |
 | `proj_shotgun.png` | 6x6 | ショットガン弾（丸） |
