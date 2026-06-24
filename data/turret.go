@@ -24,12 +24,12 @@ func defaultTurretGen() core.TurretGenConfig {
 // matter); tune these to shift the overall feel of level-ups.
 func defaultDoctor() core.DoctorSpec {
 	return core.DoctorSpec{
-		NipperWeight:        0.25, // spare tile cuts
+		NipperWeight:        0.10, // spare tile cuts
 		WeaponAddWeight:     0.25, // new weapon / equipment tile
-		WeaponUpgradeWeight: 0.10, // level up an existing weapon
-		JunkWeight:          0.40, // useless junk tile (the doctors' specialty)
-		NipperMin:           5,
-		NipperMax:           10,
+		WeaponUpgradeWeight: 0.15, // level up an existing weapon
+		JunkWeight:          0.50, // useless junk tile (the doctors' specialty)
+		NipperMin:           1,
+		NipperMax:           3,
 		MaxItems:            3, // an offer carries 1..3 items
 	}
 }

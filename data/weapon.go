@@ -52,7 +52,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 		core.KindGrenade: {
 			BaseDamage:   0,                     // no contact damage; all damage is the explosion
 			BaseInterval: 1800, MinInterval: 30, // 30s
-			ProjSpeed: 2, ProjMaxDist: 300, // lobbed slowly; lifetime = ProjMaxDist/ProjSpeed = 150 ticks
+			ProjSpeed: 2, ProjMaxDist: 150, // lobbed slowly; lifetime = ProjMaxDist/ProjSpeed = 150 ticks
 			Aim:           core.AimOutward,                          // never locks on; always fires outward
 			ExplodeRadius: 64, ExplodeDamage: 20, PassThrough: true, // flies through; detonates where it lands
 			Sprite: core.SpriteGrenade, ProjDrawW: 14, ProjDrawH: 14, // fat round shell
@@ -72,8 +72,8 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 4, ProjMaxDist: 6000, ProjRadius: 6, BaseRange: 400, // slow shell, long lock range
 			ExplodeRadius: 48, ExplodeDamage: 10, // smaller blast than the grenade, only if it expires unhit
-			Mover:  core.NewHomingMover(0.3, 6, 15),                                         // flies straight 15 ticks (boost-out), then homes (turn 0.3, cruise 6)
-			Sprite: core.SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, // larger shell, turns to face its target
+			Mover:  core.NewHomingMover(0.3, 6, 15),                                          // flies straight 15 ticks (boost-out), then homes (turn 0.3, cruise 6)
+			Sprite: core.SpriteMissile, ProjDrawW: 16, ProjDrawH: 24, ProjFaceVelocity: true, // larger shell, turns to face its target
 			LevelMult: 1.2,
 		},
 	}
@@ -85,8 +85,13 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 // These are placeholder breakpoints — tune them during playtesting.
 func powerCurve() []core.PowerPoint {
 	return []core.PowerPoint{
-		{Tiles: 10, Mult: 4.0},
+		{Tiles: 8, Mult: 8.0},
+		{Tiles: 10, Mult: 6.0},
+		{Tiles: 14, Mult: 4.0},
+		{Tiles: 18, Mult: 3.0},
+		{Tiles: 24, Mult: 2.0},
 		{Tiles: 32, Mult: 1.0},
 		{Tiles: 40, Mult: 0.5},
+		{Tiles: 100, Mult: 0.1},
 	}
 }

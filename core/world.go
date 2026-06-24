@@ -102,7 +102,7 @@ func (w *World) FireRateMultiplier() float64 {
 // the weapons. A turret bloated with tiles dilutes the power, so the tank also
 // crawls; cutting tiles back re-concentrates power and speeds it up again.
 func (w *World) PlayerSpeed() float64 {
-	return w.Player.Speed * w.FireRateMultiplier()
+	return w.Player.Speed * (0.75 + w.FireRateMultiplier() / 4)
 }
 
 // FireRateMultBounds returns the minimum and maximum fire-rate multiplier the
@@ -540,6 +540,9 @@ func (w *World) updateProjectiles() {
 				e.HP -= p.Damage
 				w.emitDamage(e.Pos, p.Damage, false)
 				p.alive = false
+				if p.ExplodeRadius > 0 {
+					w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+				}
 				if e.HP <= 0 {
 					w.killEnemy(e)
 				}

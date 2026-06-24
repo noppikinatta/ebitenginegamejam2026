@@ -31,7 +31,7 @@ func enemyKinds() map[core.EnemyKind]core.EnemyStats {
 		},
 		// Swarmer: fast and fragile, arrives in packs to pressure positioning.
 		core.EnemySwarmer: {
-			HPBase: 5, Speed: 2.1, Turn: 0, Radius: 11, Damage: 4, XPValue: 1,
+			HPBase: 5, Speed: 2.1, Turn: 0.25, Radius: 11, Damage: 4, XPValue: 1,
 			PackMin: 3, PackMax: 6,
 		},
 		// Brute: slow wall of HP that hits hard; forces the player to kite.
@@ -117,7 +117,7 @@ func bosses() []core.BossSpec {
 // Speed/Damage/XPValue stay zero (stationary, harmless, no XP).
 func candlestick() core.Enemy {
 	return core.Enemy{
-		HP:          40,
+		HP:          10,
 		Radius:      16, // matches the 32x32 candlestick sprite
 		DropsNipper: true,
 	}
