@@ -44,7 +44,7 @@ func MetaCost(s core.MetaStat, level int) int {
 
 	cost := spec.CostBase
 	for range level - 1 {
-		cost := cost * spec.CostStep
+		cost = cost * spec.CostStep
 		if cost > 1000000 {
 			return 1000000
 		}
