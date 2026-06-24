@@ -52,7 +52,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 		core.KindGrenade: {
 			BaseDamage:   0,                     // no contact damage; all damage is the explosion
 			BaseInterval: 1800, MinInterval: 30, // 30s
-			ProjSpeed: 2, ProjMaxDist: 300, // lobbed slowly; expires after 60 ticks
+			ProjSpeed: 2, ProjMaxDist: 300, // lobbed slowly; lifetime = ProjMaxDist/ProjSpeed = 150 ticks
 			Aim:           core.AimOutward,                          // never locks on; always fires outward
 			ExplodeRadius: 64, ExplodeDamage: 15, PassThrough: true, // flies through; detonates where it lands
 			Sprite: core.SpriteGrenade, ProjDrawW: 14, ProjDrawH: 14, // fat round shell
