@@ -806,19 +806,19 @@ func (g *InGame) drawPause(screen *ebiten.Image) {
 	g.drawTurretTiles(screen, cx, cy, pauseTileSize, 0, false)
 	g.drawTileLevels(screen, cx, cy)
 
-	// Highlight the tile under the cursor, plus a cut preview: the collateral
-	// tiles that would cascade-cut are framed in a dimmer white. The hovered
-	// tile's name and description are shown in a panel at the bottom.
+	// Highlight the tile under the cursor in green (the cut target), plus a cut
+	// preview: the collateral tiles that would cascade-cut are framed in red. The
+	// hovered tile's name and description are shown in a panel at the bottom.
 	if idx, ok := g.pauseTileAtCursor(); ok {
 		for pidx := range g.world.Turret().CutPreview(idx) {
 			if pidx == idx {
-				continue // the target itself gets the bright frame below
+				continue // the target itself gets the green frame below
 			}
 			c := tileScreenCenter(pidx, cx, cy, pauseTileSize)
-			drawTileFrame(screen, c.X, c.Y, pauseTileSize, 0.7, 0.7, 0.7, 0.9) // dim: collateral
+			drawTileFrame(screen, c.X, c.Y, pauseTileSize, 0.9, 0.2, 0.2, 0.95) // red: collateral
 		}
 		c := tileScreenCenter(idx, cx, cy, pauseTileSize)
-		drawTileFrame(screen, c.X, c.Y, pauseTileSize, 1, 1, 1, 1) // bright: target
+		drawTileFrame(screen, c.X, c.Y, pauseTileSize, 0.2, 0.9, 0.3, 1) // green: target
 		g.drawPauseTileInfo(screen, idx)
 	}
 }
