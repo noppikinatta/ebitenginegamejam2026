@@ -155,9 +155,9 @@ func mix(dst, src []float64) {
 }
 
 func main() {
-	// arg1: directory for SE placeholders (e.g. asset/sound/raw, gitignored).
-	// arg2: directory for the BGM placeholder (e.g. asset/sound, committed).
-	// BGM is self-authored and lives outside the pak, so it is written separately.
+	// arg1: directory for SE placeholders (e.g. asset/sound/se, committed and
+	// embedded directly). arg2: directory for the BGM placeholders (e.g.
+	// asset/sound/bgm, committed). Both are written as loose wavs.
 	flag.BoolVar(&force, "force", false, "overwrite existing files (default: skip files that already exist)")
 	flag.Parse()
 
@@ -171,7 +171,8 @@ func main() {
 	// SE: per-weapon fire. Each weapon gets a deliberately distinct placeholder
 	// timbre — now built from the square/saw/triangle waveforms as well as sine
 	// and noise — so they are easy to tell apart (and easy to swap individually).
-	// The file base name must match the pak entry name in asset/sound.go.
+	// The file base name must match the seSpecs name in asset/sound.go
+	// (sound/se/<name>.wav, committed and embedded directly).
 
 	// Cannon: a heavy boom. A square wave dropping in pitch gives a punchy
 	// hollow thump, with a noise transient for the muzzle blast.
