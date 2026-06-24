@@ -7,8 +7,8 @@ func TestNewJunk_TallFlag(t *testing.T) {
 	if !newJunk("Five-storied Pagoda").Tall {
 		t.Error("Five-storied Pagoda should be a Tall junk")
 	}
-	if newJunk("Toaster").Tall {
-		t.Error("Toaster should not be a Tall junk")
+	if newJunk("Calculator").Tall {
+		t.Error("Calculator should not be a Tall junk")
 	}
 }
 
