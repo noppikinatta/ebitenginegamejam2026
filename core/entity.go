@@ -75,6 +75,7 @@ type Projectile struct {
 	DrawW        float64
 	DrawH        float64
 	FaceVelocity bool
+	age          int // ticks since launch; lets a Mover delay homing for a straight boost-out
 	alive        bool
 }
 

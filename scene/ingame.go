@@ -390,31 +390,6 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		faceRight := e.Pos.X < w.Player.Pos.X
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1, faceRight)
 	}
-	for _, p := range w.Projectiles {
-		// Weapons and junk emitters tag projectiles with their own sprite key and
-		// draw footprint; anything without a key falls back to the default bullet.
-		key := p.Sprite
-		if key == "" {
-			key = asset.ImgProjectile
-		}
-		dw, dh := p.DrawW, p.DrawH
-		if dw == 0 && dh == 0 {
-			// Legacy fallback for projectiles that carry no explicit size: the
-			// default bullet is small (8), tagged sprites (junk) are larger (16).
-			if p.Sprite == "" {
-				dw, dh = 8, 8
-			} else {
-				dw, dh = 16, 16
-			}
-		}
-		// Elongated bullets (cannon/sniper/missile) are authored pointing up, so
-		// rotate by the travel angle + 90° (same convention as the tank body).
-		angle := 0.0
-		if p.FaceVelocity && p.Vel.Abs() > 0 {
-			angle = p.Vel.Angle() + math.Pi/2
-		}
-		drawSprite(screen, cam, key, p.Pos, dw, dh, angle, 1, 1, 1, 1, false)
-	}
 	g.drawBeams(screen, cam)
 
 	// Player tank (tall sprite, authored pointing up; rotate to face movement
@@ -424,6 +399,11 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 
 	// Turret miniature on top of the tank body, rotated to face movement direction.
 	g.drawTurretCombat(screen, cam)
+
+	// Projectiles draw AFTER the tank + turret so they are never hidden beneath
+	// the ~70px turret miniature. This matters most for the slow homing missile,
+	// which detonates close to the tank and was otherwise lost under the turret.
+	g.drawProjectiles(screen, cam)
 
 	g.drawExplosions(screen, cam)
 	g.drawDamagePopups(screen, cam)
@@ -649,6 +629,37 @@ func drawWrapped(screen *ebiten.Image, txt string, x, y, maxWidth, fontSize floa
 		}
 	}
 	flush()
+}
+
+// drawProjectiles draws every live projectile with its per-weapon sprite, draw
+// footprint and (for elongated shells) travel-facing rotation. Called after the
+// tank/turret so shots are visible over the miniature rather than hidden under it.
+func (g *InGame) drawProjectiles(screen *ebiten.Image, cam geom.PointF) {
+	for _, p := range g.world.Projectiles {
+		// Weapons and junk emitters tag projectiles with their own sprite key and
+		// draw footprint; anything without a key falls back to the default bullet.
+		key := p.Sprite
+		if key == "" {
+			key = asset.ImgProjectile
+		}
+		dw, dh := p.DrawW, p.DrawH
+		if dw == 0 && dh == 0 {
+			// Legacy fallback for projectiles that carry no explicit size: the
+			// default bullet is small (8), tagged sprites (junk) are larger (16).
+			if p.Sprite == "" {
+				dw, dh = 8, 8
+			} else {
+				dw, dh = 16, 16
+			}
+		}
+		// Elongated bullets (cannon/sniper/missile) are authored pointing up, so
+		// rotate by the travel angle + 90° (same convention as the tank body).
+		angle := 0.0
+		if p.FaceVelocity && p.Vel.Abs() > 0 {
+			angle = p.Vel.Angle() + math.Pi/2
+		}
+		drawSprite(screen, cam, key, p.Pos, dw, dh, angle, 1, 1, 1, 1, false)
+	}
 }
 
 // drawTurretCombat draws the turret hex grid miniature centred on the player

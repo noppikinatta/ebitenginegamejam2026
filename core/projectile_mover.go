@@ -17,18 +17,23 @@ type ProjectileMover interface {
 
 // homingMover steers a projectile toward the nearest enemy with a bounded turn
 // force each tick (a "seek" steering behaviour), curving its flight path in
-// rather than snapping its velocity straight at the target.
+// rather than snapping its velocity straight at the target. For its first
+// straight ticks it does not steer at all, so the shell visibly boosts out along
+// its launch heading (clearing the tank/turret) before it begins to seek.
 type homingMover struct {
 	turn     float64 // max steering force applied toward the target each tick
 	maxSpeed float64 // cruising / cap speed (0 = keep current speed)
+	straight int     // ticks the shell flies straight after launch before homing
 }
 
-// NewHomingMover returns a mover that homes onto the nearest enemy. Each tick it
-// nudges the velocity toward "head at maxSpeed straight at the target" by at most
-// turn, so a smaller turn gives a wider, lazier arc. With no enemies the
-// projectile coasts along its current velocity.
-func NewHomingMover(turn, maxSpeed float64) ProjectileMover {
-	return homingMover{turn: turn, maxSpeed: maxSpeed}
+// NewHomingMover returns a mover that homes onto the nearest enemy. For the first
+// straight ticks the shell flies straight along its launch heading (a visible
+// boost-out clear of the turret); after that, each tick it nudges the velocity
+// toward "head at maxSpeed straight at the target" by at most turn, so a smaller
+// turn gives a wider, lazier arc. With no enemies the projectile coasts along
+// its current velocity.
+func NewHomingMover(turn, maxSpeed float64, straight int) ProjectileMover {
+	return homingMover{turn: turn, maxSpeed: maxSpeed, straight: straight}
 }
 
 // riseMover makes a projectile drift up the screen (toward world -Y) with a
@@ -84,6 +89,9 @@ func (m riseMover) Steer(p *Projectile, w *World) {
 }
 
 func (m homingMover) Steer(p *Projectile, w *World) {
+	if p.age < m.straight {
+		return // boost-out phase: fly straight along the launch heading first
+	}
 	target := w.nearestEnemy(p.Pos, math.MaxFloat64)
 	if target == nil {
 		return

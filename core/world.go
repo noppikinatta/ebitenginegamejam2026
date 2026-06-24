@@ -504,6 +504,7 @@ func (w *World) updateProjectiles() {
 		if p.Mover != nil {
 			p.Mover.Steer(p, w) // homing / drift: adjust velocity before moving
 		}
+		p.age++
 		p.Pos = p.Pos.Add(p.Vel)
 		p.Life--
 		if p.Life <= 0 {

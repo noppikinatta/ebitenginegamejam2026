@@ -72,7 +72,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 4, ProjMaxDist: 600, ProjRadius: 6, BaseRange: 400, // slow shell, long lock range
 			ExplodeRadius: 48, ExplodeDamage: 10, // smaller blast than the grenade, only if it expires unhit
-			Mover:  core.NewHomingMover(0.3, 6),                                             // homes onto the nearest enemy (turn force 0.3, cruise speed 6)
+			Mover:  core.NewHomingMover(0.3, 6, 15),                                         // flies straight 15 ticks (boost-out), then homes (turn 0.3, cruise 6)
 			Sprite: core.SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, // larger shell, turns to face its target
 			LevelMult: 1.2,
 		},

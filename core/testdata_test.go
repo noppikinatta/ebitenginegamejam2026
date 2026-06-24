@@ -105,7 +105,7 @@ func testParams(kind WeaponKind) WeaponParams {
 	case KindCIWS:
 		return WeaponParams{BaseDamage: 2, BaseInterval: 480, MinInterval: 6, ProjSpeed: 5, ProjMaxDist: 120, ProjRadius: 2, BaseRange: 80, Pellets: 10, SpreadRad: 0.1, SpreadRandom: true, BurstGap: 2, HoldWhenNoTarget: true, Sprite: SpriteCIWS, ProjDrawW: 6, ProjDrawH: 6, LevelMult: 1.2}
 	case KindMissile:
-		return WeaponParams{BaseDamage: 8, BaseInterval: 960, MinInterval: 20, ProjSpeed: 2, ProjMaxDist: 240, ProjRadius: 6, BaseRange: 240, ExplodeRadius: 48, ExplodeDamage: 10, Mover: NewHomingMover(0.3, 6), Sprite: SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 8, BaseInterval: 960, MinInterval: 20, ProjSpeed: 2, ProjMaxDist: 240, ProjRadius: 6, BaseRange: 240, ExplodeRadius: 48, ExplodeDamage: 10, Mover: NewHomingMover(0.3, 6, 15), Sprite: SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, LevelMult: 1.2}
 	default: // KindCannon
 		return WeaponParams{BaseDamage: 20, BaseInterval: 720, MinInterval: 6, ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 6, BaseRange: 200, Sprite: SpriteCannon, ProjDrawW: 8, ProjDrawH: 14, ProjFaceVelocity: true, LevelMult: 1.2}
 	}
