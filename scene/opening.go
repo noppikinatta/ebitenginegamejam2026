@@ -211,12 +211,8 @@ func (o *Opening) Update() error {
 	// Each weapon tile (skipping the central generator) pops a doctor speech bubble
 	// as it arrives, so the rapid arm-up reads as a whole crowd of doctors piling on.
 	if o.turret != nil {
-		tiles := o.turret.Tiles()
 		for i := 1; i < len(o.order); i++ {
 			if o.t != arriveTick(i) {
-				continue
-			}
-			if _, isWeapon := tiles[o.order[i]].Component.(core.WeaponComponent); !isWeapon {
 				continue
 			}
 			o.bubbles = append(o.bubbles, openingBubble{
