@@ -15,7 +15,9 @@ type GeneratorConfig struct {
 
 // TurretGenConfig controls random turret generation.
 type TurretGenConfig struct {
-	// WeaponCount is the exact number of weapon tiles placed on the turret.
+	// WeaponCount is the exact number of weapon tiles placed on the turret. One
+	// of these is always a Cannon mounted on the central generator (the
+	// uncuttable main gun); the remaining WeaponCount-1 are random kinds.
 	WeaponCount int
 
 	// JunkCount is the exact number of junk-device tiles placed on the turret.
@@ -54,17 +56,30 @@ func GenerateTurret(cfg TurretGenConfig, rng *rand.Rand) *Turret {
 	}
 
 	// Place generator tiles first. The generator is the uncuttable connectivity
-	// root (the anchor the cut-cascade hangs from), but it also holds a real
-	// component (weapon / junk) like any tile, so the central slot isn't wasted on
-	// an empty power tile. It is still excluded from the consumer count, so a
-	// central weapon is effectively a "free" main gun.
+	// root (the anchor the cut-cascade hangs from), and it also holds a real
+	// component like any tile, so the central slot isn't wasted on an empty power
+	// tile. It is excluded from the consumer count, so a central weapon is
+	// effectively a "free" main gun.
+	//
+	// The first (central) generator ALWAYS mounts a fixed Cannon. Because the
+	// generator can't be cut, this guarantees the run always has at least one
+	// firing weapon — it can't become unplayable ("詰み") after the player cuts
+	// away every other weapon or after the centre would otherwise have rolled
+	// junk. The fixed cannon consumes one of the WeaponCount weapon slots (see
+	// buildLoadout), so the total tile / weapon counts are unchanged. Any future
+	// additional generators pop from the bag like normal tiles.
 	genPositions := make([]hexmap.Index, 0, len(cfg.Generators))
-	for _, gc := range cfg.Generators {
-		if next < len(bag) {
-			tiles[gc.Index] = &Tile{Component: popComponent()}
-		} else {
-			tiles[gc.Index] = &Tile{Component: Wire{}}
+	for gi, gc := range cfg.Generators {
+		var comp Component
+		switch {
+		case gi == 0:
+			comp = WeaponComponent{Weapon: NewWeapon(KindCannon.String(), KindCannon)}
+		case next < len(bag):
+			comp = popComponent()
+		default:
+			comp = Wire{}
 		}
+		tiles[gc.Index] = &Tile{Component: comp}
 		genPositions = append(genPositions, gc.Index)
 	}
 
@@ -260,12 +275,22 @@ func randomJunk(rng *rand.Rand) Junk {
 }
 
 // buildLoadout returns the shuffled multiset of components to place on the
-// turret: exactly WeaponCount weapons (random kinds) followed by JunkCount junk
-// devices, then shuffled so the weapons and junk are interleaved across the
-// generated shape. No Wire tiles are included.
+// turret (excluding the central generator's fixed Cannon): WeaponCount weapons
+// (random kinds) followed by JunkCount junk devices, then shuffled so the
+// weapons and junk are interleaved across the generated shape. No Wire tiles are
+// included.
+//
+// The central generator mounts a guaranteed Cannon (placed in GenerateTurret),
+// which counts as one of the WeaponCount weapons; a slot is reserved for it here
+// so the turret still ends up with exactly WeaponCount weapons and
+// WeaponCount+JunkCount tiles total.
 func buildLoadout(cfg TurretGenConfig, rng *rand.Rand) []Component {
-	bag := make([]Component, 0, cfg.WeaponCount+cfg.JunkCount)
-	for i := 0; i < cfg.WeaponCount; i++ {
+	randomWeapons := cfg.WeaponCount
+	if len(cfg.Generators) > 0 && randomWeapons > 0 {
+		randomWeapons-- // reserve one weapon for the fixed central cannon
+	}
+	bag := make([]Component, 0, randomWeapons+cfg.JunkCount)
+	for i := 0; i < randomWeapons; i++ {
 		kind := pickWeaponKind(rng)
 		bag = append(bag, WeaponComponent{Weapon: NewWeapon(kind.String(), kind)})
 	}
