@@ -482,7 +482,11 @@ func TestAddTile_Deterministic(t *testing.T) {
 		idx, _ := tr.AddTile(Junk{DeviceName: "Duck"}, rng)
 		return idx
 	}
-	if build() != build() {
+
+	first := build()
+	second := build()
+
+	if first != second {
 		t.Error("AddTile is not deterministic for the same seed")
 	}
 }
