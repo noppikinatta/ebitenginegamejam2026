@@ -34,10 +34,12 @@ const (
 // Bosses are large scheduled enemies; killing the Final boss clears the run.
 type Enemy struct {
 	Pos         geom.PointF
+	Vel         geom.PointF // current velocity; only used when Turn > 0 (bounded-turn chase)
 	Kind        EnemyKind
 	HP          float64
 	MaxHP       float64 // spawn HP, for boss health bars
 	Speed       float64
+	Turn        float64 // max per-tick steering toward the player; 0 = instant follow (re-aim every tick)
 	Radius      float64
 	Damage      float64
 	XPValue     float64

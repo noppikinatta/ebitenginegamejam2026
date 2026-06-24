@@ -609,7 +609,27 @@ func (w *World) updateEnemies() {
 		dir := w.Player.Pos.Subtract(e.Pos)
 		d := dir.Abs()
 		if d > 0 {
-			e.Pos = e.Pos.Add(dir.Multiply(e.Speed / d))
+			if e.Turn > 0 {
+				// Bounded-turn chase (seek steering): nudge the current velocity
+				// toward "head straight at the player at Speed" by at most Turn this
+				// tick, so the enemy banks into a curve instead of snapping its
+				// heading. Smaller Turn = wider, lazier arcs; once Turn is large
+				// enough to cover the full turn in one tick it behaves like instant
+				// follow. Turn == 0 takes the instant branch below.
+				desired := dir.Multiply(e.Speed / d)
+				steer := desired.Subtract(e.Vel)
+				if mag := steer.Abs(); mag > e.Turn {
+					steer = steer.Multiply(e.Turn / mag)
+				}
+				e.Vel = e.Vel.Add(steer)
+				if s := e.Vel.Abs(); s > e.Speed {
+					e.Vel = e.Vel.Multiply(e.Speed / s) // cap at Speed
+				}
+				e.Pos = e.Pos.Add(e.Vel)
+			} else {
+				// Instant follow: re-aim straight at the player every tick.
+				e.Pos = e.Pos.Add(dir.Multiply(e.Speed / d))
+			}
 		}
 		if e.Damage > 0 && d <= e.Radius+w.Player.Radius && w.Player.invuln == 0 {
 			w.damagePlayer(e.Damage)
@@ -900,10 +920,26 @@ func (w *World) makeEnemy(kind EnemyKind, s EnemyStats, pos geom.PointF) *Enemy 
 	if w.cfg.HPDoublingTicks > 0 {
 		hp = s.HPBase * math.Pow(2, float64(w.Tick)/w.cfg.HPDoublingTicks)
 	}
-	return &Enemy{
+	e := &Enemy{
 		Pos: pos, Kind: kind, HP: hp, MaxHP: hp,
-		Speed: s.Speed, Radius: s.Radius, Damage: s.Damage, XPValue: s.XPValue,
+		Speed: s.Speed, Turn: s.Turn, Radius: s.Radius, Damage: s.Damage, XPValue: s.XPValue,
 		alive: true,
+	}
+	w.initEnemyVel(e)
+	return e
+}
+
+// initEnemyVel seeds a turning enemy's velocity so it starts moving at full
+// speed straight toward the player; Turn then only limits how fast it can change
+// heading from there. No-op for instant-follow enemies (Turn == 0), which ignore
+// Vel entirely.
+func (w *World) initEnemyVel(e *Enemy) {
+	if e.Turn <= 0 {
+		return
+	}
+	dir := w.Player.Pos.Subtract(e.Pos)
+	if d := dir.Abs(); d > 0 {
+		e.Vel = dir.Multiply(e.Speed / d)
 	}
 }
 
@@ -967,11 +1003,13 @@ func (w *World) spawnBosses() {
 		w.bossesSpawned++
 		angle := w.rng.Float64() * 2 * math.Pi
 		pos := w.Player.Pos.Add(geom.PointFFromPolar(w.cfg.Spawn.EnemyDist, angle))
-		w.Enemies = append(w.Enemies, &Enemy{
+		boss := &Enemy{
 			Pos: pos, HP: b.HP, MaxHP: b.HP,
-			Speed: b.Speed, Radius: b.Radius, Damage: b.Damage, XPValue: b.XPValue,
+			Speed: b.Speed, Turn: b.Turn, Radius: b.Radius, Damage: b.Damage, XPValue: b.XPValue,
 			IsBoss: true, Final: b.Final, Name: b.Name, Sprite: b.Sprite, alive: true,
-		})
+		}
+		w.initEnemyVel(boss)
+		w.Enemies = append(w.Enemies, boss)
 	}
 }
 

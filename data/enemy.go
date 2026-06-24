@@ -15,21 +15,28 @@ const (
 
 // enemyKinds returns the zako (trash) enemy spawn templates. HP scales with time
 // via Config.HPDoublingTicks; the rest are constant. Tune during playtesting.
+//
+// Turn caps how fast an enemy can re-aim toward the player each tick (a steering
+// force in px/tick²): 0 = instant follow (re-aim every tick, the original
+// behaviour); a small positive value makes the enemy bank into wide curves so it
+// can be out-maneuvered. As a rule of thumb, Turn >= 2×Speed already turns about
+// as tightly as instant follow, so meaningful arcs come from Turn well below
+// Speed (e.g. 0.05–0.3 here).
 func enemyKinds() map[core.EnemyKind]core.EnemyStats {
 	return map[core.EnemyKind]core.EnemyStats{
 		// Grunt: the balanced staple, one at a time.
 		core.EnemyGrunt: {
-			HPBase: 10, Speed: 1.2, Radius: 16, Damage: 8, XPValue: 3,
+			HPBase: 10, Speed: 1.2, Turn: 0, Radius: 16, Damage: 8, XPValue: 3,
 			PackMin: 1, PackMax: 1,
 		},
 		// Swarmer: fast and fragile, arrives in packs to pressure positioning.
 		core.EnemySwarmer: {
-			HPBase: 5, Speed: 2.1, Radius: 11, Damage: 4, XPValue: 1,
+			HPBase: 5, Speed: 2.1, Turn: 0, Radius: 11, Damage: 4, XPValue: 1,
 			PackMin: 3, PackMax: 6,
 		},
 		// Brute: slow wall of HP that hits hard; forces the player to kite.
 		core.EnemyBrute: {
-			HPBase: 60, Speed: 0.7, Radius: 26, Damage: 18, XPValue: 8,
+			HPBase: 60, Speed: 0.7, Turn: 0, Radius: 26, Damage: 18, XPValue: 8,
 			PackMin: 1, PackMax: 1,
 		},
 	}
@@ -98,9 +105,10 @@ func spawnPhases() []core.SpawnPhase {
 // (no time scaling). Tune during playtesting.
 func bosses() []core.BossSpec {
 	return []core.BossSpec{
-		{AtTick: min3, Name: "Prototype Hauler", HP: 1200, Speed: 0.9, Radius: 40, Damage: 20, XPValue: 50, Sprite: core.BossSprite1},
-		{AtTick: min6, Name: "Siege Engine", HP: 3000, Speed: 0.85, Radius: 46, Damage: 26, XPValue: 100, Sprite: core.BossSprite2},
-		{AtTick: min10, Name: "The Disconnector", HP: 8000, Speed: 0.8, Radius: 54, Damage: 32, XPValue: 200, Final: true, Sprite: core.BossSprite3},
+		// Turn caps per-tick re-aim (see enemyKinds); 0 keeps bosses on instant follow.
+		{AtTick: min3, Name: "Prototype Hauler", HP: 1200, Speed: 0.9, Turn: 0, Radius: 40, Damage: 20, XPValue: 50, Sprite: core.BossSprite1},
+		{AtTick: min6, Name: "Siege Engine", HP: 3000, Speed: 0.85, Turn: 0, Radius: 46, Damage: 26, XPValue: 100, Sprite: core.BossSprite2},
+		{AtTick: min10, Name: "The Disconnector", HP: 8000, Speed: 0.8, Turn: 0, Radius: 54, Damage: 32, XPValue: 200, Final: true, Sprite: core.BossSprite3},
 	}
 }
 
