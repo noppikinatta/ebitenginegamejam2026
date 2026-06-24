@@ -347,17 +347,25 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 }
 
 // drawTitle renders the title screen: the real run's fully-assembled tank (kept
-// from the cinematic) under the full-screen title art, with a pulsing prompt.
-// The title art fills the layout, so dropping in a 1280x720 asset shows 1:1; the
-// tank is drawn on top so it always stays visible (reposition via opCenterX/Y).
+// from the cinematic) sitting in the game world, with a pulsing prompt, and the
+// title logo on top. The backdrop is the live scrolling map at the in-game camera
+// offset (player at the world origin, centred on screen), drawn at the same scale
+// the run uses — so clicking into InGame continues the exact same picture instead
+// of cutting to it.
 func (o *Opening) drawTitle(screen *ebiten.Image) {
-	drawing.DrawSprite(screen, drawing.Image("title"), screenW/2, screenH/2, screenW, screenH, 0, 1, 1, 1, 1)
+	// Match the in-game first frame: camera = player(0,0) - screen centre.
+	drawScrollBG(screen, -float64(screenW)/2, -float64(screenH)/2)
 
 	drawing.DrawSprite(screen, drawing.Image(asset.ImgTank), opCenterX, opCenterY, tankDrawW*opZoom, tankDrawH*opZoom, 0, 1, 1, 1, 1)
 	o.drawAssembly(screen) // every tile sits at its final slot once inTitle()
 
 	blink := float32(0.7 + 0.3*math.Sin(float64(o.t)*0.12))
 	drawTelopC(screen, lang.Text("title-start"), opCenterX, screenH-100, 26, 1, 1, 0.85, blink)
+
+	// Title logo on top of everything: a transparent text-only image, drawn 1:1 at
+	// the top-left (0,0) so it overlays the world without scaling.
+	opt := &ebiten.DrawImageOptions{}
+	screen.DrawImage(drawing.Image(asset.ImgTitle), opt)
 }
 
 // drawSkipHint shows the "hold Space to skip" prompt bottom-right, brightening as

@@ -15,7 +15,7 @@
 - CIWS — **実装済**。ロックオン半径80・点防御。`HoldWhenNoTarget` で圏内に敵が入るまで満タン保持し、8s毎に2ダメージ弾10発を2tick間隔バースト（小ランダム拡散±0.1）。画像 `tile_weapon_ciws`（プレースホルダ＝cannonコピー）
 - ミサイル (Missile) — **実装済**。ロックオン半径240・16s毎に発射。弾速2の低速弾を `ProjectileMover`（ホーミング）で毎tick敵方向へ操舵（seek／旋回力0.3・巡航6）。接触8ダメージ、未命中で寿命切れ時に半径48・10ダメージ爆発（グレネードより小）。画像 `tile_weapon_missile`（同上プレースホルダ）
 
-> **弾の移動ロジック差し替え**：`core.ProjectileMover` インターフェース（`Steer(p, w)`）で弾の毎tick操舵を差し替え可能。`Projectile.Mover` に設定（`WeaponParams.Mover` 経由）。nil は直進。ホーミングは `core.NewHomingMover(turn, maxSpeed)`。将来「弾の仕組みを使うジャンク」（例：ゆらゆら登る風船）も別の `ProjectileMover` 実装として追加できる。`Projectile.PassThrough` で接触を無視するか（グレネード=true／ミサイル=false）を制御。
+> **弾の移動ロジック差し替え**：`core.ProjectileMover` インターフェース（`Steer(p, w)`）で弾の毎tick操舵を差し替え可能。`Projectile.Mover` に設定（`WeaponParams.Mover` 経由）。nil は直進。ホーミングは `core.NewHomingMover(turn, maxSpeed, straight)`（`straight` tick だけ直進してから追尾＝発射直後のブーストアウト。`Projectile.age` で判定）。将来「弾の仕組みを使うジャンク」（例：ゆらゆら登る風船）も別の `ProjectileMover` 実装として追加できる。`Projectile.PassThrough` で接触を無視するか（グレネード=true／ミサイル=false）を制御。
 
 ## 敵・ボス
 スポーンは**ディレクタ方式**（`core` の `SpawnPhases` 時間帯別重み → `spawnPackOf` パック生成、HPは `HPBase×2^(tick/HPDoublingTicks)` で時間スケール）。ザコは描画時 `radius×2` のフットプリント。
@@ -28,7 +28,7 @@
   - ※HP/速/ダメージ・スポーン重み・`HPDoublingTicks` 等はすべて初期値、要バランス調整。実アート未着手（grunt/candlestick以外はプレースホルダ）。ボス専用挙動（召喚・弾幕等）は未実装＝ただの大型追尾
 
 ## 設備
-- キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のタイルバンドルで `DoctorSpec.CapacitorChance`(=0.15) の確率で出現
+- キャパシタ: **実装済み**。接続中、発射倍率に **+0.1**（`Config.CapacitorFireRateBonus`）。`Component.Mods() Modifier` の修飾子システム経由で、タイル追加/削除時に再計算。画像 `tile_capacitor`（現状プレースホルダ＝tile_junkのコピー、本番アートが必要）。博士のレベルアップ提案で「武器/設備の追加（`WeaponAdd`）」が引かれたとき、武器8種＋設備3種の均等プール（`rollAddable`）から出現
   - 将来拡張: `Modifier` に `MaxHPAdd` 等を足せば増加装甲のような設備も同じ仕組みで追加可能
 
 > **実装状況**：全ジャンクは `core/turret_gen.go` の `junkSpecs` レジストリ（`junkSpec{Name, Tall, Emitter}`）にデータ定義済み。装飾ジャンクは inert（電力を薄めるだけ）。表示名は `asset/lang/*.csv` の `junk-<slug>` キーで多言語化。画像は `tile_junk` 共用（Tall のみ `junk_tower`）。`Emitter`（`*EmitterSpec`）が設定されたジャンクのみ弾を出す。

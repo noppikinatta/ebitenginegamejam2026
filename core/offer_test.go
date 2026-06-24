@@ -25,7 +25,7 @@ func TestRollDoctorChoice_MixesAddAndUpgrade(t *testing.T) {
 
 	mixed := false
 	for i := 0; i < 300 && !mixed; i++ {
-		adds, upgrades := itemTally(w.rollDoctorChoice(false))
+		adds, upgrades := itemTally(w.rollDoctorChoice())
 		mixed = adds > 0 && upgrades > 0
 	}
 	if !mixed {
@@ -38,7 +38,7 @@ func TestRollDoctorChoice_MixesAddAndUpgrade(t *testing.T) {
 func TestRollDoctorChoice_ApplyMatchesItems(t *testing.T) {
 	for i := 0; i < 40; i++ {
 		w := NewWorld(testSeed+int64(i), testConfig()) // fresh turret each time
-		c := w.rollDoctorChoice(false)
+		c := w.rollDoctorChoice()
 		adds, upgrades := itemTally(c)
 		if adds == 0 && upgrades == 0 {
 			continue // nipper proposal
@@ -55,9 +55,10 @@ func TestRollDoctorChoice_ApplyMatchesItems(t *testing.T) {
 	}
 }
 
-// TestRollDoctorChoice_AtCapAllUpgrades: at the tile cap, a build proposal adds
-// no tiles — every non-nipper line is an upgrade.
-func TestRollDoctorChoice_AtCapAllUpgrades(t *testing.T) {
+// TestRollDoctorChoice_AtCapNoAdds: at the tile cap, a proposal adds no tiles —
+// every tile-adding item (weapon/equipment/junk) falls back to nippers, leaving
+// only nipper and upgrade lines.
+func TestRollDoctorChoice_AtCapNoAdds(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 	for w.turret.TileCount() < w.cfg.MaxTurretTiles {
 		if _, ok := w.turret.AddTile(Junk{DeviceName: "Toaster"}, w.rng); !ok {
@@ -65,7 +66,7 @@ func TestRollDoctorChoice_AtCapAllUpgrades(t *testing.T) {
 		}
 	}
 	for i := 0; i < 50; i++ {
-		c := w.rollDoctorChoice(true)
+		c := w.rollDoctorChoice()
 		if adds, _ := itemTally(c); adds != 0 {
 			t.Fatalf("at cap a proposal offered %d add line(s)", adds)
 		}

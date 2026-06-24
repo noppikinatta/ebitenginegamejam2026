@@ -7,7 +7,7 @@ type Player struct {
 	Pos         geom.PointF
 	HP          float64
 	MaxHP       float64
-	Speed       float64 // px per tick
+	Speed       float64 // movement-speed coefficient; effective px/tick = Speed × turret power multiplier (see World.PlayerSpeed)
 	Radius      float64
 	Weapons     []*Weapon
 	Level       int
@@ -75,6 +75,7 @@ type Projectile struct {
 	DrawW        float64
 	DrawH        float64
 	FaceVelocity bool
+	age          int // ticks since launch; lets a Mover delay homing for a straight boost-out
 	alive        bool
 }
 

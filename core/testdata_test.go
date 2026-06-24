@@ -29,7 +29,7 @@ func testConfig() Config {
 		Player:                 Player{HP: 100, MaxHP: 100, Speed: 3, Radius: 36, Level: 1, XPToNext: 10},
 		Pickup:                 PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 4},
 		Spawn:                  SpawnSpec{EnemyDist: 520, CandleDist: 220, CandleDistRange: 220},
-		Doctor:                 DoctorSpec{NipperChance: 0.25, UpgradeChance: 0.625, NipperMin: 5, NipperMax: 10, MaxUpgrades: 3, MaxBundleTiles: 3, CapacitorChance: 0.15, RepairUnitChance: 0.1, ArmorChance: 0.1},
+		Doctor:                 DoctorSpec{NipperWeight: 0.25, WeaponAddWeight: 0.25, WeaponUpgradeWeight: 0.10, JunkWeight: 0.40, NipperMin: 5, NipperMax: 10, MaxItems: 3},
 		EnemyKinds:             testEnemyKinds(),
 		HPDoublingTicks:        18000,
 		SpawnPhases:            testSpawnPhases(),
@@ -105,7 +105,7 @@ func testParams(kind WeaponKind) WeaponParams {
 	case KindCIWS:
 		return WeaponParams{BaseDamage: 2, BaseInterval: 480, MinInterval: 6, ProjSpeed: 5, ProjMaxDist: 120, ProjRadius: 2, BaseRange: 80, Pellets: 10, SpreadRad: 0.1, SpreadRandom: true, BurstGap: 2, HoldWhenNoTarget: true, Sprite: SpriteCIWS, ProjDrawW: 6, ProjDrawH: 6, LevelMult: 1.2}
 	case KindMissile:
-		return WeaponParams{BaseDamage: 8, BaseInterval: 960, MinInterval: 20, ProjSpeed: 2, ProjMaxDist: 240, ProjRadius: 6, BaseRange: 240, ExplodeRadius: 48, ExplodeDamage: 10, Mover: NewHomingMover(0.3, 6), Sprite: SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, LevelMult: 1.2}
+		return WeaponParams{BaseDamage: 8, BaseInterval: 960, MinInterval: 20, ProjSpeed: 2, ProjMaxDist: 240, ProjRadius: 6, BaseRange: 240, ExplodeRadius: 48, ExplodeDamage: 10, Mover: NewHomingMover(0.3, 6, 15), Sprite: SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, LevelMult: 1.2}
 	default: // KindCannon
 		return WeaponParams{BaseDamage: 20, BaseInterval: 720, MinInterval: 6, ProjSpeed: 6, ProjMaxDist: 260, ProjRadius: 6, BaseRange: 200, Sprite: SpriteCannon, ProjDrawW: 8, ProjDrawH: 14, ProjFaceVelocity: true, LevelMult: 1.2}
 	}

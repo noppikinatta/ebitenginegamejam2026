@@ -19,17 +19,17 @@ func defaultTurretGen() core.TurretGenConfig {
 	}
 }
 
-// defaultDoctor returns the standard level-up offer balance.
+// defaultDoctor returns the standard level-up offer balance. The four weights
+// set how often each item kind appears (normalised, so only their ratios
+// matter); tune these to shift the overall feel of level-ups.
 func defaultDoctor() core.DoctorSpec {
 	return core.DoctorSpec{
-		NipperChance:     0.25,
-		UpgradeChance:    0.625,
-		NipperMin:        5,
-		NipperMax:        10,
-		MaxUpgrades:      3,
-		MaxBundleTiles:   3,
-		CapacitorChance:  0.15, // per bundle tile, chance it is a Capacitor instead of weapon/junk
-		RepairUnitChance: 0.1,  // per bundle tile, chance it is a Repair Unit
-		ArmorChance:      0.1,  // per bundle tile, chance it is an Armor tile
+		NipperWeight:        0.25, // spare tile cuts
+		WeaponAddWeight:     0.25, // new weapon / equipment tile
+		WeaponUpgradeWeight: 0.10, // level up an existing weapon
+		JunkWeight:          0.40, // useless junk tile (the doctors' specialty)
+		NipperMin:           5,
+		NipperMax:           10,
+		MaxItems:            3, // an offer carries 1..3 items
 	}
 }

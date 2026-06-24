@@ -61,10 +61,12 @@ func TestUpdate_ZeroMoveDoesNotMovePlayer(t *testing.T) {
 func TestUpdate_DiagonalMoveIsNormalized(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 	startPos := w.Player.Pos
-	speed := w.Player.Speed
+	// Effective speed is the Speed coefficient scaled by the turret power
+	// multiplier; the tile count (and so the multiplier) is unchanged by a move.
+	speed := w.PlayerSpeed()
 
 	// diagonal (1,1) has magnitude sqrt(2); after normalisation each axis is
-	// 1/sqrt(2), so the total displacement must equal exactly Speed.
+	// 1/sqrt(2), so the total displacement must equal exactly the effective speed.
 	w.Update(geom.PointF{X: 1, Y: 1})
 
 	dx := w.Player.Pos.X - startPos.X
@@ -79,7 +81,7 @@ func TestUpdate_DiagonalMoveIsNormalized(t *testing.T) {
 func TestUpdate_AxisAlignedMoveIsExactlySpeed(t *testing.T) {
 	w := NewWorld(testSeed, testConfig())
 	startPos := w.Player.Pos
-	speed := w.Player.Speed
+	speed := w.PlayerSpeed()
 
 	w.Update(geom.PointF{X: 1, Y: 0})
 

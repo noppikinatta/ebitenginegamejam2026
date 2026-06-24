@@ -262,24 +262,27 @@ func TestNewConfig_TurretGen(t *testing.T) {
 func TestNewConfig_Doctor(t *testing.T) {
 	d := data.NewConfig().Doctor
 
-	probs := map[string]float64{
-		"NipperChance":    d.NipperChance,
-		"UpgradeChance":   d.UpgradeChance,
-		"CapacitorChance": d.CapacitorChance,
+	weights := map[string]float64{
+		"NipperWeight":        d.NipperWeight,
+		"WeaponAddWeight":     d.WeaponAddWeight,
+		"WeaponUpgradeWeight": d.WeaponUpgradeWeight,
+		"JunkWeight":          d.JunkWeight,
 	}
-	for name, p := range probs {
-		if p < 0 || p > 1 {
-			t.Errorf("%s should be a probability in [0,1], got %v", name, p)
+	total := 0.0
+	for name, wgt := range weights {
+		if wgt < 0 {
+			t.Errorf("%s should not be negative, got %v", name, wgt)
 		}
+		total += wgt
+	}
+	if total <= 0 {
+		t.Errorf("offer weights should sum to a positive total, got %v", total)
 	}
 	if d.NipperMin > d.NipperMax {
 		t.Errorf("NipperMin (%d) should be <= NipperMax (%d)", d.NipperMin, d.NipperMax)
 	}
-	if d.MaxUpgrades < 0 {
-		t.Errorf("MaxUpgrades should not be negative, got %d", d.MaxUpgrades)
-	}
-	if d.MaxBundleTiles <= 0 {
-		t.Errorf("MaxBundleTiles should be positive, got %d", d.MaxBundleTiles)
+	if d.MaxItems <= 0 {
+		t.Errorf("MaxItems should be positive, got %d", d.MaxItems)
 	}
 }
 

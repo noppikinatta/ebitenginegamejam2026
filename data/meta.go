@@ -19,7 +19,8 @@ type MetaUpgradeSpec struct {
 //   - HP:     +20 MaxHP/level   (max +1980)
 //   - Armor:  +1 flat reduction (max -99 per hit; min 1 always lands)
 //   - Regen:  +1 HP/repair cycle (max +99 per ~5 s)
-//   - Speed:  +0.15 px/tick      (max +14.85 on a base of 3)
+//   - Speed:  +0.15 to the speed coefficient (max +14.85 on a base of 1.5; the
+//     coefficient is then scaled by the turret power multiplier into px/tick)
 //   - Attack: +5% damage         (max +495% → ~6× damage)
 var metaSpecs = map[core.MetaStat]MetaUpgradeSpec{
 	core.MetaHP:     {MaxLevel: 99, Bonus: 20, CostBase: 8, CostStep: 4},

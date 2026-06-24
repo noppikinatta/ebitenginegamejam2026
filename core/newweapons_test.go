@@ -195,7 +195,7 @@ func TestHomingMover_CurvesTowardEnemy(t *testing.T) {
 	m := &Projectile{
 		Pos: geom.PointF{X: 0, Y: 0}, Vel: geom.PointF{X: 0, Y: -3},
 		Damage: 8, Radius: 6, Life: 400,
-		Mover: NewHomingMover(0.3, 6),
+		Mover: NewHomingMover(0.3, 6, 0), // straight=0: this test checks homing kicks in immediately
 		alive: true,
 	}
 	w.Projectiles = []*Projectile{m}
@@ -210,6 +210,38 @@ func TestHomingMover_CurvesTowardEnemy(t *testing.T) {
 	}
 	if enemy.HP != 992 {
 		t.Errorf("homing missile failed to land a contact hit; enemy HP = %.0f, want 992", enemy.HP)
+	}
+}
+
+// TestHomingMover_BoostsStraightBeforeHoming: with a straight period the shell
+// flies straight (no steering) for that many ticks, then begins to home — so a
+// missile visibly launches clear of the turret before it seeks.
+func TestHomingMover_BoostsStraightBeforeHoming(t *testing.T) {
+	const straight = 5
+	w, _ := buildWeaponWorld(KindMissile, hexmap.IdxXY(1, 0))
+	w.Enemies = []*Enemy{{Pos: geom.PointF{X: 100, Y: 0}, HP: 1000, Radius: 10, alive: true}}
+
+	// Heading up, away from the enemy on the +X axis, so any sideways velocity can
+	// only come from homing (not contact).
+	m := &Projectile{
+		Pos: geom.PointF{X: 0, Y: 0}, Vel: geom.PointF{X: 0, Y: -3},
+		Damage: 8, Radius: 6, Life: 400,
+		Mover: NewHomingMover(0.3, 6, straight),
+		alive: true,
+	}
+	w.Projectiles = []*Projectile{m}
+
+	// During the boost-out the velocity stays exactly along the launch heading.
+	for i := 0; i < straight; i++ {
+		w.updateProjectiles()
+		if m.Vel.X != 0 {
+			t.Fatalf("steered during boost-out tick %d: Vel.X = %.3f, want 0", i, m.Vel.X)
+		}
+	}
+	// The next tick (age == straight) homing engages and bends the path toward +X.
+	w.updateProjectiles()
+	if m.Vel.X <= 0 {
+		t.Errorf("homing did not engage after the boost-out: Vel.X = %.3f, want > 0", m.Vel.X)
 	}
 }
 

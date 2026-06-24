@@ -21,6 +21,11 @@ const (
 	KindMissile                   // long-range homing shell; contact damage plus a small explosion on expiry
 )
 
+// weaponKindCount is the number of WeaponKind values (KindCannon..KindMissile).
+// They are a contiguous iota run, so WeaponKind(i) for i in [0, weaponKindCount)
+// enumerates every kind.
+const weaponKindCount = 8
+
 func (k WeaponKind) String() string {
 	switch k {
 	case KindShotgun:

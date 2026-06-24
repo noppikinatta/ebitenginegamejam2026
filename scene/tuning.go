@@ -109,16 +109,24 @@ const (
 	opStagger     = 12  // ticks between successive tile arrivals (turret has ~22 tiles)
 	opFlyDur      = 40  // ticks each tile spends flying in from off-screen
 	opFlyIn       = 950 // distance (px) off-screen each tile starts from before flying in
-	opTile        = 40.0
-	opZoom        = 2.2
+	// opTile / opZoom keep the cinematic at the SAME scale as the in-game combat
+	// view so the assembled tank on the title matches the run and the transition is
+	// seamless: opTile mirrors combatTileSize (the turret miniature's hex spacing)
+	// and opZoom is 1.0 (the tank is drawn at its 1:1 in-game footprint). Raise
+	// opZoom for a deliberately zoomed intro, at the cost of that seamlessness.
+	opTile = combatTileSize
+	opZoom = 1.0
 	// opSkipHoldTicks is how long Space must be held to skip the whole opening to
 	// the title (~1s at 60 TPS). A click only advances past the aliens scene.
 	opSkipHoldTicks = 60
 )
 
+// opCenterX / opCenterY are where the tank settles in the cinematic and sits on
+// the title. They match the in-game camera (which keeps the player at the screen
+// centre), so the assembled tank lines up 1:1 with the run that starts on click.
 var (
 	opCenterX = float64(screenW) / 2
-	opCenterY = 430.0
+	opCenterY = float64(screenH) / 2
 )
 
 // --- Floating damage numbers ----------------------------------------------
