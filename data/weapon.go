@@ -37,7 +37,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			Target:           core.TargetFarthest, // sweeps onto the farthest enemy in range
 			BeamBaseLength:   400,
 			BeamBaseWidth:    12,
-			BeamBaseDuration: 120,
+			BeamBaseDuration: 60,
 			LevelMult:        1.2,
 		},
 		core.KindGatling: {
