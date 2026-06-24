@@ -1183,26 +1183,15 @@ func (g *InGame) drawExplosions(screen *ebiten.Image, cam geom.PointF) {
 	}
 }
 
-// fireworkSparks is how many spark dots a cosmetic firework burst scatters.
-const fireworkSparks = 12
-
-// drawFireworkBurst draws a junk firework as an expanding ring of colorful spark
-// dots that fade out, so it reads as celebratory rather than as a weapon's
-// orange blast. f is Life/MaxLife (1→0); hue (0..1) tints the sparks.
+// drawFireworkBurst draws a junk firework as a single colored disc (a random
+// hue per shell) instead of the weapon explosion's orange blast, so harmless
+// fireworks are easy to tell apart at a glance. f is Life/MaxLife (1→0); hue
+// (0..1) picks the color.
 func drawFireworkBurst(screen *ebiten.Image, cx, cy, radius, f float32, hue float64) {
-	prog := 1 - f          // 0→1 as the burst ages: sparks fly outward
-	dist := radius * prog  // current spark distance from the burst center
-	dot := 3*f + 1         // sparks shrink as they fade
-	for i := 0; i < fireworkSparks; i++ {
-		ang := float64(i) / float64(fireworkSparks) * 2 * math.Pi
-		sx := cx + dist*float32(math.Cos(ang))
-		sy := cy + dist*float32(math.Sin(ang))
-		// Spread the sparks across a slice of the color wheel for a festive look.
-		r, g, b := hsvToRGB(hue+float64(i)/float64(fireworkSparks)*0.3, 0.85, 1)
-		// Premultiplied alpha so the sparks fade to transparent like the disc.
-		c := color.RGBA{R: uint8(float32(r) * 255 * f), G: uint8(float32(g) * 255 * f), B: uint8(float32(b) * 255 * f), A: uint8(255 * f)}
-		vector.DrawFilledCircle(screen, sx, sy, dot, c, true)
-	}
+	r, g, b := hsvToRGB(hue, 0.85, 1)
+	// Premultiplied alpha so the disc fades to transparent like the orange one.
+	c := color.RGBA{R: uint8(float32(r) * 255 * f), G: uint8(float32(g) * 255 * f), B: uint8(float32(b) * 255 * f), A: uint8(255 * f)}
+	vector.DrawFilledCircle(screen, cx, cy, radius, c, true)
 }
 
 // hsvToRGB converts HSV (each 0..1, hue wrapping) to RGB in 0..1. Used to give
