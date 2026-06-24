@@ -2,11 +2,11 @@
 # value 内の '\n' は改行になる。テンプレートは Go text/template ({{.Field}})。
 
 # --- タイトル ---
-story-1,博士たちが戦車に武装を付けすぎて砲塔が巨大化してしまった。\n不要なタイルを切り離し、電力を再集中させろ。
+story-1,-
 title-start,クリックでスタート
 
 # --- オープニング ---
-op-aliens,エイリアンが攻めてきたぞ！
+op-aliens,エイリアンが攻めてきたぞ！ エビタンク発進！
 op-doctor,一人では危険じゃ、これを授けよう
 op-hint-advance,クリックで次へ
 op-hint-skip,Space長押しでスキップ
@@ -21,12 +21,12 @@ hud-time-kills,時間 {{.Min}}:{{.Sec}}  撃破 {{.Kills}}
 # --- ゲームオーバー / 勝利 ---
 game-over,ゲームオーバー
 click-continue,クリックで続行
-mission-complete,ミッション達成
-victory-detail,ディスコネクターを破壊した。クリックで続行。
+mission-complete,ミッションクリア！
+victory-detail,クリックで続行
 
 # --- レベルアップ提案 ---
 levelup-title,レベルアップ — Lv {{.Level}}
-levelup-instruction,3人の博士が近づいてきた。1人を選べ（カードをクリック、または1/2/3キー）。
+levelup-instruction,「よくやった、これを授けよう！」
 offer-add,追加
 offer-upgrade,強化
 offer-nippers,ニッパー +{{.N}}
@@ -38,11 +38,11 @@ comp-armor,増加装甲
 # --- ポーズ / 切断ビュー ---
 pause-title,ポーズ中 — タイルをクリックして切断  (ニッパー {{.Nippers}})
 pause-help,切断するとそのタイルと下流すべてが外れる。Spaceで再開。
-comp-capacitor-desc,接続している間だけ砲塔の発射速度を上げる設備。
-comp-repair-unit-desc,接続している間、数秒ごとにHPを1回復する設備。
-comp-armor-desc,接続している間、被弾ごとのダメージを軽減する設備（最低1は受ける）。
+comp-capacitor-desc,電力を少し高める
+comp-repair-unit-desc,数秒ごとにHPを1回復
+comp-armor-desc,被弾時のダメージを軽減する（最低1は受ける）
 comp-wire-name,ワイヤー
-comp-wire-desc,電力を通すだけで単体では何もしない導線。切って配置を組み替えよう。
+comp-wire-desc,電力を通すだけで単体では何もしない導線
 
 # --- リザルト画面 ---
 result-win,エイリアンを倒し、自由を手に入れた
@@ -79,14 +79,14 @@ weapon-ciws-name,CIWS
 weapon-missile-name,ミサイル
 
 # --- 武器説明 ---
-weapon-cannon-desc,最も近い敵にバランス型の砲弾を撃つ。
-weapon-shotgun-desc,最も近い敵に近距離の散弾をばらまく。
-weapon-sniper-desc,高速・長射程の一撃で大ダメージを与える。
-weapon-laser-desc,最も近い敵に持続ビームを照射し、経路上のすべてを貫通する。
-weapon-gatling-desc,前方へ高速の弾幕を連射する。
-weapon-grenade-desc,外側へ砲弾を放り、着弾点で爆発する。
-weapon-ciws-desc,近接防御：敵が近づくまで撃たず、一気に連射する。
-weapon-missile-desc,着弾で爆発する誘導ミサイルを発射する。
+weapon-cannon-desc,最も近い敵にダメージの高い砲弾を撃つ
+weapon-shotgun-desc,最も近い敵に近距離の散弾をばらまく
+weapon-sniper-desc,高速・長射程の一撃を与える
+weapon-laser-desc,貫通するビーム攻撃を行う
+weapon-gatling-desc,前方へ高速の弾幕を連射する
+weapon-grenade-desc,外側へ砲弾を放り、着弾点で爆発する
+weapon-ciws-desc,敵が近づくまで撃たず、一気に連射する近接防御兵器
+weapon-missile-desc,着弾で爆発する誘導ミサイル
 
 # --- 博士名テンプレート（肩書き＋ランダムなアルファベット {{.Alphabet}}） ---
 doctor-name-doctor,ドクター{{.Alphabet}}
@@ -95,7 +95,7 @@ doctor-name-doktor,ドクトル{{.Alphabet}}
 doctor-name-instructor,{{.Alphabet}}教授
 doctor-name-master,老師{{.Alphabet}}
 # --- ジャンク装置名（何も出ない） ---
-junk-unusual-banana,ヘンテコバナナ
+junk-unusual-banana,Unusual Banana
 junk-electric-fan,扇風機
 junk-calculator,電卓
 junk-wi-fi-antenna,Wi-Fiアンテナ
@@ -104,7 +104,7 @@ junk-fax-machine,FAX
 junk-lava-lamp,ラバランプ
 junk-oil-heater,オイルヒーター
 junk-rice-cooker,炊飯器
-junk-modern-art-fountain,泉（現代アート）
+junk-modern-art-fountain,『泉』
 junk-concept,概念
 junk-nft-nuclear-missile,NFT核ミサイル
 junk-horns,ツノ
@@ -119,28 +119,28 @@ junk-rubber-duck-dispenser,ラバーダック設置装置
 junk-fireworks,花火
 
 # --- ジャンク説明（仮テキスト・後で調整） ---
-junk-unusual-banana-desc,砲塔に括りつけられたヘンテコな形のバナナ。電力は通すが食べられもしない——切る筆頭候補。
-junk-electric-fan-desc,頼んでもいない冷却を続ける扇風機。電力の無駄——切る筆頭候補。
-junk-calculator-desc,誰のためでもない計算を延々と。負荷だけ増やす——切る筆頭候補。
-junk-wi-fi-antenna-desc,とっくに切断されたネットへ発信し続ける——切る筆頭候補。
-junk-five-storied-pagoda-desc,静寂のために据えられた巨大な五重塔。背が高く無意味で電力を薄める——切る筆頭候補。
-junk-fax-machine-desc,宛先のない注文をFAXし続ける。ピーピー鳴って電力を食う——切る筆頭候補。
-junk-lava-lamp-desc,催眠的なゆらめき。戦闘価値はゼロ——切る筆頭候補。
-junk-oil-heater-desc,砲塔をぽかぽかに。何のためでもなく電力を吸う——切る筆頭候補。
-junk-rice-cooker-desc,戦闘中に完璧なご飯を炊き上げる。美味だが無意味——切る筆頭候補。
-junk-modern-art-fountain-desc,前衛的な泉。評論家は絶賛するが戦車は無関心——切る筆頭候補。
-junk-concept-desc,愚か者にしか見えないキャノン。何も撃たない——切る筆頭候補。
-junk-nft-nuclear-missile-desc,NFT化された核ミサイル。代替不可能で機能不全——切る筆頭候補。
-junk-horns-desc,飾りのツノ。威圧的だが役立たず——切る筆頭候補。
-junk-high-end-gpu-desc,特に何も狙わないAI。考えるだけで電力を燃やす——切る筆頭候補。
-junk-balloon-service-unit-desc,陽気な風船を空へ漂わせる。無害な演出——切る筆頭候補。
-junk-coffee-maker-desc,湯気をもうもうと立ち上らせる。いい香りだが効果なし——切る筆頭候補。
-junk-toaster-desc,トーストを宙へポンと飛ばす。香ばしいが無意味——切る筆頭候補。
-junk-music-box-desc,音符を漂わせる。心地よいが無益——切る筆頭候補。
-junk-rubber-duck-dispenser-desc,ラバーダックを撒き散らす。鳴くだけでダメージなし——切る筆頭候補。
-junk-fireworks-desc,無害な花火を打ち上げる。見た目だけで電力にならない——切る筆頭候補。
+junk-unusual-banana-desc,620万ドルの価値がある
+junk-electric-fan-desc,エビタンクの周りにいる人が涼しくなる
+junk-calculator-desc,素早い四則演算
+junk-wi-fi-antenna-desc,動画を快適に視聴可能
+junk-five-storied-pagoda-desc,構造が地、水、火、風、空を表す
+junk-fax-machine-desc,電話番号で紙を送受信できる
+junk-lava-lamp-desc,おしゃれな空間を演出
+junk-oil-heater-desc,木造建築ではあまり意味がない
+junk-rice-cooker-desc,鉄釜とIHで炊き上げる最高峰モデル
+junk-modern-art-fountain-desc,前衛的な芸術作品
+junk-concept-desc,物事の本質の部分
+junk-nft-nuclear-missile-desc,核ミサイルの所有権。発射権はない
+junk-horns-desc,主人公メカには必須
+junk-high-end-gpu-desc,3Dゲームを60FPSで動かすための部品
+junk-balloon-service-unit-desc,風船を空に飛ばす機械
+junk-coffee-maker-desc,戦いが終わったら飲もう
+junk-toaster-desc,こんがりと焼き上げる
+junk-music-box-desc,心地よい癒しの音色
+junk-rubber-duck-dispenser-desc,愛らしいアヒルの模型
+junk-fireworks-desc,打ち上げ花火を放出
 
 # --- ボス名 ---
-boss-prototype-hauler,試作運搬機
-boss-siege-engine,攻城機
-boss-the-disconnector,ザ・ディスコネクター
+boss-prototype-hauler,マッスル・イカ
+boss-siege-engine,ロケット・オウムガイ
+boss-the-disconnector,デス・ウミウシ16世
