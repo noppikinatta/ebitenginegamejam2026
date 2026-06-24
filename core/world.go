@@ -84,6 +84,14 @@ func (w *World) FireRateMultiplier() float64 {
 	return base + w.turret.Modifiers().FireRateAdd
 }
 
+// PlayerSpeed is the tank's effective movement speed in px/tick: the player's
+// speed coefficient scaled by the same turret-wide power multiplier that drives
+// the weapons. A turret bloated with tiles dilutes the power, so the tank also
+// crawls; cutting tiles back re-concentrates power and speeds it up again.
+func (w *World) PlayerSpeed() float64 {
+	return w.Player.Speed * w.FireRateMultiplier()
+}
+
 // FireRateMultBounds returns the minimum and maximum fire-rate multiplier the
 // power curve can produce, so the HUD can normalise the multiplier into a [0,1]
 // gauge fill. Falls back to (1, 1) for an empty curve.
@@ -236,7 +244,7 @@ func (w *World) updatePlayer(move geom.PointF) {
 	if move.Abs() > 0 {
 		w.Player.FacingAngle = move.Angle()
 	}
-	w.Player.Pos = w.Player.Pos.Add(move.Multiply(w.Player.Speed))
+	w.Player.Pos = w.Player.Pos.Add(move.Multiply(w.PlayerSpeed()))
 	if w.Player.invuln > 0 {
 		w.Player.invuln--
 	}

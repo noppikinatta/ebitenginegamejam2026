@@ -46,7 +46,8 @@ func NewConfig() core.Config {
 func defaultPlayer() core.Player {
 	return core.Player{
 		HP: 100, MaxHP: 100,
-		Speed: 3, Radius: 36, // collision matches the tall tank sprite
+		// Speed is a coefficient: effective px/tick = Speed × turret power multiplier.
+		Speed: 1.5, Radius: 36, // Radius matches the tall tank sprite for collision
 		Level:    1,
 		XPToNext: 10,
 	}

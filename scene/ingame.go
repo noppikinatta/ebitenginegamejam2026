@@ -1061,7 +1061,7 @@ func (g *InGame) drawHUD(screen *ebiten.Image) {
 	opt.GeoM.Translate(hudTextX, hudStatsY)
 	drawing.DrawTextTemplate(screen, "hud-stats", map[string]any{
 		"Level":   p.Level,
-		"Spd":     fmt.Sprintf("%.1f", p.Speed),
+		"Spd":     fmt.Sprintf("%.1f", g.world.PlayerSpeed()),
 		"Fire":    fmt.Sprintf("%.2f", g.world.FireRateMultiplier()),
 		"Nippers": p.Nippers,
 	}, 18, opt)
