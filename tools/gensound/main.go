@@ -63,16 +63,73 @@ func writeWAV(path string, samples []float64) {
 
 func n(d float64) int { return int(d * sampleRate) }
 
-// tone makes a sine of freq for dur seconds with a short attack/decay envelope.
-func tone(freq, dur, vol float64) []float64 {
+// waveform maps a phase measured in cycles (not radians) to amplitude -1..1.
+// Phase need not be wrapped; each waveform takes its own fractional part, so a
+// running cycle count from a pitch sweep can be passed straight in.
+type waveform func(cycles float64) float64
+
+func wSine(c float64) float64 { return math.Sin(2 * math.Pi * c) }
+
+// wSquare is a hard square wave: full +1 for the first half of each cycle, -1
+// for the second. Punchy and hollow — good for retro blips and booms.
+func wSquare(c float64) float64 {
+	if c-math.Floor(c) < 0.5 {
+		return 1
+	}
+	return -1
+}
+
+// wSaw is a rising sawtooth ramp from -1 to +1 each cycle. Bright and buzzy —
+// the classic "laser"/engine timbre.
+func wSaw(c float64) float64 {
+	f := c - math.Floor(c)
+	return 2*f - 1
+}
+
+// wTri is a triangle wave: -1→+1 over the first half, +1→-1 over the second.
+// Softer than square/saw (fewer high harmonics) — a mellow, woody tone.
+func wTri(c float64) float64 {
+	f := c - math.Floor(c)
+	if f < 0.5 {
+		return 4*f - 1
+	}
+	return 3 - 4*f
+}
+
+// env is the shared 5ms-attack / 20ms-release amplitude envelope at time t of a
+// dur-second sound, so every generated tone fades in/out without clicks.
+func env(t, dur float64) float64 {
+	return math.Min(1, math.Min(t/0.005, (dur-t)/0.02))
+}
+
+// osc renders a fixed-frequency tone of the given waveform with the shared
+// click-free envelope.
+func osc(w waveform, freq, dur, vol float64) []float64 {
 	s := make([]float64, n(dur))
 	for i := range s {
 		t := float64(i) / sampleRate
-		env := math.Min(1, math.Min(t/0.005, (dur-t)/0.02)) // 5ms attack, 20ms release
-		s[i] = math.Sin(2*math.Pi*freq*t) * env * vol
+		s[i] = w(freq*t) * env(t, dur) * vol
 	}
 	return s
 }
+
+// oscSweep renders a tone of the given waveform whose pitch glides from f0 to f1
+// over dur seconds. Phase is accumulated in cycles so the sweep stays in tune
+// for any waveform (sine/square/saw/triangle).
+func oscSweep(w waveform, f0, f1, dur, vol float64) []float64 {
+	s := make([]float64, n(dur))
+	cycles := 0.0
+	for i := range s {
+		t := float64(i) / sampleRate
+		f := f0 + (f1-f0)*(t/dur)
+		cycles += f / sampleRate
+		s[i] = w(cycles) * env(t, dur) * vol
+	}
+	return s
+}
+
+// tone makes a sine of freq for dur seconds (sine wrapper over osc; used by BGM).
+func tone(freq, dur, vol float64) []float64 { return osc(wSine, freq, dur, vol) }
 
 // noise makes a decaying noise burst (used for explosion).
 func noise(dur, vol float64) []float64 {
@@ -85,19 +142,8 @@ func noise(dur, vol float64) []float64 {
 	return s
 }
 
-// sweep makes a sine that glides from f0 to f1 over dur seconds (zap/whoosh).
-func sweep(f0, f1, dur, vol float64) []float64 {
-	s := make([]float64, n(dur))
-	phase := 0.0
-	for i := range s {
-		t := float64(i) / sampleRate
-		f := f0 + (f1-f0)*(t/dur)
-		phase += 2 * math.Pi * f / sampleRate
-		env := math.Min(1, math.Min(t/0.005, (dur-t)/0.02))
-		s[i] = math.Sin(phase) * env * vol
-	}
-	return s
-}
+// sweep makes a sine that glides from f0 to f1 over dur seconds (sine wrapper).
+func sweep(f0, f1, dur, vol float64) []float64 { return oscSweep(wSine, f0, f1, dur, vol) }
 
 // mix adds src into dst in place (dst length wins).
 func mix(dst, src []float64) {
@@ -123,45 +169,55 @@ func main() {
 	out := seDir
 
 	// SE: per-weapon fire. Each weapon gets a deliberately distinct placeholder
-	// timbre so they are easy to tell apart (and easy to swap individually). The
-	// file base name must match the pak entry name in asset/sound.go (fire_<kind>).
-	cannon := tone(200, 0.09, 0.6)
-	mix(cannon, noise(0.05, 0.2))
-	writeWAV(out+"/fire_cannon.wav", cannon) // low boom
+	// timbre — now built from the square/saw/triangle waveforms as well as sine
+	// and noise — so they are easy to tell apart (and easy to swap individually).
+	// The file base name must match the pak entry name in asset/sound.go.
 
-	shotgun := noise(0.10, 0.6)
-	mix(shotgun, tone(160, 0.10, 0.3))
-	writeWAV(out+"/fire_shotgun.wav", shotgun) // noisy blast
+	// Cannon: a heavy boom. A square wave dropping in pitch gives a punchy
+	// hollow thump, with a noise transient for the muzzle blast.
+	cannon := oscSweep(wSquare, 190, 90, 0.11, 0.45)
+	mix(cannon, noise(0.06, 0.3))
+	writeWAV(out+"/fire_cannon.wav", cannon)
 
-	writeWAV(out+"/fire_sniper.wav", tone(950, 0.05, 0.6))      // high sharp crack
-	writeWAV(out+"/fire_laser.wav", sweep(1300, 320, 0.13, 0.5)) // descending zap
-	writeWAV(out+"/fire_gatling.wav", tone(520, 0.03, 0.5))     // tiny click
-	writeWAV(out+"/fire_grenade.wav", tone(150, 0.08, 0.6))     // low thunk
-	writeWAV(out+"/fire_ciws.wav", tone(740, 0.035, 0.5))       // mid blip
+	// Shotgun: a noisy spread blast — mostly noise with a low sawtooth growl.
+	shotgun := noise(0.12, 0.6)
+	mix(shotgun, osc(wSaw, 130, 0.10, 0.25))
+	writeWAV(out+"/fire_shotgun.wav", shotgun)
 
-	missile := sweep(280, 720, 0.18, 0.5)
-	mix(missile, noise(0.18, 0.25))
-	writeWAV(out+"/fire_missile.wav", missile) // rising whoosh
+	// Sniper: a high, sharp crack. A short bright sawtooth cuts through.
+	writeWAV(out+"/fire_sniper.wav", osc(wSaw, 1000, 0.05, 0.45))
 
-	// SE: explosion — low tone mixed with a noise burst.
+	// Laser: the classic descending buzzy zap — sawtooth sweeping down.
+	writeWAV(out+"/fire_laser.wav", oscSweep(wSaw, 1600, 360, 0.13, 0.4))
+
+	// Gatling: a tiny dry click — a very short square blip.
+	writeWAV(out+"/fire_gatling.wav", osc(wSquare, 560, 0.025, 0.4))
+
+	// Grenade: a soft low "thunk" — a mellow triangle dropping in pitch, plus a
+	// little noise body.
+	grenade := oscSweep(wTri, 180, 80, 0.10, 0.6)
+	mix(grenade, noise(0.05, 0.18))
+	writeWAV(out+"/fire_grenade.wav", grenade)
+
+	// CIWS: a fast mid blip, brighter and harder than the gatling — square wave.
+	writeWAV(out+"/fire_ciws.wav", osc(wSquare, 820, 0.03, 0.4))
+
+	// Missile: a rising whoosh — sawtooth sweeping up with a noise wash.
+	missile := oscSweep(wSaw, 240, 760, 0.18, 0.4)
+	mix(missile, noise(0.18, 0.2))
+	writeWAV(out+"/fire_missile.wav", missile)
+
+	// SE: explosion — a low triangle body dropping in pitch under a big noise
+	// burst, for a fuller boom than a plain sine.
 	{
-		body := tone(120, 0.35, 0.7)
-		mix(body, noise(0.35, 0.5))
+		body := oscSweep(wTri, 140, 55, 0.35, 0.6)
+		mix(body, noise(0.35, 0.55))
 		writeWAV(out+"/explosion.wav", body)
 	}
 
-	// SE: player hit — short descending low tone.
-	{
-		dur := 0.18
-		s := make([]float64, n(dur))
-		for i := range s {
-			t := float64(i) / sampleRate
-			f := 300 - 150*(t/dur) // glide down
-			env := math.Min(1, (dur-t)/0.03)
-			s[i] = math.Sin(2*math.Pi*f*t) * env * 0.6
-		}
-		writeWAV(out+"/hit.wav", s)
-	}
+	// SE: player hit — a harsh, attention-grabbing square wave sliding down, so
+	// taking damage sounds nastier than the soft sine it replaces.
+	writeWAV(out+"/hit.wav", oscSweep(wSquare, 320, 130, 0.16, 0.45))
 
 	// BGM (two distinct loops). Title = calm arpeggio; Game = faster, driving.
 	{
