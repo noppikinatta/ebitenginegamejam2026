@@ -23,11 +23,11 @@ type MetaUpgradeSpec struct {
 //     coefficient is then scaled by the turret power multiplier into px/tick)
 //   - Attack: +5% damage         (max +495% → ~6× damage)
 var metaSpecs = map[core.MetaStat]MetaUpgradeSpec{
-	core.MetaHP:     {MaxLevel: 99, Bonus: 20, CostBase: 8, CostStep: 4},
-	core.MetaArmor:  {MaxLevel: 99, Bonus: 1, CostBase: 12, CostStep: 6},
-	core.MetaRegen:  {MaxLevel: 99, Bonus: 1, CostBase: 10, CostStep: 5},
-	core.MetaSpeed:  {MaxLevel: 99, Bonus: 0.15, CostBase: 15, CostStep: 8},
-	core.MetaAttack: {MaxLevel: 99, Bonus: 0.05, CostBase: 12, CostStep: 6},
+	core.MetaHP:     {MaxLevel: 99, Bonus: 20, CostBase: 8, CostStep: 2},
+	core.MetaArmor:  {MaxLevel: 99, Bonus: 1, CostBase: 12, CostStep: 4},
+	core.MetaRegen:  {MaxLevel: 99, Bonus: 1, CostBase: 10, CostStep: 4},
+	core.MetaSpeed:  {MaxLevel: 99, Bonus: 0.15, CostBase: 15, CostStep: 2},
+	core.MetaAttack: {MaxLevel: 99, Bonus: 0.05, CostBase: 12, CostStep: 4},
 }
 
 // MetaSpec returns the balance spec for a stat.
@@ -41,7 +41,15 @@ func MetaCost(s core.MetaStat, level int) int {
 	if level >= spec.MaxLevel {
 		return 0
 	}
-	return spec.CostBase + spec.CostStep*level
+
+	cost := spec.CostBase
+	for range level - 1 {
+		cost := cost * spec.CostStep
+		if cost > 1000000 {
+			return 1000000
+		}
+	}
+	return cost
 }
 
 // MetaMaxed reports whether a stat has reached its level cap.
