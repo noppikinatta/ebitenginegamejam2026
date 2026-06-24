@@ -8,22 +8,22 @@ import "github.com/noppikinatta/ebitenginegamejam2026/core"
 func weaponParams() map[core.WeaponKind]core.WeaponParams {
 	return map[core.WeaponKind]core.WeaponParams{
 		core.KindCannon: {
-			BaseDamage:   20,
+			BaseDamage:   25,
 			BaseInterval: 720, MinInterval: 6, // 12s between shots at fireMult=1
 			ProjSpeed: 6, ProjMaxDist: 600, ProjRadius: 6, BaseRange: 360,
 			Sprite: core.SpriteCannon, ProjDrawW: 8, ProjDrawH: 14, ProjFaceVelocity: true, // chunky shell, points along travel
 			LevelMult: 1.2,
 		},
 		core.KindShotgun: {
-			BaseDamage:   8,                   // ×4 pellets per shot
+			BaseDamage:   10,
 			BaseInterval: 720, MinInterval: 8, // 12s
 			ProjSpeed: 5, ProjMaxDist: 400, ProjRadius: 2, BaseRange: 250,
-			Pellets: 4, SpreadRad: 0.3, // simultaneous fixed 4-pellet spread
+			Pellets: 6, SpreadRad: 0.3,
 			Sprite: core.SpriteShotgun, ProjDrawW: 6, ProjDrawH: 6, // small round pellet
 			LevelMult: 1.2,
 		},
 		core.KindSniper: {
-			BaseDamage:   10,
+			BaseDamage:   16,
 			BaseInterval: 960, MinInterval: 20, // 16s
 			ProjSpeed: 10, ProjMaxDist: 800, ProjRadius: 2, BaseRange: 600,
 			Target: core.TargetFarthest,                                                    // picks off the farthest enemy in range
@@ -36,8 +36,8 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseRange:        400,
 			Target:           core.TargetFarthest, // sweeps onto the farthest enemy in range
 			BeamBaseLength:   400,
-			BeamBaseWidth:    6,
-			BeamBaseDuration: 30,
+			BeamBaseWidth:    12,
+			BeamBaseDuration: 120,
 			LevelMult:        1.2,
 		},
 		core.KindGatling: {
@@ -47,14 +47,14 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			Pellets: 10, SpreadRad: 0.2, SpreadRandom: true, BurstGap: 3, // staggered random stream
 			Aim:    core.AimForward,                                // never locks on; always fires forward
 			Sprite: core.SpriteGatling, ProjDrawW: 6, ProjDrawH: 6, // small round slug
-			LevelMult: 1.2,
+			LevelMult: 1.4,
 		},
 		core.KindGrenade: {
 			BaseDamage:   0,                     // no contact damage; all damage is the explosion
 			BaseInterval: 1800, MinInterval: 30, // 30s
 			ProjSpeed: 2, ProjMaxDist: 300, // lobbed slowly; lifetime = ProjMaxDist/ProjSpeed = 150 ticks
 			Aim:           core.AimOutward,                          // never locks on; always fires outward
-			ExplodeRadius: 64, ExplodeDamage: 15, PassThrough: true, // flies through; detonates where it lands
+			ExplodeRadius: 64, ExplodeDamage: 20, PassThrough: true, // flies through; detonates where it lands
 			Sprite: core.SpriteGrenade, ProjDrawW: 14, ProjDrawH: 14, // fat round shell
 			LevelMult: 1.2,
 		},
@@ -68,9 +68,9 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			LevelMult: 1.2,
 		},
 		core.KindMissile: {
-			BaseDamage:   8,                    // contact damage
+			BaseDamage:   12,                   // contact damage
 			BaseInterval: 960, MinInterval: 20, // 16s
-			ProjSpeed: 4, ProjMaxDist: 600, ProjRadius: 6, BaseRange: 400, // slow shell, long lock range
+			ProjSpeed: 4, ProjMaxDist: 6000, ProjRadius: 6, BaseRange: 400, // slow shell, long lock range
 			ExplodeRadius: 48, ExplodeDamage: 10, // smaller blast than the grenade, only if it expires unhit
 			Mover:  core.NewHomingMover(0.3, 6, 15),                                         // flies straight 15 ticks (boost-out), then homes (turn 0.3, cruise 6)
 			Sprite: core.SpriteMissile, ProjDrawW: 8, ProjDrawH: 12, ProjFaceVelocity: true, // larger shell, turns to face its target
