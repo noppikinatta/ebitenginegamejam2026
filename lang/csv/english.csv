@@ -2,11 +2,11 @@
 # '\n' in a value becomes a newline. Templates use Go text/template ({{.Field}}).
 
 # --- Title ---
-story-1,The doctors bolted so many weapons onto the tank that the turret grew\nmonstrous. Cut the dead weight and reconcentrate the power.
+story-1,-
 title-start,Click to Start
 
 # --- Opening cinematic ---
-op-aliens,The aliens are attacking!
+op-aliens,"The aliens are attacking! Ebitank, launch!"
 op-doctor,Too dangerous to go alone — take this!
 op-hint-advance,Click to continue
 op-hint-skip,Hold Space to skip
@@ -22,11 +22,11 @@ hud-time-kills,Time {{.Min}}:{{.Sec}}  Kills {{.Kills}}
 game-over,GAME OVER
 click-continue,Click to continue
 mission-complete,MISSION COMPLETE
-victory-detail,The Disconnector is destroyed. Click to continue.
+victory-detail,Click to continue
 
 # --- Level-up offers ---
 levelup-title,LEVEL UP — Lv {{.Level}}
-levelup-instruction,Three doctors approach. Choose one (click a card or press 1/2/3).
+levelup-instruction,"Well done — take this!"
 offer-add,Add
 offer-upgrade,Upgrade
 offer-nippers,+{{.N}} Nippers
@@ -38,11 +38,11 @@ comp-armor,Armor
 # --- Pause / cut view ---
 pause-title,PAUSED — click a tile to cut  (Nippers {{.Nippers}})
 pause-help,Cutting disconnects the tile and everything downstream. Space resumes.
-comp-capacitor-desc,Equipment that raises the turret's fire rate while it stays connected.
-comp-repair-unit-desc,Equipment that repairs 1 HP every few seconds while it stays connected.
-comp-armor-desc,Equipment that reduces the damage of each hit while it stays connected (at least 1 still lands).
+comp-capacitor-desc,Slightly raises power.
+comp-repair-unit-desc,Repairs 1 HP every few seconds.
+comp-armor-desc,Reduces the damage taken from each hit (at least 1 still lands).
 comp-wire-name,Wire
-comp-wire-desc,A bare conductor: it carries power but does nothing on its own. Cut it to reshape the layout.
+comp-wire-desc,A conductor that merely carries power and does nothing on its own.
 
 # --- Result screen ---
 result-win,You defeated the aliens and won your freedom
@@ -79,14 +79,14 @@ weapon-ciws-name,CIWS
 weapon-missile-name,Missile
 
 # --- Weapon descriptions ---
-weapon-cannon-desc,Fires a balanced shell at the nearest enemy.
-weapon-shotgun-desc,Sprays a short-range spread of pellets at the nearest enemy.
-weapon-sniper-desc,"Fires a fast, long-range round that hits hard."
-weapon-laser-desc,"Fires a sustained beam at the nearest enemy, piercing everything in its path."
-weapon-gatling-desc,Streams a rapid burst of pellets straight ahead.
+weapon-cannon-desc,Fires a high-damage shell at the nearest enemy.
+weapon-shotgun-desc,Sprays short-range pellets at the nearest enemy.
+weapon-sniper-desc,"Delivers a fast, long-range shot."
+weapon-laser-desc,Fires a piercing beam attack.
+weapon-gatling-desc,Rapidly streams a fast barrage straight ahead.
 weapon-grenade-desc,Lobs a shell outward that explodes where it lands.
-weapon-ciws-desc,"Point defence: holds fire until an enemy is close, then unleashes a burst."
-weapon-missile-desc,Launches a homing missile that explodes on impact.
+weapon-ciws-desc,"A point-defence weapon that holds fire until enemies close in, then unleashes a rapid burst."
+weapon-missile-desc,A homing missile that explodes on impact.
 
 # --- Doctor name templates (title + random letter via {{.Alphabet}}) ---
 doctor-name-doctor,Doctor {{.Alphabet}}
@@ -120,28 +120,28 @@ junk-rubber-duck-dispenser,Rubber Duck Dispenser
 junk-fireworks,Fireworks
 
 # --- Junk device descriptions (placeholder copy; refine later) ---
-junk-unusual-banana-desc,An oddly shaped banana bolted to the turret. Conducts power but nothing edible — a prime tile to cut.
-junk-electric-fan-desc,Spins to cool a turret nobody asked to cool. Pure power drain — a prime tile to cut.
-junk-calculator-desc,Crunches numbers for no one. All load and no help — a prime tile to cut.
-junk-wi-fi-antenna-desc,Broadcasts to a network that disconnected long ago — a prime tile to cut.
-junk-five-storied-pagoda-desc,A towering pagoda bolted on for serenity. Tall and useless and it dilutes power — a prime tile to cut.
-junk-fax-machine-desc,Faxes orders to no one. Beeps and wastes power — a prime tile to cut.
-junk-lava-lamp-desc,Hypnotic blobs with zero combat value — a prime tile to cut.
-junk-oil-heater-desc,Keeps the turret toasty for no reason. Sips power — a prime tile to cut.
-junk-rice-cooker-desc,Steams a perfect cup of rice mid-battle. Delicious but useless — a prime tile to cut.
-junk-modern-art-fountain-desc,An avant-garde fountain. Critics love it; the tank does not — a prime tile to cut.
-junk-concept-desc,A cannon only fools can see. Fires nothing — a prime tile to cut.
-junk-nft-nuclear-missile-desc,A nuclear missile minted as an NFT. Non-fungible and non-functional — a prime tile to cut.
-junk-horns-desc,Decorative horns. Intimidating but useless — a prime tile to cut.
-junk-high-end-gpu-desc,An AI that targets nothing in particular. Burns power thinking — a prime tile to cut.
-junk-balloon-service-unit-desc,Floats cheerful balloons skyward. Harmless flair — a prime tile to cut.
-junk-coffee-maker-desc,Puffs clouds of steam skyward. Smells great and does nothing — a prime tile to cut.
-junk-toaster-desc,Pops toast into the air. Crunchy but useless — a prime tile to cut.
-junk-music-box-desc,Drifts musical notes around. Soothing but pointless — a prime tile to cut.
-junk-rubber-duck-dispenser-desc,Scatters rubber ducks everywhere. Quacks but deals no damage — a prime tile to cut.
-junk-fireworks-desc,Launches harmless fireworks. All show and no power — a prime tile to cut.
+junk-unusual-banana-desc,Worth 6.2 million dollars.
+junk-electric-fan-desc,Keeps the folks around the Ebitank cool.
+junk-calculator-desc,Quick arithmetic.
+junk-wi-fi-antenna-desc,Watch videos in comfort.
+junk-five-storied-pagoda-desc,"Its structure represents earth, water, fire, wind, and void."
+junk-fax-machine-desc,Sends and receives paper by phone number.
+junk-lava-lamp-desc,Sets a stylish mood.
+junk-oil-heater-desc,Not much use in a wooden building.
+junk-rice-cooker-desc,A top-tier model that cooks rice with an iron pot and induction heating.
+junk-modern-art-fountain-desc,An avant-garde work of art.
+junk-concept-desc,The essential nature of things.
+junk-nft-nuclear-missile-desc,Ownership of a nuclear missile. Launch rights not included.
+junk-horns-desc,A must-have for any hero mecha.
+junk-high-end-gpu-desc,A part for running 3D games at 60 FPS.
+junk-balloon-service-unit-desc,A machine that floats balloons into the sky.
+junk-coffee-maker-desc,Have a cup once the battle is over.
+junk-toaster-desc,Toasts everything to a golden brown.
+junk-music-box-desc,"A soothing, comforting melody."
+junk-rubber-duck-dispenser-desc,An adorable duck figurine.
+junk-fireworks-desc,Sets off skyrocket fireworks.
 
 # --- Boss names ---
-boss-prototype-hauler,Prototype Hauler
-boss-siege-engine,Siege Engine
-boss-the-disconnector,The Disconnector
+boss-prototype-hauler,Muscle Squid
+boss-siege-engine,Rocket Nautilus
+boss-the-disconnector,Death Sea Slug XVI

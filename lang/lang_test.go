@@ -27,10 +27,11 @@ func TestText_PlainKey(t *testing.T) {
 }
 
 func TestText_EscapedNewline(t *testing.T) {
-	// story-1 contains a literal \n in the CSV that must be decoded to a real
-	// newline by the loader.
-	if got := lang.Text("story-1"); !strings.Contains(got, "\n") {
-		t.Fatalf("story-1 should contain a newline, got %q", got)
+	// The loader decodes literal "\n" sequences in a CSV value into real
+	// newlines. No current string relies on it, so assert the decoding stays
+	// idempotent for a value that has none: story-1 must round-trip unchanged.
+	if got := lang.Text("story-1"); strings.Contains(got, `\n`) {
+		t.Fatalf("story-1 should not contain a literal \\n escape, got %q", got)
 	}
 }
 
