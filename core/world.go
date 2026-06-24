@@ -689,11 +689,14 @@ func (w *World) updateGems() {
 			continue
 		}
 		d := g.Pos.Distance(w.Player.Pos)
+		if d <= pr.MagnetDist {
+			g.tracking = true // entered magnet range: home from now on, even if the player outruns it
+		}
 		switch {
 		case d <= pr.PickupDist:
 			g.alive = false
 			w.addXP(g.Value)
-		case d <= pr.MagnetDist && d > 0:
+		case g.tracking && d > 0:
 			dir := w.Player.Pos.Subtract(g.Pos)
 			g.Pos = g.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}
@@ -709,11 +712,14 @@ func (w *World) updatePickups() {
 			continue
 		}
 		d := p.Pos.Distance(w.Player.Pos)
+		if d <= pr.MagnetDist {
+			p.tracking = true // entered magnet range: home from now on, even if the player outruns it
+		}
 		switch {
 		case d <= pr.PickupDist:
 			p.alive = false
 			w.collectPickup(p)
-		case d <= pr.MagnetDist && d > 0:
+		case p.tracking && d > 0:
 			dir := w.Player.Pos.Subtract(p.Pos)
 			p.Pos = p.Pos.Add(dir.Multiply(pr.MagnetSpeed / d))
 		}

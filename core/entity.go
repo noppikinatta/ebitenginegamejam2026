@@ -105,9 +105,10 @@ type Explosion struct {
 
 // Gem drops from a dead enemy and grants XP when collected.
 type Gem struct {
-	Pos   geom.PointF
-	Value float64
-	alive bool
+	Pos      geom.PointF
+	Value    float64
+	alive    bool
+	tracking bool // once the player got within magnet range, home forever
 }
 
 // PickupKind distinguishes what a dropped pickup grants when collected.
@@ -121,9 +122,10 @@ const (
 // Pickup is a dropped item a candlestick leaves behind: a nipper, or (rarely) a
 // heart that restores HP. Kind selects which; the zero value is a nipper.
 type Pickup struct {
-	Pos   geom.PointF
-	Kind  PickupKind
-	alive bool
+	Pos      geom.PointF
+	Kind     PickupKind
+	alive    bool
+	tracking bool // once the player got within magnet range, home forever
 }
 
 // BeamView is a read-only snapshot of an active laser beam for the scene layer to draw.
