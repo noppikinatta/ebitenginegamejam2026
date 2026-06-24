@@ -13,7 +13,7 @@ op-hint-skip,Hold Space to skip
 
 # --- In-game HUD ---
 hud-pwr,PWR
-hud-pwr-mult,x{{.Mult}}
+hud-pwr-mult,{{.Mult}} MW
 hud-stats,Lv {{.Level}}  Spd {{.Spd}}  Fire x{{.Fire}}  Nippers {{.Nippers}}
 hud-hint,Space: pause & cut turret tiles
 hud-time-kills,Time {{.Min}}:{{.Sec}}  Kills {{.Kills}}

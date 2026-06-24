@@ -60,10 +60,10 @@ func TestTextWithDefault(t *testing.T) {
 }
 
 func TestExecuteTemplate(t *testing.T) {
-	// hud-pwr-mult is "x{{.Mult}}".
+	// hud-pwr-mult is "{{.Mult}} MW".
 	got := lang.ExecuteTemplate("hud-pwr-mult", map[string]any{"Mult": "2.0"})
-	if got != "x2.0" {
-		t.Fatalf("want %q, got %q", "x2.0", got)
+	if got != "2.0 MW" {
+		t.Fatalf("want %q, got %q", "2.0 MW", got)
 	}
 }
 
