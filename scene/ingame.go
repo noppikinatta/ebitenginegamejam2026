@@ -1135,29 +1135,32 @@ func enemySpriteKeyFor(sprite string, kind core.EnemyKind, isBoss, dropsNipper b
 	}
 }
 
-// drawBossBar draws a name + health bar across the top when a boss is on the
-// field, so the player can read the boss fight's progress.
+// drawBossBar draws a name + health bar across the top for every boss on the
+// field, so the player can read the boss fight's progress. When a mid-boss is
+// still alive as the next boss spawns, the bars stack downward (bossBarStride
+// apart) instead of overlapping.
 func (g *InGame) drawBossBar(screen *ebiten.Image) {
-	b := g.world.ActiveBoss()
-	if b == nil {
-		return
-	}
-	const bw, bh, by = 600.0, 16.0, 30.0
+	const bw, bh, by0 = 600.0, 16.0, 30.0
+	const bossBarStride = 44.0 // name (18px) + bar (16px) + gap; one row per boss
 	bx := (screenW - bw) / 2
 
-	opt := &ebiten.DrawImageOptions{}
-	opt.GeoM.Translate(bx, by-22)
-	drawing.DrawText(screen, bossNameL(b.Name), 18, opt)
+	for i, b := range g.world.ActiveBosses() {
+		by := by0 + float64(i)*bossBarStride
 
-	drawing.DrawRect(screen, bx, by, bw, bh, 0.15, 0.05, 0.08, 1)
-	frac := 0.0
-	if b.MaxHP > 0 {
-		frac = b.HP / b.MaxHP
+		opt := &ebiten.DrawImageOptions{}
+		opt.GeoM.Translate(bx, by-22)
+		drawing.DrawText(screen, bossNameL(b.Name), 18, opt)
+
+		drawing.DrawRect(screen, bx, by, bw, bh, 0.15, 0.05, 0.08, 1)
+		frac := 0.0
+		if b.MaxHP > 0 {
+			frac = b.HP / b.MaxHP
+		}
+		if frac < 0 {
+			frac = 0
+		}
+		drawing.DrawRect(screen, bx, by, bw*frac, bh, 0.85, 0.25, 0.30, 1)
 	}
-	if frac < 0 {
-		frac = 0
-	}
-	drawing.DrawRect(screen, bx, by, bw*frac, bh, 0.85, 0.25, 0.30, 1)
 }
 
 // drawExplosions renders each queued explosion as an orange circle that fades
