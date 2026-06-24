@@ -39,8 +39,10 @@ const (
 const (
 	gridGap = 64 // spacing of the faint world reference grid (px)
 
-	// pauseTileSize is the px-per-hex tile in the zoomed pause/cut view (upright).
-	pauseTileSize = 56.0
+	// pauseTileSize is the px-per-hex tile in the upright pause/cut view. Kept at
+	// combatTileSize (1:1) so even a large turret stays fully on screen and every
+	// edge tile remains clickable to cut.
+	pauseTileSize = combatTileSize
 
 	// Tank sprite draw footprint (px at the 1:1 camera); independent of the core
 	// collision radius. The tank is authored tall (portrait).

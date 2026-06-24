@@ -785,9 +785,10 @@ func tallTileSprite(comp core.Component) (key string, ok bool) {
 	return "", false
 }
 
-// drawPause renders the zoomed, upright cut view over a dimmed world: the tank
-// and turret blown up so individual tiles can be clicked to cut. The tile under
-// the mouse is highlighted.
+// drawPause renders the upright cut view over a dimmed world: the tank and
+// turret drawn 1:1 (same scale as combat) so the whole turret stays on screen
+// and individual tiles can be clicked to cut. The tile under the mouse is
+// highlighted.
 func (g *InGame) drawPause(screen *ebiten.Image) {
 	drawing.DrawRect(screen, 0, 0, screenW, screenH, 0, 0, 0, 0.7)
 
