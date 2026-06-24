@@ -41,35 +41,54 @@ func enemyKinds() map[core.EnemyKind]core.EnemyStats {
 // shifting the mix toward swarmers and brutes. The last band (math.MaxInt)
 // covers the rest of the run.
 func spawnPhases() []core.SpawnPhase {
-	min1_5, min8 := 90*60, 8*60*60
+	min := func(m float64) int {
+		return int(m * 60 * 60)
+	}
+
 	return []core.SpawnPhase{
-		// 0:00–1:30 — calm intro, slow grunts.
-		{UntilTick: min1_5, Interval: 70, Weights: []core.KindWeight{
-			{Kind: core.EnemyGrunt, Weight: 8},
-			{Kind: core.EnemySwarmer, Weight: 2},
+		{UntilTick: min(0.5), Interval: 300, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 10},
 		}},
-		// 1:30–3:00 — pace picks up, more swarmers.
-		{UntilTick: min3, Interval: 54, Weights: []core.KindWeight{
+		{UntilTick: min(1), Interval: 300, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 9},
+			{Kind: core.EnemySwarmer, Weight: 1},
+		}},
+		{UntilTick: min(2), Interval: 250, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 7},
+			{Kind: core.EnemySwarmer, Weight: 3},
+		}},
+		{UntilTick: min(3), Interval: 200, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 6},
 			{Kind: core.EnemySwarmer, Weight: 4},
 		}},
-		// 3:00–6:00 — brutes join after the first boss.
-		{UntilTick: min6, Interval: 44, Weights: []core.KindWeight{
-			{Kind: core.EnemyGrunt, Weight: 5},
+		{UntilTick: min(4), Interval: 300, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 6},
 			{Kind: core.EnemySwarmer, Weight: 4},
+		}},
+		{UntilTick: min(5), Interval: 150, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 8},
+			{Kind: core.EnemySwarmer, Weight: 2},
+		}},
+		{UntilTick: min(6), Interval: 200, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 7},
+			{Kind: core.EnemySwarmer, Weight: 2},
 			{Kind: core.EnemyBrute, Weight: 1},
 		}},
-		// 6:00–8:00 — heavier swarms.
-		{UntilTick: min8, Interval: 34, Weights: []core.KindWeight{
-			{Kind: core.EnemyGrunt, Weight: 4},
-			{Kind: core.EnemySwarmer, Weight: 5},
-			{Kind: core.EnemyBrute, Weight: 2},
+		{UntilTick: min(7), Interval: 400, Weights: []core.KindWeight{
+			{Kind: core.EnemyBrute, Weight: 10},
 		}},
-		// 8:00+ — final-stretch onslaught.
-		{UntilTick: math.MaxInt, Interval: 26, Weights: []core.KindWeight{
-			{Kind: core.EnemyGrunt, Weight: 3},
-			{Kind: core.EnemySwarmer, Weight: 5},
+		{UntilTick: min(8), Interval: 30, Weights: []core.KindWeight{
+			{Kind: core.EnemySwarmer, Weight: 9},
+			{Kind: core.EnemyBrute, Weight: 1},
+		}},
+		{UntilTick: min(9), Interval: 100, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 7},
 			{Kind: core.EnemyBrute, Weight: 3},
+		}},
+		{UntilTick: math.MaxInt, Interval: 50, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 3},
+			{Kind: core.EnemySwarmer, Weight: 3},
+			{Kind: core.EnemyBrute, Weight: 4},
 		}},
 	}
 }
