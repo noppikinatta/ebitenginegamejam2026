@@ -347,10 +347,11 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 }
 
 // drawTitle renders the title screen: the real run's fully-assembled tank (kept
-// from the cinematic) sitting in the game world, with a pulsing prompt. The
-// backdrop is the live scrolling map at the in-game camera offset (player at the
-// world origin, centred on screen), drawn at the same scale the run uses — so
-// clicking into InGame continues the exact same picture instead of cutting to it.
+// from the cinematic) sitting in the game world, with a pulsing prompt, and the
+// title logo on top. The backdrop is the live scrolling map at the in-game camera
+// offset (player at the world origin, centred on screen), drawn at the same scale
+// the run uses — so clicking into InGame continues the exact same picture instead
+// of cutting to it.
 func (o *Opening) drawTitle(screen *ebiten.Image) {
 	// Match the in-game first frame: camera = player(0,0) - screen centre.
 	drawScrollBG(screen, -float64(screenW)/2, -float64(screenH)/2)
@@ -360,6 +361,11 @@ func (o *Opening) drawTitle(screen *ebiten.Image) {
 
 	blink := float32(0.7 + 0.3*math.Sin(float64(o.t)*0.12))
 	drawTelopC(screen, lang.Text("title-start"), opCenterX, screenH-100, 26, 1, 1, 0.85, blink)
+
+	// Title logo on top of everything: a transparent text-only image, drawn 1:1 at
+	// the top-left (0,0) so it overlays the world without scaling.
+	opt := &ebiten.DrawImageOptions{}
+	screen.DrawImage(drawing.Image(asset.ImgTitle), opt)
 }
 
 // drawSkipHint shows the "hold Space to skip" prompt bottom-right, brightening as
