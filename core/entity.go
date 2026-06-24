@@ -71,6 +71,9 @@ type Projectile struct {
 	// Sprite is the image key this projectile is drawn with; empty uses the
 	// default bullet sprite. Junk emitters and weapons set it to their own art.
 	Sprite string
+	// Firework marks a cosmetic emitter shell whose expiry burst is a colorful
+	// spark shower (no damage) rather than a weapon explosion.
+	Firework bool
 	// DrawW/DrawH are the sprite's draw footprint in px (0 lets the scene pick a
 	// default). FaceVelocity rotates the sprite to point along Vel (elongated art
 	// like the cannon shell, sniper dart and homing missile).
@@ -91,6 +94,13 @@ type Explosion struct {
 	Radius  float64
 	Life    int // ticks remaining
 	MaxLife int // initial Life, for alpha = Life/MaxLife
+	// Firework marks a cosmetic junk burst (no damage). The scene draws it as a
+	// colorful spark shower instead of the weapon explosion's orange blast, so
+	// players can tell harmless fireworks apart from real ordnance.
+	Firework bool
+	// Hue (0..1) seeds a firework's spark colors so each shell bursts in a
+	// different color. Unused for weapon explosions.
+	Hue float64
 }
 
 // Gem drops from a dead enemy and grants XP when collected.

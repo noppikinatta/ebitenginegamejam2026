@@ -523,7 +523,11 @@ func (w *World) updateProjectiles() {
 		if p.Life <= 0 {
 			p.alive = false
 			if p.ExplodeRadius > 0 {
-				w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+				if p.Firework {
+					w.explodeFirework(p.Pos, p.ExplodeRadius)
+				} else {
+					w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+				}
 			}
 			continue
 		}
@@ -569,6 +573,21 @@ func (w *World) explode(center geom.PointF, radius, dmg float64) {
 			}
 		}
 	}
+}
+
+// explodeFirework queues a purely cosmetic spark burst for firework junk: no
+// area damage, no enemy scan, and a random hue so each shell bursts in its own
+// color. It deliberately skips the weapon explosion SFX so a harmless firework
+// neither looks nor sounds like real ordnance.
+func (w *World) explodeFirework(center geom.PointF, radius float64) {
+	w.Explosions = append(w.Explosions, &Explosion{
+		Pos:      center,
+		Radius:   radius,
+		Life:     explosionLife,
+		MaxLife:  explosionLife,
+		Firework: true,
+		Hue:      w.rng.Float64(),
+	})
 }
 
 // updateExplosions ages active explosion effects; compact() drops expired ones.

@@ -1173,9 +1173,60 @@ func (g *InGame) drawExplosions(screen *ebiten.Image, cam geom.PointF) {
 		f := float32(e.Life) / float32(e.MaxLife)
 		cx := float32(e.Pos.X - cam.X)
 		cy := float32(e.Pos.Y - cam.Y)
+		if e.Firework {
+			drawFireworkBurst(screen, cx, cy, float32(e.Radius), f, e.Hue)
+			continue
+		}
 		// Orange (255,140,0) with premultiplied alpha so it fades to transparent.
 		c := color.RGBA{R: uint8(255 * f), G: uint8(140 * f), B: 0, A: uint8(255 * f)}
 		vector.DrawFilledCircle(screen, cx, cy, float32(e.Radius), c, true)
+	}
+}
+
+// fireworkSparks is how many spark dots a cosmetic firework burst scatters.
+const fireworkSparks = 12
+
+// drawFireworkBurst draws a junk firework as an expanding ring of colorful spark
+// dots that fade out, so it reads as celebratory rather than as a weapon's
+// orange blast. f is Life/MaxLife (1→0); hue (0..1) tints the sparks.
+func drawFireworkBurst(screen *ebiten.Image, cx, cy, radius, f float32, hue float64) {
+	prog := 1 - f          // 0→1 as the burst ages: sparks fly outward
+	dist := radius * prog  // current spark distance from the burst center
+	dot := 3*f + 1         // sparks shrink as they fade
+	for i := 0; i < fireworkSparks; i++ {
+		ang := float64(i) / float64(fireworkSparks) * 2 * math.Pi
+		sx := cx + dist*float32(math.Cos(ang))
+		sy := cy + dist*float32(math.Sin(ang))
+		// Spread the sparks across a slice of the color wheel for a festive look.
+		r, g, b := hsvToRGB(hue+float64(i)/float64(fireworkSparks)*0.3, 0.85, 1)
+		// Premultiplied alpha so the sparks fade to transparent like the disc.
+		c := color.RGBA{R: uint8(float32(r) * 255 * f), G: uint8(float32(g) * 255 * f), B: uint8(float32(b) * 255 * f), A: uint8(255 * f)}
+		vector.DrawFilledCircle(screen, sx, sy, dot, c, true)
+	}
+}
+
+// hsvToRGB converts HSV (each 0..1, hue wrapping) to RGB in 0..1. Used to give
+// firework sparks vivid, varied colors without a lookup table.
+func hsvToRGB(h, s, v float64) (float64, float64, float64) {
+	h = h - math.Floor(h) // wrap hue into [0,1)
+	i := math.Floor(h * 6)
+	f := h*6 - i
+	p := v * (1 - s)
+	q := v * (1 - f*s)
+	t := v * (1 - (1-f)*s)
+	switch int(i) % 6 {
+	case 0:
+		return v, t, p
+	case 1:
+		return q, v, p
+	case 2:
+		return p, v, t
+	case 3:
+		return p, q, v
+	case 4:
+		return t, p, v
+	default:
+		return v, p, q
 	}
 }
 
