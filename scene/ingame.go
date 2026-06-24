@@ -378,7 +378,7 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 	for _, pk := range w.Pickups {
 		key, sz := asset.ImgNipper, 16.0
 		if pk.Kind == core.PickupHeart {
-			key, sz = asset.ImgHeart, 8.0 // hearts draw at the gem's 8×8 footprint
+			key = asset.ImgHeart // heart art is 16×16, drawn 1:1 like the nipper
 		}
 		drawSprite(screen, cam, key, pk.Pos, sz, sz, 0, 1, 1, 1, 1, false)
 	}
