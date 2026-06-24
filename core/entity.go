@@ -71,6 +71,9 @@ type Projectile struct {
 	// Sprite is the image key this projectile is drawn with; empty uses the
 	// default bullet sprite. Junk emitters and weapons set it to their own art.
 	Sprite string
+	// Firework marks a cosmetic emitter shell whose expiry burst is a colorful
+	// spark shower (no damage) rather than a weapon explosion.
+	Firework bool
 	// DrawW/DrawH are the sprite's draw footprint in px (0 lets the scene pick a
 	// default). FaceVelocity rotates the sprite to point along Vel (elongated art
 	// like the cannon shell, sniper dart and homing missile).
@@ -91,13 +94,21 @@ type Explosion struct {
 	Radius  float64
 	Life    int // ticks remaining
 	MaxLife int // initial Life, for alpha = Life/MaxLife
+	// Firework marks a cosmetic junk burst (no damage). The scene draws it as a
+	// colorful spark shower instead of the weapon explosion's orange blast, so
+	// players can tell harmless fireworks apart from real ordnance.
+	Firework bool
+	// Hue (0..1) seeds a firework's spark colors so each shell bursts in a
+	// different color. Unused for weapon explosions.
+	Hue float64
 }
 
 // Gem drops from a dead enemy and grants XP when collected.
 type Gem struct {
-	Pos   geom.PointF
-	Value float64
-	alive bool
+	Pos      geom.PointF
+	Value    float64
+	alive    bool
+	tracking bool // once the player got within magnet range, home forever
 }
 
 // PickupKind distinguishes what a dropped pickup grants when collected.
@@ -106,14 +117,16 @@ type PickupKind int
 const (
 	PickupNipper PickupKind = iota // grants one nipper (default)
 	PickupHeart                    // restores HP
+	PickupMagnet                   // magnetizes every gem & pickup on the field
 )
 
 // Pickup is a dropped item a candlestick leaves behind: a nipper, or (rarely) a
 // heart that restores HP. Kind selects which; the zero value is a nipper.
 type Pickup struct {
-	Pos   geom.PointF
-	Kind  PickupKind
-	alive bool
+	Pos      geom.PointF
+	Kind     PickupKind
+	alive    bool
+	tracking bool // once the player got within magnet range, home forever
 }
 
 // BeamView is a read-only snapshot of an active laser beam for the scene layer to draw.

@@ -35,6 +35,56 @@ func TestKillEnemy_NormalEnemyDropsGemNotNipper(t *testing.T) {
 	}
 }
 
+func TestKillEnemy_MidBossDropsMagnet(t *testing.T) {
+	w := &World{Player: &Player{}, State: StatePlaying}
+	e := &Enemy{Pos: geom.PointF{X: 5}, IsBoss: true, Final: false, XPValue: 50, alive: true}
+
+	w.killEnemy(e)
+
+	var magnets int
+	for _, p := range w.Pickups {
+		if p.Kind == PickupMagnet {
+			magnets++
+		}
+	}
+	if magnets != 1 {
+		t.Errorf("mid-boss should drop exactly 1 magnet pickup, got %d", magnets)
+	}
+}
+
+func TestKillEnemy_FinalBossDropsNoMagnet(t *testing.T) {
+	w := &World{Player: &Player{}, State: StatePlaying}
+	e := &Enemy{Pos: geom.PointF{}, IsBoss: true, Final: true, XPValue: 200, alive: true}
+
+	w.killEnemy(e)
+
+	for _, p := range w.Pickups {
+		if p.Kind == PickupMagnet {
+			t.Errorf("final boss should not drop a magnet pickup")
+		}
+	}
+}
+
+func TestCollectMagnet_MagnetizesAllGemsAndPickups(t *testing.T) {
+	w := &World{Player: &Player{Pos: geom.PointF{}}, cfg: testConfig()}
+	// Gems and a nipper sitting far outside magnet range (so they would never
+	// latch on their own), plus the magnet pickup on the player.
+	far := geom.PointF{X: 9000}
+	gem := &Gem{Pos: far, Value: 1, alive: true}
+	nip := &Pickup{Pos: far, Kind: PickupNipper, alive: true}
+	w.Gems = []*Gem{gem}
+	w.Pickups = []*Pickup{nip, {Pos: geom.PointF{}, Kind: PickupMagnet, alive: true}}
+
+	w.updatePickups() // collects the magnet (it is on the player) → magnetizeAll
+
+	if !gem.tracking {
+		t.Errorf("collecting the magnet should set tracking on distant gems")
+	}
+	if !nip.tracking {
+		t.Errorf("collecting the magnet should set tracking on distant pickups")
+	}
+}
+
 func TestUpdatePickups_CollectGrantsNipper(t *testing.T) {
 	w := &World{Player: &Player{Pos: geom.PointF{}, Nippers: 0}, cfg: testConfig()}
 	w.Pickups = []*Pickup{{Pos: geom.PointF{}, alive: true}}

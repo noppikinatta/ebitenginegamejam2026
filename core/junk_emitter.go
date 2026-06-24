@@ -149,7 +149,8 @@ func (w *World) updateJunkEmitters() {
 			Radius:        e.spec.Radius,
 			Life:          e.spec.Life,
 			ExplodeRadius: e.spec.ExplodeRadius,
-			PassThrough:   true, // cosmetic: never interacts with enemies
+			Firework:      e.spec.ExplodeRadius > 0, // only firework shells burst
+			PassThrough:   true,                     // cosmetic: never interacts with enemies
 			Mover:         e.spec.Mover,
 			Sprite:        e.spec.Sprite,
 			alive:         true,
