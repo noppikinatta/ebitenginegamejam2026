@@ -7,12 +7,19 @@ import (
 	"github.com/noppikinatta/ebitenginegamejam2026/data"
 )
 
-// TestMetaCostLinear checks the cost ramp is CostBase + CostStep*level and that
-// a maxed stat reports cost 0 / maxed.
-func TestMetaCostLinear(t *testing.T) {
+// TestMetaCostProgressive checks the cost ramp is CostBase * CostStep^level
+// (clamped to 100000) and that a maxed stat reports cost 0 / maxed.
+func TestMetaCostProgressive(t *testing.T) {
 	spec := data.MetaSpec(core.MetaHP)
 	for lv := 0; lv < spec.MaxLevel; lv++ {
-		want := spec.CostBase + spec.CostStep*lv
+		want := spec.CostBase
+		for range lv {
+			want *= spec.CostStep
+			if want > 100000 {
+				want = 100000
+				break
+			}
+		}
 		if got := data.MetaCost(core.MetaHP, lv); got != want {
 			t.Errorf("MetaCost(HP, %d) = %d, want %d", lv, got, want)
 		}
