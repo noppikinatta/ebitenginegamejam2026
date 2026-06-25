@@ -363,7 +363,14 @@ func tileScreenCenter(idx hexmap.Index, cx, cy, size float64) geom.PointF {
 func (g *InGame) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{12, 14, 22, 255})
 
+	// Depending on the monitor's refresh rate, Ebiten can call Draw before the
+	// first Update (which is what builds the world via OnStart/Update). Guard
+	// against the nil world here so an early Draw paints the cleared screen and
+	// returns instead of dereferencing nil through w.Player et al.
 	w := g.world
+	if w == nil {
+		return
+	}
 	// Camera keeps the player centred on screen.
 	cam := geom.PointF{X: w.Player.Pos.X - screenW/2, Y: w.Player.Pos.Y - screenH/2}
 
