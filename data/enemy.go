@@ -122,7 +122,7 @@ func bosses() []core.BossSpec {
 // Speed/Damage/XPValue stay zero (stationary, harmless, no XP).
 func candlestick() core.Enemy {
 	return core.Enemy{
-		HP:          10,
+		HP:          20,
 		Radius:      16, // matches the 32x32 candlestick sprite
 		DropsNipper: true,
 	}
