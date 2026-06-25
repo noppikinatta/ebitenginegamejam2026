@@ -678,6 +678,58 @@ func TestUpdate_EnemyTurnLimitsSteering(t *testing.T) {
 	}
 }
 
+// TestUpdate_OutrunEnemyDespawns: a regular enemy more than despawnDistance from
+// the player on either axis is removed instead of being chased forever.
+func TestUpdate_OutrunEnemyDespawns(t *testing.T) {
+	w := NewWorld(testSeed, testConfig())
+	w.Player.Pos = geom.PointF{X: 0, Y: 0}
+	w.Enemies = nil
+
+	far := &Enemy{Pos: geom.PointF{X: despawnDistance + 1, Y: 0}, HP: 10, Speed: 1, Radius: 8, alive: true}
+	near := &Enemy{Pos: geom.PointF{X: 100, Y: 0}, HP: 10, Speed: 1, Radius: 8, alive: true}
+	w.Enemies = append(w.Enemies, far, near)
+
+	w.Update(noMove())
+
+	if far.alive {
+		t.Errorf("outrun enemy should have despawned")
+	}
+	if !near.alive {
+		t.Errorf("nearby enemy should still be alive")
+	}
+	for _, e := range w.Enemies {
+		if !e.alive {
+			t.Errorf("despawned enemy still in Enemies slice after compact")
+		}
+	}
+}
+
+// TestUpdate_OutrunBossReeledIn: a boss beyond despawnDistance is not removed but
+// pulled back to exactly despawnDistance on the offending axis so it keeps chasing.
+func TestUpdate_OutrunBossReeledIn(t *testing.T) {
+	w := NewWorld(testSeed, testConfig())
+	w.Player.Pos = geom.PointF{X: 0, Y: 0}
+	w.Enemies = nil
+
+	boss := &Enemy{
+		Pos:    geom.PointF{X: despawnDistance + 500, Y: despawnDistance + 200},
+		HP:     1e9, Speed: 0, Radius: 40, IsBoss: true, alive: true,
+	}
+	w.Enemies = append(w.Enemies, boss)
+
+	w.Update(noMove())
+
+	if !boss.alive {
+		t.Fatalf("boss should never despawn")
+	}
+	if boss.Pos.X > despawnDistance+1e-9 {
+		t.Errorf("boss X not reeled in: %.2f, want <= %d", boss.Pos.X, despawnDistance)
+	}
+	if boss.Pos.Y > despawnDistance+1e-9 {
+		t.Errorf("boss Y not reeled in: %.2f, want <= %d", boss.Pos.Y, despawnDistance)
+	}
+}
+
 // ── 10. Projectile life expiry ────────────────────────────────────────────────
 
 func TestUpdate_ProjectileExpiresAfterLifeTicks(t *testing.T) {

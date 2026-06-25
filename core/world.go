@@ -628,10 +628,44 @@ func (w *World) killEnemy(e *Enemy) {
 	}
 }
 
+// despawnDistance is the per-axis (X or Y) gap from the player at which a
+// regular enemy is considered shaken off: it is removed so we stop spending
+// work chasing something the player has long outrun. Bosses are not removed;
+// instead they are reeled back to this distance so they keep pursuing.
+const despawnDistance = 1000
+
+// clampAbs returns v clamped to the range [-limit, limit] (limit assumed >= 0).
+func clampAbs(v, limit float64) float64 {
+	if v > limit {
+		return limit
+	}
+	if v < -limit {
+		return -limit
+	}
+	return v
+}
+
 func (w *World) updateEnemies() {
 	for _, e := range w.Enemies {
 		if !e.alive {
 			continue
+		}
+		// Drop (or, for bosses, reel in) enemies the player has outrun by more
+		// than despawnDistance on either axis. Candlesticks are stationary
+		// pickups, so leave them be.
+		if !e.DropsNipper {
+			dx := e.Pos.X - w.Player.Pos.X
+			dy := e.Pos.Y - w.Player.Pos.Y
+			if dx > despawnDistance || dx < -despawnDistance ||
+				dy > despawnDistance || dy < -despawnDistance {
+				if e.IsBoss {
+					e.Pos.X = w.Player.Pos.X + clampAbs(dx, despawnDistance)
+					e.Pos.Y = w.Player.Pos.Y + clampAbs(dy, despawnDistance)
+				} else {
+					e.alive = false
+					continue
+				}
+			}
 		}
 		dir := w.Player.Pos.Subtract(e.Pos)
 		d := dir.Abs()
