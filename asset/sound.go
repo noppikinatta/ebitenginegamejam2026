@@ -124,8 +124,8 @@ type bgmSpec struct {
 }
 
 var bgmSpecs = []bgmSpec{
-	{BGMTitle, "bgm_title", 0.25},
-	{BGMGame, "bgm_game", 0.25},
+	{BGMTitle, "bgm_title", 0.50},
+	{BGMGame, "bgm_game", 0.35},
 }
 
 // seBytes holds the decoded PCM for each one-shot effect so PlaySound can create
