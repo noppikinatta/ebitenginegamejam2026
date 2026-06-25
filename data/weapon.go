@@ -11,6 +11,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseDamage:   25,
 			BaseInterval: 720, MinInterval: 6, // 12s between shots at fireMult=1
 			ProjSpeed: 6, ProjMaxDist: 600, ProjRadius: 6, BaseRange: 360,
+			Pierce: true, // shell bores through enemies instead of dying on first hit
 			Sprite: core.SpriteCannon, ProjDrawW: 8, ProjDrawH: 14, ProjFaceVelocity: true, // chunky shell, points along travel
 			LevelMult: 1.2,
 		},

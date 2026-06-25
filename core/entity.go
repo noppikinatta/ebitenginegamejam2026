@@ -66,6 +66,12 @@ type Projectile struct {
 	// expiry, e.g. the grenade shell that detonates where it lands). Contact
 	// projectiles (including missiles) die on the first enemy they touch.
 	PassThrough bool
+	// Pierce makes a contact projectile bore through enemies: it damages every
+	// enemy it touches and keeps flying instead of dying on the first hit (the
+	// cannon shell). NOTE: a slow shell overlaps one enemy for several ticks, so
+	// it currently re-hits the same enemy each of those ticks — multi-hit
+	// dedup/limit is a separate, deferred concern.
+	Pierce bool
 	// Mover steers the projectile each tick (homing, drifting). nil flies straight.
 	Mover ProjectileMover
 	// Sprite is the image key this projectile is drawn with; empty uses the

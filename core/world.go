@@ -382,6 +382,7 @@ func (w *World) emitPellets(weapon *Weapon, params WeaponParams, stats WeaponSta
 			ExplodeRadius: stats.ExplodeRadius,
 			ExplodeDamage: stats.ExplodeDamage,
 			PassThrough:   params.PassThrough,
+			Pierce:        params.Pierce,
 			Mover:         params.Mover,
 			Sprite:        params.Sprite,
 			DrawW:         params.ProjDrawW,
@@ -542,18 +543,24 @@ func (w *World) updateProjectiles() {
 			if !e.alive {
 				continue
 			}
-			if p.Pos.Distance(e.Pos) <= p.Radius+e.Radius {
-				e.HP -= p.Damage
-				w.emitDamage(e.Pos, p.Damage, false)
-				p.alive = false
-				if p.ExplodeRadius > 0 {
-					w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
-				}
-				if e.HP <= 0 {
-					w.killEnemy(e)
-				}
-				break
+			if p.Pos.Distance(e.Pos) > p.Radius+e.Radius {
+				continue
 			}
+			e.HP -= p.Damage
+			w.emitDamage(e.Pos, p.Damage, false)
+			if e.HP <= 0 {
+				w.killEnemy(e)
+			}
+			// Piercing shells bore through: damage every enemy they overlap this
+			// tick and keep flying. Non-piercing shells die on the first hit.
+			if p.Pierce {
+				continue
+			}
+			p.alive = false
+			if p.ExplodeRadius > 0 {
+				w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+			}
+			break
 		}
 	}
 }

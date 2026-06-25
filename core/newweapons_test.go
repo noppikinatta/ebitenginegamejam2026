@@ -340,3 +340,45 @@ func TestMissile_ExplodesOnExpiry(t *testing.T) {
 		t.Error("missile expiry did not queue an explosion effect")
 	}
 }
+
+// TestPierce_BoresThroughMultipleEnemies: a piercing shell damages every enemy
+// it overlaps and keeps flying, where a non-piercing shell dies on the first.
+func TestPierce_BoresThroughMultipleEnemies(t *testing.T) {
+	w, _ := buildWeaponWorld(KindCannon, hexmap.IdxXY(0, 0))
+	// Two enemies in a line along the X axis, far enough apart that the shell is
+	// only ever in contact with one at a time (so each is hit on its own tick).
+	front := &Enemy{Pos: geom.PointF{X: 10, Y: 0}, HP: 1000, Radius: 4, alive: true}
+	back := &Enemy{Pos: geom.PointF{X: 40, Y: 0}, HP: 1000, Radius: 4, alive: true}
+	w.Enemies = []*Enemy{front, back}
+
+	p := &Projectile{
+		Pos: geom.PointF{X: 0, Y: 0}, Vel: geom.PointF{X: 6, Y: 0},
+		Damage: 25, Radius: 6, Life: 20, Pierce: true, alive: true,
+	}
+	w.Projectiles = []*Projectile{p}
+
+	for i := 0; i < 20; i++ {
+		w.updateProjectiles()
+	}
+	if front.HP >= 1000 || back.HP >= 1000 {
+		t.Errorf("piercing shell should damage both enemies: front=%.0f back=%.0f", front.HP, back.HP)
+	}
+
+	// Same setup without Pierce: the shell dies on the front enemy, never reaching
+	// the back one.
+	w2, _ := buildWeaponWorld(KindCannon, hexmap.IdxXY(0, 0))
+	f2 := &Enemy{Pos: geom.PointF{X: 10, Y: 0}, HP: 1000, Radius: 4, alive: true}
+	b2 := &Enemy{Pos: geom.PointF{X: 40, Y: 0}, HP: 1000, Radius: 4, alive: true}
+	w2.Enemies = []*Enemy{f2, b2}
+	np := &Projectile{
+		Pos: geom.PointF{X: 0, Y: 0}, Vel: geom.PointF{X: 6, Y: 0},
+		Damage: 25, Radius: 6, Life: 20, alive: true,
+	}
+	w2.Projectiles = []*Projectile{np}
+	for i := 0; i < 20; i++ {
+		w2.updateProjectiles()
+	}
+	if b2.HP != 1000 {
+		t.Errorf("non-piercing shell reached the back enemy: HP=%.0f, want 1000", b2.HP)
+	}
+}
