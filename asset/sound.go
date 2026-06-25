@@ -48,7 +48,7 @@ var seFS embed.FS
 //go:embed sound/bgm
 var bgmFS embed.FS
 
-const sampleRate int = 48000
+const sampleRate int = 44100
 
 var context *audio.Context
 

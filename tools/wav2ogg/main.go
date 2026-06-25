@@ -21,7 +21,7 @@
 //     intact. The loop never reaches the silence (loopLen < ogg length).
 //
 // IMPORTANT: the ogg keeps the source sample rate and channel count, so the
-// runtime resample path (e.g. 44100 -> 48000) is identical for the wav and the
+// runtime resample path (e.g. 44100 -> 44100) is identical for the wav and the
 // ogg. That is what makes the recorded loopLen reusable for the ogg.
 //
 // OUTPUT
@@ -53,7 +53,7 @@ import (
 // contextRate is the game's audio context sample rate (asset.sampleRate). Ebiten
 // resamples every decoded stream to this rate, so the loop length is measured in
 // 16-bit stereo bytes at this rate.
-const contextRate = 48000
+const contextRate = 44100
 
 func main() {
 	silence := flag.Float64("silence", 1.0, "seconds of trailing silence to pad before encoding")
@@ -137,7 +137,7 @@ func main() {
 	}
 
 	// Ready-to-paste Go: a map of track base name -> loop length in bytes.
-	fmt.Println("\n// Loop lengths (bytes, 48000 Hz 16-bit stereo) for audio.NewInfiniteLoop:")
+	fmt.Println("\n// Loop lengths (bytes, 44100 Hz 16-bit stereo) for audio.NewInfiniteLoop:")
 	fmt.Println("var bgmLoopLen = map[string]int64{")
 	for _, r := range results {
 		fmt.Printf("\t%q: %d,\n", r.base, r.loopLen)

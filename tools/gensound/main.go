@@ -12,7 +12,7 @@ import (
 	"os"
 )
 
-const sampleRate = 48000
+const sampleRate = 44100
 
 // force, when true, overwrites existing files; otherwise writeWAV skips any file
 // that already exists so real audio is never clobbered.
@@ -37,13 +37,13 @@ func writeWAV(path string, samples []float64) {
 	u32(36 + dataLen)
 	put('W', 'A', 'V', 'E')
 	put('f', 'm', 't', ' ')
-	u32(16)                       // fmt chunk size
-	u16(1)                        // PCM
-	u16(1)                        // mono
-	u32(sampleRate)               // sample rate
-	u32(sampleRate * 2)           // byte rate (rate * channels * bytesPerSample)
-	u16(2)                        // block align
-	u16(16)                       // bits per sample
+	u32(16)             // fmt chunk size
+	u16(1)              // PCM
+	u16(1)              // mono
+	u32(sampleRate)     // sample rate
+	u32(sampleRate * 2) // byte rate (rate * channels * bytesPerSample)
+	u16(2)              // block align
+	u16(16)             // bits per sample
 	put('d', 'a', 't', 'a')
 	u32(dataLen)
 	for _, s := range samples {
