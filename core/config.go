@@ -99,6 +99,9 @@ type WeaponParams struct {
 	ExplodeRadius float64
 	ExplodeDamage float64
 	PassThrough   bool
+	// Pierce makes fired projectiles bore through enemies (damage all they touch
+	// and keep flying) instead of dying on the first hit. See Projectile.Pierce.
+	Pierce bool
 	// Mover steers each fired projectile (homing, drift). nil flies straight.
 	Mover ProjectileMover
 	// Projectile appearance. Sprite is the image key fired projectiles are drawn

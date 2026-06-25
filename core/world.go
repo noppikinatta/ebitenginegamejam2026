@@ -52,6 +52,7 @@ type World struct {
 	turret           *Turret
 	pendingLevelUps  int
 	candlestickTimer int
+	magnetTimer      int
 	spawnTimer       int
 	bossesSpawned    int // index of the next boss in cfg.Bosses to spawn
 	rng              *rand.Rand
@@ -210,6 +211,7 @@ func (w *World) Update(move geom.PointF) {
 	w.spawnEnemies()
 	w.spawnBosses()
 	w.spawnCandlestick()
+	w.spawnAutoMagnet()
 	w.compact()
 }
 
@@ -380,6 +382,7 @@ func (w *World) emitPellets(weapon *Weapon, params WeaponParams, stats WeaponSta
 			ExplodeRadius: stats.ExplodeRadius,
 			ExplodeDamage: stats.ExplodeDamage,
 			PassThrough:   params.PassThrough,
+			Pierce:        params.Pierce,
 			Mover:         params.Mover,
 			Sprite:        params.Sprite,
 			DrawW:         params.ProjDrawW,
@@ -509,6 +512,11 @@ func (w *World) targetEnemy(from geom.PointF, maxRange float64, mode TargetMode)
 	return best
 }
 
+// pierceHitCooldown is how many ticks a piercing shell waits after a hit before
+// it can damage again. At 3, a shell stuck overlapping a boss lands a hit every
+// third frame.
+const pierceHitCooldown = 3
+
 func (w *World) updateProjectiles() {
 	for _, p := range w.Projectiles {
 		if !p.alive {
@@ -536,22 +544,39 @@ func (w *World) updateProjectiles() {
 		if p.PassThrough {
 			continue
 		}
+		// A piercing shell cools down after each hit: tick the cooldown down, then
+		// skip the hit test while it is still positive. The tick it reaches 0 fires,
+		// so consecutive hits land pierceHitCooldown frames apart — one metered hit
+		// instead of a per-tick torrent on an enemy (e.g. a boss) it keeps overlapping.
+		if p.hitCooldown > 0 {
+			p.hitCooldown--
+		}
+		if p.hitCooldown > 0 {
+			continue
+		}
 		for _, e := range w.Enemies {
 			if !e.alive {
 				continue
 			}
-			if p.Pos.Distance(e.Pos) <= p.Radius+e.Radius {
-				e.HP -= p.Damage
-				w.emitDamage(e.Pos, p.Damage, false)
-				p.alive = false
-				if p.ExplodeRadius > 0 {
-					w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
-				}
-				if e.HP <= 0 {
-					w.killEnemy(e)
-				}
+			if p.Pos.Distance(e.Pos) > p.Radius+e.Radius {
+				continue
+			}
+			e.HP -= p.Damage
+			w.emitDamage(e.Pos, p.Damage, false)
+			if e.HP <= 0 {
+				w.killEnemy(e)
+			}
+			// Piercing shells bore through: land one hit, arm the cooldown, and keep
+			// flying. Non-piercing shells die on the first hit.
+			if p.Pierce {
+				p.hitCooldown = pierceHitCooldown
 				break
 			}
+			p.alive = false
+			if p.ExplodeRadius > 0 {
+				w.explode(p.Pos, p.ExplodeRadius, p.ExplodeDamage)
+			}
+			break
 		}
 	}
 }
@@ -1112,6 +1137,56 @@ func (w *World) spawnCandlestick() {
 	e.Pos = pos
 	e.alive = true
 	w.Enemies = append(w.Enemies, &e)
+}
+
+// spawnAutoMagnet keeps the on-field item population from snowballing. On the
+// same cadence as candlesticks it may drop a magnet pickup — the more gems and
+// pickups litter the field, the likelier it spawns — so collecting it sweeps
+// everything to the player at once and frees the per-item update/draw work.
+// Magnets the player has long outrun are reeled back within reach (the same
+// far-out clamp bosses use) so they stay collectible instead of stranding.
+func (w *World) spawnAutoMagnet() {
+	// Reel any far-flung magnets back toward the player, exactly as bosses are.
+	magnets := 0
+	for _, p := range w.Pickups {
+		if !p.alive || p.Kind != PickupMagnet {
+			continue
+		}
+		magnets++
+		dx := p.Pos.X - w.Player.Pos.X
+		dy := p.Pos.Y - w.Player.Pos.Y
+		if dx > despawnDistance || dx < -despawnDistance ||
+			dy > despawnDistance || dy < -despawnDistance {
+			p.Pos.X = w.Player.Pos.X + clampAbs(dx, despawnDistance)
+			p.Pos.Y = w.Player.Pos.Y + clampAbs(dy, despawnDistance)
+		}
+	}
+
+	if w.magnetTimer > 0 {
+		w.magnetTimer--
+		return
+	}
+	w.magnetTimer = w.cfg.CandlestickInterval
+
+	if magnets >= 3 {
+		return // already enough magnets pending; don't pile on
+	}
+
+	// More on-field items (gems + nipper/heart pickups) → higher spawn chance.
+	items := len(w.Gems)
+	for _, p := range w.Pickups {
+		if p.alive && p.Kind != PickupMagnet {
+			items++
+		}
+	}
+	if w.rng.Float64() >= float64(items)/100 {
+		return
+	}
+
+	sp := w.cfg.Spawn
+	angle := w.rng.Float64() * 2 * math.Pi
+	pos := w.Player.Pos.Add(geom.PointFFromPolar(sp.EnemyDist, angle))
+	w.Pickups = append(w.Pickups, &Pickup{Pos: pos, Kind: PickupMagnet, alive: true})
 }
 
 func (w *World) compact() {
