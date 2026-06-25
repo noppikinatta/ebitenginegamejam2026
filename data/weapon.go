@@ -41,9 +41,9 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			LevelMult:        1.2,
 		},
 		core.KindGatling: {
-			BaseDamage:   2,
+			BaseDamage:   8,
 			BaseInterval: 480, MinInterval: 6, // 8s between bursts
-			ProjSpeed: 5, ProjMaxDist: 500, ProjRadius: 2,
+			ProjSpeed: 8, ProjMaxDist: 800, ProjRadius: 2,
 			Pellets: 10, SpreadRad: 0.2, SpreadRandom: true, BurstGap: 3, // staggered random stream
 			Aim:    core.AimForward,                                // never locks on; always fires forward
 			Sprite: core.SpriteGatling, ProjDrawW: 6, ProjDrawH: 6, // small round slug
@@ -54,7 +54,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			BaseInterval: 1800, MinInterval: 30, // 30s
 			ProjSpeed: 2, ProjMaxDist: 150, // lobbed slowly; lifetime = ProjMaxDist/ProjSpeed = 150 ticks
 			Aim:           core.AimOutward,                          // never locks on; always fires outward
-			ExplodeRadius: 64, ExplodeDamage: 20, PassThrough: true, // flies through; detonates where it lands
+			ExplodeRadius: 96, ExplodeDamage: 40, PassThrough: true, // flies through; detonates where it lands
 			Sprite: core.SpriteGrenade, ProjDrawW: 14, ProjDrawH: 14, // fat round shell
 			LevelMult: 1.2,
 		},
