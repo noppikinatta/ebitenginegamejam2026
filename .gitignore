@@ -36,3 +36,6 @@ release/game.wasm
 
 # Mac
 .DS_Store
+
+# Release files
+release.zip
