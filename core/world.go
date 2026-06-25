@@ -512,6 +512,11 @@ func (w *World) targetEnemy(from geom.PointF, maxRange float64, mode TargetMode)
 	return best
 }
 
+// pierceHitCooldown is how many ticks a piercing shell waits after a hit before
+// it can damage again. At 3, a shell stuck overlapping a boss lands a hit every
+// third frame.
+const pierceHitCooldown = 3
+
 func (w *World) updateProjectiles() {
 	for _, p := range w.Projectiles {
 		if !p.alive {
@@ -539,6 +544,16 @@ func (w *World) updateProjectiles() {
 		if p.PassThrough {
 			continue
 		}
+		// A piercing shell cools down after each hit: tick the cooldown down, then
+		// skip the hit test while it is still positive. The tick it reaches 0 fires,
+		// so consecutive hits land pierceHitCooldown frames apart — one metered hit
+		// instead of a per-tick torrent on an enemy (e.g. a boss) it keeps overlapping.
+		if p.hitCooldown > 0 {
+			p.hitCooldown--
+		}
+		if p.hitCooldown > 0 {
+			continue
+		}
 		for _, e := range w.Enemies {
 			if !e.alive {
 				continue
@@ -551,10 +566,11 @@ func (w *World) updateProjectiles() {
 			if e.HP <= 0 {
 				w.killEnemy(e)
 			}
-			// Piercing shells bore through: damage every enemy they overlap this
-			// tick and keep flying. Non-piercing shells die on the first hit.
+			// Piercing shells bore through: land one hit, arm the cooldown, and keep
+			// flying. Non-piercing shells die on the first hit.
 			if p.Pierce {
-				continue
+				p.hitCooldown = pierceHitCooldown
+				break
 			}
 			p.alive = false
 			if p.ExplodeRadius > 0 {

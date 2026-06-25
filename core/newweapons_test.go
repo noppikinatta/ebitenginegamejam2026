@@ -382,3 +382,29 @@ func TestPierce_BoresThroughMultipleEnemies(t *testing.T) {
 		t.Errorf("non-piercing shell reached the back enemy: HP=%.0f, want 1000", b2.HP)
 	}
 }
+
+// TestPierce_HitCooldownMetersRepeatHits: a piercing shell parked inside one big
+// enemy (a boss) lands a hit only once every pierceHitCooldown frames, not every
+// frame.
+func TestPierce_HitCooldownMetersRepeatHits(t *testing.T) {
+	w, _ := buildWeaponWorld(KindCannon, hexmap.IdxXY(0, 0))
+	boss := &Enemy{Pos: geom.PointF{}, HP: 100000, Radius: 100, IsBoss: true, alive: true}
+	w.Enemies = []*Enemy{boss}
+
+	const ticks = 30
+	p := &Projectile{
+		Pos: geom.PointF{}, Vel: geom.PointF{}, // sits still, always overlapping the boss
+		Damage: 25, Radius: 6, Life: ticks + 1, Pierce: true, alive: true,
+	}
+	w.Projectiles = []*Projectile{p}
+
+	for i := 0; i < ticks; i++ {
+		w.updateProjectiles()
+	}
+	// Hits land on ticks 1, 4, 7, ... -> ceil(ticks/cooldown) over the window.
+	wantHits := (ticks + pierceHitCooldown - 1) / pierceHitCooldown
+	gotHits := int((100000 - boss.HP) / 25)
+	if gotHits != wantHits {
+		t.Errorf("pierce hits over %d ticks = %d, want %d (one per %d frames)", ticks, gotHits, wantHits, pierceHitCooldown)
+	}
+}
