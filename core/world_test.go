@@ -712,8 +712,8 @@ func TestUpdate_OutrunBossReeledIn(t *testing.T) {
 	w.Enemies = nil
 
 	boss := &Enemy{
-		Pos:    geom.PointF{X: despawnDistance + 500, Y: despawnDistance + 200},
-		HP:     1e9, Speed: 0, Radius: 40, IsBoss: true, alive: true,
+		Pos: geom.PointF{X: despawnDistance + 500, Y: despawnDistance + 200},
+		HP:  1e9, Speed: 0, Radius: 40, IsBoss: true, alive: true,
 	}
 	w.Enemies = append(w.Enemies, boss)
 
