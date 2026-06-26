@@ -393,6 +393,45 @@ func TestActiveWeapons_IncludesGeneratorWeapon(t *testing.T) {
 	}
 }
 
+// TestActiveWeapons_GeneratorWeaponFiresAfterAllConsumersCut: cutting away every
+// consumer tile (so ConsumerTileCount hits 0) must NOT silence the uncuttable
+// central cannon. Regression for the bug where ComputePower returned early on
+// n == 0 and dropped the generator, so the central weapon stopped aiming/firing.
+func TestActiveWeapons_GeneratorWeaponFiresAfterAllConsumersCut(t *testing.T) {
+	gen := hexmap.IdxXY(0, 0)
+	nb := hexmap.IdxXY(1, 0)
+	tiles := map[hexmap.Index]*Tile{
+		gen: makeTile(WeaponComponent{Weapon: NewWeapon("Core", KindCannon)}),
+		nb:  weaponT(), // the only consumer tile; will be cut
+	}
+	tr := NewTurret(tiles, []hexmap.Index{gen}, 100)
+
+	if !tr.PurgeTile(nb) {
+		t.Fatalf("PurgeTile(nb) should succeed")
+	}
+	if n := tr.ConsumerTileCount(); n != 0 {
+		t.Fatalf("ConsumerTileCount after cutting all consumers = %d, want 0", n)
+	}
+
+	// The central cannon must still be powered and active.
+	if got := tr.ComputePower()[gen]; got != 0 {
+		// generator is reported with power 0 but must be present in the map.
+		t.Errorf("generator power entry = %v, want 0 (present)", got)
+	}
+	if _, ok := tr.ComputePower()[gen]; !ok {
+		t.Error("generator tile missing from ComputePower with no consumers")
+	}
+	found := false
+	for _, w := range tr.ActiveWeapons() {
+		if w.TileIdx == gen {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("central (generator) weapon must keep firing after all consumer tiles are cut")
+	}
+}
+
 // TestActiveWeapons_SetsTileIdx: ActiveWeapons records which tile each weapon
 // sits on, so firing can originate from the correct turret position.
 func TestActiveWeapons_SetsTileIdx(t *testing.T) {
