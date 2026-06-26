@@ -102,7 +102,14 @@ const (
 
 // --- Opening cinematic timeline (ticks at 60 TPS) -------------------------
 const (
-	opAliensEnd   = 200 // aliens telop + swarm
+	opAliensEnd = 200 // aliens telop + swarm
+	// opAliensHold is the tick the aliens scene freezes at, waiting for the player
+	// to advance it (click/Space) instead of auto-rolling into the launch on a
+	// timer. It sits where the aliens telop is fully shown — just before its
+	// fade-out begins (opAliensEnd minus the 30-tick telop fade) — so the scene
+	// holds with the telop up; releasing lets time resume and the fade-out plays
+	// straight into the tank roll-in at opTankStart.
+	opAliensHold  = 170
 	opTankStart   = 200 // tank starts rolling in (and the backdrop starts scrolling)
 	opTankEnd     = 320 // tank reaches centre
 	opFirstLine   = 330 // first doctor line appears
@@ -119,7 +126,7 @@ const (
 	opTile = combatTileSize
 	opZoom = 1.0
 	// opSkipHoldTicks is how long Space must be held to skip the whole opening to
-	// the title (~1s at 60 TPS). A click only advances past the aliens scene.
+	// the title (~1s at 60 TPS). A click/Space tap only advances past the aliens scene.
 	opSkipHoldTicks = 60
 )
 

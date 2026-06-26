@@ -35,6 +35,10 @@ type Opening struct {
 
 	t        int // ticks since this play of the cinematic started
 	switched bool
+	// aliensAdvanced records that the player has released the aliens scene (with a
+	// click/Space). Until then time freezes at opAliensHold instead of rolling into
+	// the launch on a timer.
+	aliensAdvanced bool
 	// startAtTitle makes the next entry jump straight to the title state (skipping
 	// the cinematic). Set when returning from the workshop so the intro isn't replayed.
 	startAtTitle bool
@@ -101,6 +105,7 @@ func (o *Opening) OnStart() {
 func (o *Opening) reset() {
 	o.t = 0
 	o.switched = false
+	o.aliensAdvanced = false
 	o.rng = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	// Seed the run and build the real turret to show assembling, then hand the
@@ -125,6 +130,7 @@ func (o *Opening) reset() {
 	// the intro isn't replayed; the meter then reflects the final (diluted) power.
 	if o.startAtTitle {
 		o.t = o.doneTick()
+		o.aliensAdvanced = true // already past the aliens gate when entering at the title
 		o.startAtTitle = false
 	}
 	o.powerFill = o.powerMeterTarget()
@@ -194,7 +200,29 @@ func (o *Opening) Update() error {
 	if o.rng == nil {
 		o.reset()
 	}
-	o.t++
+
+	// A click or a Space tap advances the cinematic's beats. Space is also the skip
+	// key (held); the long-press skip uses PressDuration below, so a tap
+	// (just-pressed edge) advancing and a hold skipping coexist cleanly.
+	advance := (o.input.Mouse != nil && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft)) ||
+		(o.input.Keyboard != nil && o.input.Keyboard.IsJustPressed(ebiten.KeySpace))
+
+	// The aliens scene no longer rolls into the launch on a timer: time advances to
+	// the hold tick (telop fully shown) and then freezes there until the player
+	// advances. The lockout ignores an input carried over from the previous scene;
+	// advancing during the telop's fade-in snaps to the hold tick so the response
+	// is immediate and the fade-out plays from its canonical point into the roll-in.
+	if !o.aliensAdvanced && o.t > 20 && advance {
+		o.aliensAdvanced = true
+		if o.t < opAliensHold {
+			o.t = opAliensHold
+		}
+	}
+	// Advance time, except while the un-advanced aliens scene is frozen between the
+	// hold tick and the launch (outside that window time always runs).
+	if o.aliensAdvanced || o.t < opAliensHold || o.t >= opAliensEnd {
+		o.t++
+	}
 
 	for _, a := range o.aliens {
 		a.pos = a.pos.Add(a.vel)
@@ -225,20 +253,6 @@ func (o *Opening) Update() error {
 	// Ease the power meter toward its current target so it sweeps down smoothly as
 	// each pile-on tile lands (mirroring the in-game gauge's easing).
 	o.powerFill += (o.powerMeterTarget() - o.powerFill) * 0.18
-
-	// A click or a Space tap advances through the cinematic's beats. Space is also
-	// the skip key (held), but the long-press skip uses PressDuration below, so a
-	// tap (just-pressed edge) advancing and a hold skipping coexist cleanly.
-	advance := (o.input.Mouse != nil && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft)) ||
-		(o.input.Keyboard != nil && o.input.Keyboard.IsJustPressed(ebiten.KeySpace))
-
-	// During the aliens scene a click or Space tap ends it and jumps into the
-	// assembly demo (the tank rolls in and the doctors bolt on weapons). The
-	// lockout keeps an input carried over from the previous scene from skipping
-	// instantly.
-	if o.t > 20 && o.t < opAliensEnd && advance {
-		o.t = opAliensEnd
-	}
 
 	// Holding Space skips the cinematic straight to the title state (it no longer
 	// jumps scenes — the title is now this scene's terminal phase).
@@ -309,7 +323,7 @@ func (o *Opening) Draw(screen *ebiten.Image) {
 	if o.t < opAliensEnd {
 		a := float32(clamp01(math.Min(float64(o.t)/30, float64(opAliensEnd-o.t)/30)))
 		drawTelopC(screen, lang.Text("op-aliens"), opCenterX, 150, 44, 1, 0.5, 0.45, a)
-		// Click advances out of the aliens scene; the prompt appears after the lockout.
+		// A click/Space advances out of the aliens scene; the prompt appears after the lockout.
 		if o.t > 20 {
 			drawTelopC(screen, lang.Text("op-hint-advance"), opCenterX, screenH-90, 22, 1, 1, 0.8, 0.8)
 		}
