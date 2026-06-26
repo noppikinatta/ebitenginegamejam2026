@@ -3,12 +3,12 @@
 
 # --- タイトル ---
 story-1,-
-title-start,クリックでスタート
+title-start,クリックまたはSpaceでスタート
 
 # --- オープニング ---
 op-aliens,エイリアンが攻めてきたぞ！ エビタンク発進！
 op-doctor,一人では危険じゃ、これを授けよう
-op-hint-advance,クリックで次へ
+op-hint-advance,クリックまたはSpaceで次へ
 op-hint-skip,Space長押しでスキップ
 
 # --- ゲーム中HUD ---

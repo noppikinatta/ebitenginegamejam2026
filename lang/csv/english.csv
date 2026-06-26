@@ -3,12 +3,12 @@
 
 # --- Title ---
 story-1,-
-title-start,Click to Start
+title-start,Click or Space to Start
 
 # --- Opening cinematic ---
 op-aliens,"The aliens are attacking! Ebitank, launch!"
 op-doctor,It's dangerous to go alone! Take this.
-op-hint-advance,Click to continue
+op-hint-advance,Click or Space to continue
 op-hint-skip,Hold Space to skip
 
 # --- In-game HUD ---

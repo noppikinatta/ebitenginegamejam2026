@@ -21,8 +21,8 @@ func restoreEnglish(t *testing.T) {
 }
 
 func TestText_PlainKey(t *testing.T) {
-	if got := lang.Text("title-start"); got != "Click to Start" {
-		t.Fatalf("title-start: want %q, got %q", "Click to Start", got)
+	if got := lang.Text("title-start"); got != "Click or Space to Start" {
+		t.Fatalf("title-start: want %q, got %q", "Click or Space to Start", got)
 	}
 }
 
@@ -52,8 +52,8 @@ func TestHas(t *testing.T) {
 }
 
 func TestTextWithDefault(t *testing.T) {
-	if got := lang.TextWithDefault("title-start", "fallback"); got != "Click to Start" {
-		t.Fatalf("existing key: want %q, got %q", "Click to Start", got)
+	if got := lang.TextWithDefault("title-start", "fallback"); got != "Click or Space to Start" {
+		t.Fatalf("existing key: want %q, got %q", "Click or Space to Start", got)
 	}
 	if got := lang.TextWithDefault("no-such-key", "fallback"); got != "fallback" {
 		t.Fatalf("missing key: want %q, got %q", "fallback", got)
