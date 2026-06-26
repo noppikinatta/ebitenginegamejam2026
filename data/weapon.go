@@ -8,7 +8,7 @@ import "github.com/noppikinatta/ebitenginegamejam2026/core"
 func weaponParams() map[core.WeaponKind]core.WeaponParams {
 	return map[core.WeaponKind]core.WeaponParams{
 		core.KindCannon: {
-			BaseDamage:   20,
+			BaseDamage:   15,
 			BaseInterval: 720, MinInterval: 6, // 12s between shots at fireMult=1
 			ProjSpeed: 6, ProjMaxDist: 600, ProjRadius: 6, BaseRange: 360,
 			Pierce: true,                                                                   // shell bores through enemies instead of dying on first hit

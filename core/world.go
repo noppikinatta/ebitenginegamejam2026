@@ -513,9 +513,9 @@ func (w *World) targetEnemy(from geom.PointF, maxRange float64, mode TargetMode)
 }
 
 // pierceHitCooldown is how many ticks a piercing shell waits after a hit before
-// it can damage again. At 3, a shell stuck overlapping a boss lands a hit every
+// it can damage again. At 5, a shell stuck overlapping a boss lands a hit every
 // third frame.
-const pierceHitCooldown = 3
+const pierceHitCooldown = 5
 
 func (w *World) updateProjectiles() {
 	for _, p := range w.Projectiles {
@@ -638,7 +638,7 @@ func (w *World) killEnemy(e *Enemy) {
 		kind := PickupNipper
 		// Rarely a heart (HP) drops instead of a nipper. rng is nil in manually
 		// built test worlds, which then always drop a nipper.
-		if w.rng != nil && w.rng.Float64() < w.cfg.HeartDropChance {
+		if w.rng != nil && w.rng.Float64() < (w.cfg.HeartDropChance + float64(w.Player.Nippers / 100)) {
 			kind = PickupHeart
 		}
 		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: kind, alive: true})
