@@ -162,10 +162,6 @@ func main() {
 	flag.Parse()
 
 	seDir := flag.Arg(0)
-	bgmDir := seDir
-	if flag.NArg() > 1 {
-		bgmDir = flag.Arg(1)
-	}
 	out := seDir
 
 	// SE: per-weapon fire. Each weapon gets a deliberately distinct placeholder
@@ -192,7 +188,9 @@ func main() {
 	writeWAV(out+"/fire_laser.wav", oscSweep(wSaw, 1600, 360, 0.13, 0.4))
 
 	// Gatling: a tiny dry click — a very short square blip.
-	writeWAV(out+"/fire_gatling.wav", osc(wSquare, 560, 0.025, 0.4))
+	gatling := noise(0.12, 0.6)
+	mix(gatling, osc(wSquare, 560, 0.025, 0.2))
+	writeWAV(out+"/fire_gatling.wav", gatling)
 
 	// Grenade: a soft low "thunk" — a mellow triangle dropping in pitch, plus a
 	// little noise body.
@@ -204,8 +202,8 @@ func main() {
 	writeWAV(out+"/fire_ciws.wav", osc(wSquare, 820, 0.03, 0.4))
 
 	// Missile: a rising whoosh — sawtooth sweeping up with a noise wash.
-	missile := oscSweep(wSaw, 240, 760, 0.18, 0.4)
-	mix(missile, noise(0.18, 0.2))
+	missile := oscSweep(wSaw, 240, 760, 0.18, 0.2)
+	mix(missile, noise(0.18, 0.4))
 	writeWAV(out+"/fire_missile.wav", missile)
 
 	// SE: explosion — a low triangle body dropping in pitch under a big noise
@@ -220,23 +218,4 @@ func main() {
 	// taking damage sounds nastier than the soft sine it replaces.
 	writeWAV(out+"/hit.wav", oscSweep(wSquare, 320, 130, 0.16, 0.45))
 
-	// BGM (two distinct loops). Title = calm arpeggio; Game = faster, driving.
-	{
-		notes := []float64{220, 277, 330, 277} // A3 C#4 E4 C#4
-		var bgm []float64
-		for _, f := range notes {
-			bgm = append(bgm, tone(f, 0.5, 0.4)...)
-		}
-		writeWAV(bgmDir+"/bgm_title.wav", bgm)
-	}
-	{
-		notes := []float64{165, 196, 247, 330, 247, 196} // E3 G3 B3 E4 B3 G3
-		var bgm []float64
-		for _, f := range notes {
-			seg := tone(f, 0.28, 0.35)
-			mix(seg, tone(f/2, 0.28, 0.2)) // octave-down bass
-			bgm = append(bgm, seg...)
-		}
-		writeWAV(bgmDir+"/bgm_game.wav", bgm)
-	}
 }

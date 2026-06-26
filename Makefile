@@ -9,7 +9,7 @@ gen:
 # overwrite the placeholders. Swap a single SE by dropping a real wav of the
 # same name into asset/sound/se.
 sound-gen:
-	mkdir -p asset/sound/se asset/sound/bgm
+	mkdir -p asset/sound/se
 	go run tools/gensound/main.go $(if $(FORCE),-force) asset/sound/se asset/sound/bgm
 
 # Convert the committed BGM WAVs to Ogg Vorbis (smaller WASM payload) while
