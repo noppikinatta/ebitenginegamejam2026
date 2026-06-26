@@ -280,10 +280,17 @@ func PowerMultiplier(curve []PowerPoint, tiles int) float64 {
 func (t *Turret) ComputePower() map[hexmap.Index]float64 {
 	reachable, n := t.connectedConsumers()
 	result := map[hexmap.Index]float64{}
-	if n == 0 {
+	if reachable == nil {
+		// No generator at all; nothing is powered.
 		return result
 	}
-	per := t.genPower / float64(n)
+	// With no consumer tiles left (every cuttable tile purged), the generator
+	// still powers its own component — notably the uncuttable central cannon, so
+	// it must stay in the map even when n == 0. Guard the division accordingly.
+	var per float64
+	if n > 0 {
+		per = t.genPower / float64(n)
+	}
 	for idx := range reachable {
 		if t.IsGenerator(idx) {
 			result[idx] = 0
