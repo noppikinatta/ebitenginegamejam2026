@@ -226,12 +226,17 @@ func (o *Opening) Update() error {
 	// each pile-on tile lands (mirroring the in-game gauge's easing).
 	o.powerFill += (o.powerMeterTarget() - o.powerFill) * 0.18
 
-	leftClick := o.input.Mouse != nil && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft)
+	// A click or a Space tap advances through the cinematic's beats. Space is also
+	// the skip key (held), but the long-press skip uses PressDuration below, so a
+	// tap (just-pressed edge) advancing and a hold skipping coexist cleanly.
+	advance := (o.input.Mouse != nil && o.input.Mouse.IsJustPressed(ebiten.MouseButtonLeft)) ||
+		(o.input.Keyboard != nil && o.input.Keyboard.IsJustPressed(ebiten.KeySpace))
 
-	// During the aliens scene a click ends it and jumps into the assembly demo
-	// (the tank rolls in and the doctors bolt on weapons). The lockout keeps a
-	// click carried over from the previous scene from skipping instantly.
-	if o.t > 20 && o.t < opAliensEnd && leftClick {
+	// During the aliens scene a click or Space tap ends it and jumps into the
+	// assembly demo (the tank rolls in and the doctors bolt on weapons). The
+	// lockout keeps an input carried over from the previous scene from skipping
+	// instantly.
+	if o.t > 20 && o.t < opAliensEnd && advance {
 		o.t = opAliensEnd
 	}
 
@@ -241,10 +246,11 @@ func (o *Opening) Update() error {
 		o.t = o.doneTick()
 	}
 
-	// On the title (assembled tank + title art), a click advances to the workshop
-	// — but if the player can't buy anything (no coins yet, or everything maxed),
-	// the workshop has nothing to show, so go straight into the run instead.
-	if o.inTitle() && !o.switched && leftClick {
+	// On the title (assembled tank + title art), a click or Space tap advances to
+	// the workshop — but if the player can't buy anything (no coins yet, or
+	// everything maxed), the workshop has nothing to show, so go straight into the
+	// run instead.
+	if o.inTitle() && !o.switched && advance {
 		o.switched = true
 		target := o.nextScene
 		if o.meta != nil && !metaShoppable(o.meta.state) {
