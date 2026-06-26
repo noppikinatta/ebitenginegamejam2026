@@ -79,7 +79,7 @@ weapon-ciws-name,CIWS
 weapon-missile-name,Missile
 
 # --- Weapon descriptions ---
-weapon-cannon-desc,Fires a high-damage shell at the nearest enemy.
+weapon-cannon-desc,Fires a piercing projectile at the nearest enemy; larger enemies take more hits.
 weapon-shotgun-desc,Sprays short-range pellets at the nearest enemy.
 weapon-sniper-desc,"Delivers a fast, long-range shot."
 weapon-laser-desc,Fires a piercing beam attack.

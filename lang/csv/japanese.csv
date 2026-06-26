@@ -30,7 +30,7 @@ levelup-instruction,「よくやった、これを授けよう！」
 offer-add,追加
 offer-upgrade,強化
 offer-nippers,ニッパー +{{.N}}
-offer-nippers-desc,不要なパーツを切り離すのに使う。
+offer-nippers-desc,不要なパーツを切り離すのに使う
 comp-capacitor,キャパシタ
 comp-repair-unit,修理装置
 comp-armor,増加装甲
@@ -79,7 +79,7 @@ weapon-ciws-name,CIWS
 weapon-missile-name,ミサイル
 
 # --- 武器説明 ---
-weapon-cannon-desc,最も近い敵にダメージの高い砲弾を撃つ
+weapon-cannon-desc,最も近い敵に貫通する砲弾を放ち、大型の敵ほど多段ヒットする
 weapon-shotgun-desc,最も近い敵に近距離の散弾をばらまく
 weapon-sniper-desc,高速・長射程の一撃を与える
 weapon-laser-desc,貫通するビーム攻撃を行う
