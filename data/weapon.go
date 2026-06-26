@@ -57,7 +57,7 @@ func weaponParams() map[core.WeaponKind]core.WeaponParams {
 			Aim:           core.AimOutward,                          // never locks on; always fires outward
 			ExplodeRadius: 96, ExplodeDamage: 40, PassThrough: true, // flies through; detonates where it lands
 			Sprite: core.SpriteGrenade, ProjDrawW: 14, ProjDrawH: 14, // fat round shell
-			LevelMult: 1.8,
+			LevelMult: 1.4,
 		},
 		core.KindCIWS: {
 			BaseDamage:   2,

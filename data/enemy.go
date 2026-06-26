@@ -53,18 +53,25 @@ func spawnPhases() []core.SpawnPhase {
 	}
 
 	return []core.SpawnPhase{
-		{UntilTick: min(0.5), Interval: 300, Weights: []core.KindWeight{
+		{UntilTick: min(0.5), Interval: 240, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 10},
 		}},
-		{UntilTick: min(1), Interval: 300, Weights: []core.KindWeight{
+		{UntilTick: min(1), Interval: 240, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 9},
 			{Kind: core.EnemySwarmer, Weight: 1},
 		}},
-		{UntilTick: min(2), Interval: 250, Weights: []core.KindWeight{
+		{UntilTick: min(1.2), Interval: 100, Weights: []core.KindWeight{
+			{Kind: core.EnemySwarmer, Weight: 10},
+		}},
+		{UntilTick: min(2), Interval: 240, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 7},
 			{Kind: core.EnemySwarmer, Weight: 3},
 		}},
-		{UntilTick: min(3), Interval: 200, Weights: []core.KindWeight{
+		{UntilTick: min(2.5), Interval: 120, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 7},
+			{Kind: core.EnemySwarmer, Weight: 3},
+		}},
+		{UntilTick: min(3), Interval: 240, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 6},
 			{Kind: core.EnemySwarmer, Weight: 4},
 		}},
@@ -72,7 +79,14 @@ func spawnPhases() []core.SpawnPhase {
 			{Kind: core.EnemyGrunt, Weight: 6},
 			{Kind: core.EnemySwarmer, Weight: 4},
 		}},
-		{UntilTick: min(5), Interval: 150, Weights: []core.KindWeight{
+		{UntilTick: min(4.5), Interval: 150, Weights: []core.KindWeight{
+			{Kind: core.EnemyGrunt, Weight: 8},
+			{Kind: core.EnemySwarmer, Weight: 2},
+		}},
+		{UntilTick: min(4.75), Interval: 300, Weights: []core.KindWeight{
+			{Kind: core.EnemyBrute, Weight: 10},
+		}},
+		{UntilTick: min(5), Interval: 200, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 8},
 			{Kind: core.EnemySwarmer, Weight: 2},
 		}},
@@ -81,7 +95,7 @@ func spawnPhases() []core.SpawnPhase {
 			{Kind: core.EnemySwarmer, Weight: 2},
 			{Kind: core.EnemyBrute, Weight: 1},
 		}},
-		{UntilTick: min(7), Interval: 400, Weights: []core.KindWeight{
+		{UntilTick: min(7), Interval: 300, Weights: []core.KindWeight{
 			{Kind: core.EnemyBrute, Weight: 10},
 		}},
 		{UntilTick: min(8), Interval: 30, Weights: []core.KindWeight{
@@ -92,14 +106,22 @@ func spawnPhases() []core.SpawnPhase {
 			{Kind: core.EnemyGrunt, Weight: 7},
 			{Kind: core.EnemyBrute, Weight: 3},
 		}},
-		{UntilTick: min(12), Interval: 60, Weights: []core.KindWeight{
+		{UntilTick: min(10), Interval: 120, Weights: []core.KindWeight{
+			{Kind: core.EnemySwarmer, Weight: 7},
+			{Kind: core.EnemyBrute, Weight: 3},
+		}},
+		{UntilTick: min(15), Interval: 60, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 3},
 			{Kind: core.EnemySwarmer, Weight: 3},
 			{Kind: core.EnemyBrute, Weight: 4},
 		}},
-		{UntilTick: math.MaxInt, Interval: 40, Weights: []core.KindWeight{
+		{UntilTick: min(20), Interval: 80, Weights: []core.KindWeight{
 			{Kind: core.EnemyGrunt, Weight: 1},
 			{Kind: core.EnemySwarmer, Weight: 4},
+			{Kind: core.EnemyBrute, Weight: 5},
+		}},
+		{UntilTick: math.MaxInt, Interval: 120, Weights: []core.KindWeight{
+			{Kind: core.EnemySwarmer, Weight: 5},
 			{Kind: core.EnemyBrute, Weight: 5},
 		}},
 	}
@@ -113,7 +135,7 @@ func bosses() []core.BossSpec {
 		// Turn caps per-tick re-aim (see enemyKinds); 0 keeps bosses on instant follow.
 		{AtTick: min3, Name: "Prototype Hauler", HP: 1200, Speed: 0.9, Turn: 0, Radius: 40, Damage: 20, XPValue: 50, Sprite: core.BossSprite1},
 		{AtTick: min6, Name: "Siege Engine", HP: 2400, Speed: 2.0, Turn: 0, Radius: 46, Damage: 26, XPValue: 100, Sprite: core.BossSprite2},
-		{AtTick: min10, Name: "The Disconnector", HP: 4000, Speed: 1.2, Turn: 0, Radius: 54, Damage: 32, XPValue: 200, Final: true, Sprite: core.BossSprite3},
+		{AtTick: min10, Name: "The Disconnector", HP: 6000, Speed: 1.6, Turn: 0, Radius: 54, Damage: 32, XPValue: 200, Final: true, Sprite: core.BossSprite3},
 	}
 }
 

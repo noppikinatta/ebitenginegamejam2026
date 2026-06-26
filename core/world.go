@@ -653,7 +653,7 @@ func (w *World) killEnemy(e *Enemy) {
 		kind := PickupNipper
 		// Rarely a heart (HP) drops instead of a nipper. rng is nil in manually
 		// built test worlds, which then always drop a nipper.
-		if w.rng != nil && w.rng.Float64() < (w.cfg.HeartDropChance+float64(w.Player.Nippers/100)) {
+		if w.rng != nil && w.rng.Float64() < (w.cfg.HeartDropChance+float64(w.Player.Nippers/20)) {
 			kind = PickupHeart
 		}
 		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: kind, alive: true})

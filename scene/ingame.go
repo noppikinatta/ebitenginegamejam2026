@@ -409,6 +409,9 @@ func (g *InGame) Draw(screen *ebiten.Image) {
 		// Art faces slightly left; mirror it to face right when the enemy is left
 		// of the tank, so enemies always turn toward the player.
 		faceRight := e.Pos.X < w.Player.Pos.X
+		if e.DropsNipper {
+			faceRight = false
+		}
 		drawSprite(screen, cam, enemySpriteKey(e), e.Pos, sz, sz, 0, 1, 1, 1, 1, faceRight)
 	}
 	g.drawBeams(screen, cam)
