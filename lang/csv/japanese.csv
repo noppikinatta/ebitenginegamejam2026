@@ -38,7 +38,7 @@ comp-armor,増加装甲
 # --- ポーズ / 切断ビュー ---
 pause-title,ポーズ中 — タイルをクリックして切断  (ニッパー {{.Nippers}})
 pause-help,切断するとそのタイルと下流すべてが外れる。Spaceで再開。
-comp-capacitor-desc,電力を少し高める
+comp-capacitor-desc,全武器の攻撃力を10%上げる
 comp-repair-unit-desc,数秒ごとにHPを1回復
 comp-armor-desc,被弾時のダメージを軽減する（最低1は受ける）
 comp-wire-name,ワイヤー

@@ -53,8 +53,8 @@ func TestNewConfig_Scalars(t *testing.T) {
 	if c.HPDoublingTicks <= 0 {
 		t.Errorf("HPDoublingTicks should be positive, got %v", c.HPDoublingTicks)
 	}
-	if c.CapacitorFireRateBonus <= 0 {
-		t.Errorf("CapacitorFireRateBonus should be positive, got %v", c.CapacitorFireRateBonus)
+	if c.CapacitorDamageBonus <= 0 {
+		t.Errorf("CapacitorDamageBonus should be positive, got %v", c.CapacitorDamageBonus)
 	}
 }
 

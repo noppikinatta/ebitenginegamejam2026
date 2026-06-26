@@ -161,8 +161,8 @@ func TestBlackBox_ComponentNames(t *testing.T) {
 
 func TestBlackBox_ComponentMods(t *testing.T) {
 	// Only the Capacitor contributes a modifier; the rest are inert.
-	if got := (core.Capacitor{FireRateBonus: 0.1}).Mods().FireRateAdd; got != 0.1 {
-		t.Errorf("Capacitor FireRateAdd = %v, want 0.1", got)
+	if got := (core.Capacitor{DamageBonus: 0.1}).Mods().DamageBonus; got != 0.1 {
+		t.Errorf("Capacitor DamageBonus = %v, want 0.1", got)
 	}
 	inert := []core.Component{core.Wire{}, core.Junk{}, core.WeaponComponent{Weapon: core.NewWeapon("C", core.KindCannon)}}
 	for _, c := range inert {
@@ -209,8 +209,8 @@ func TestBlackBox_FireRateMultBounds(t *testing.T) {
 		t.Errorf("min (%v) should be <= max (%v)", min, max)
 	}
 
-	// The current multiplier's curve component must sit within the curve bounds
-	// (capacitors can only add on top, never below the floor).
+	// The fire-rate multiplier comes straight from the power curve, so it must
+	// sit within the curve bounds.
 	if cur := w.FireRateMultiplier(); cur < min {
 		t.Errorf("current multiplier %v should be >= curve floor %v", cur, min)
 	}

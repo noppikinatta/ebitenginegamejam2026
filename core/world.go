@@ -94,8 +94,17 @@ func (w *World) FireRateMultiplier() float64 {
 	if w.turret == nil {
 		return 1
 	}
-	base := PowerMultiplier(w.cfg.PowerCurve, w.turret.ConsumerTileCount())
-	return base + w.turret.Modifiers().FireRateAdd
+	return PowerMultiplier(w.cfg.PowerCurve, w.turret.ConsumerTileCount())
+}
+
+// capacitorDamageMult is the turret-wide weapon damage multiplier contributed by
+// connected capacitors: 1+sum(DamageBonus). It is multiplicative with the meta
+// DamageMult (see weaponStats).
+func (w *World) capacitorDamageMult() float64 {
+	if w.turret == nil {
+		return 1
+	}
+	return 1 + w.turret.Modifiers().DamageBonus
 }
 
 // PlayerSpeed is the tank's effective movement speed in px/tick: the player's
@@ -302,11 +311,17 @@ func wrapAngle(a float64) float64 {
 }
 
 // weaponStats returns a weapon's combat stats with the global meta damage
-// multiplier applied (DamageMult defaults to 0/1 so unset configs are
-// unchanged). Damage and ExplodeDamage scale; geometry and cadence do not.
+// multiplier and the connected-capacitor damage bonus applied (both default to
+// 1, so unset configs / no capacitors are unchanged). The two multiply together,
+// so capacitors stack multiplicatively with permanent upgrades. Damage and
+// ExplodeDamage scale; geometry and cadence do not.
 func (w *World) weaponStats(weapon *Weapon) WeaponStats {
 	stats := weapon.Stats(w.cfg.Weapons[weapon.Kind])
-	if m := w.cfg.DamageMult; m > 0 && m != 1 {
+	m := w.capacitorDamageMult()
+	if dm := w.cfg.DamageMult; dm > 0 {
+		m *= dm
+	}
+	if m != 1 {
 		stats.Damage *= m
 		stats.ExplodeDamage *= m
 	}
@@ -638,7 +653,7 @@ func (w *World) killEnemy(e *Enemy) {
 		kind := PickupNipper
 		// Rarely a heart (HP) drops instead of a nipper. rng is nil in manually
 		// built test worlds, which then always drop a nipper.
-		if w.rng != nil && w.rng.Float64() < (w.cfg.HeartDropChance + float64(w.Player.Nippers / 100)) {
+		if w.rng != nil && w.rng.Float64() < (w.cfg.HeartDropChance+float64(w.Player.Nippers/100)) {
 			kind = PickupHeart
 		}
 		w.Pickups = append(w.Pickups, &Pickup{Pos: e.Pos, Kind: kind, alive: true})
@@ -966,7 +981,7 @@ func (w *World) rollAddable() (Component, OfferItem) {
 	}
 	switch i - weaponKindCount {
 	case 0:
-		return Capacitor{FireRateBonus: w.cfg.CapacitorFireRateBonus},
+		return Capacitor{DamageBonus: w.cfg.CapacitorDamageBonus},
 			OfferItem{Kind: OfferAddCapacitor, Text: "Capacitor"}
 	case 1:
 		return RepairUnit{HealAmount: w.cfg.RepairHealAmount},

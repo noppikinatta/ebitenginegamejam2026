@@ -6,16 +6,16 @@ package core
 // injected through NewWorld. The dependency therefore points inward
 // (data -> core), never core -> data.
 type Config struct {
-	StartingNippers        int     // nippers the player begins every run with
-	MaxTurretTiles         int     // soft cap on turret size; forces non-tile offers
-	CandlestickInterval    int     // ticks between candlestick spawns
-	HeartDropChance        float64 // chance a candlestick drops a heart (HP) instead of a nipper
-	HeartHeal              float64 // HP restored when a heart pickup is collected
-	RepairInterval         int     // ticks between Repair Unit heal cycles
-	RepairHealAmount       float64 // HP healed per connected Repair Unit each cycle
-	ArmorReduction         float64 // damage subtracted per connected Armor (min 1 still lands)
-	XPToNextGrowth         float64 // XPToNext multiplier applied each level-up
-	CapacitorFireRateBonus float64 // fire-rate multiplier added per connected Capacitor equipment
+	StartingNippers      int     // nippers the player begins every run with
+	MaxTurretTiles       int     // soft cap on turret size; forces non-tile offers
+	CandlestickInterval  int     // ticks between candlestick spawns
+	HeartDropChance      float64 // chance a candlestick drops a heart (HP) instead of a nipper
+	HeartHeal            float64 // HP restored when a heart pickup is collected
+	RepairInterval       int     // ticks between Repair Unit heal cycles
+	RepairHealAmount     float64 // HP healed per connected Repair Unit each cycle
+	ArmorReduction       float64 // damage subtracted per connected Armor (min 1 still lands)
+	XPToNextGrowth       float64 // XPToNext multiplier applied each level-up
+	CapacitorDamageBonus float64 // weapon damage bonus added per connected Capacitor equipment (0.1 = +10%, stacks additively, multiplicative with DamageMult)
 
 	// Persistent (meta-progression) bonuses, folded in by data.ApplyMeta from the
 	// player's purchased upgrade levels. Defaults (0 / 0 / 1) leave a run unchanged.
