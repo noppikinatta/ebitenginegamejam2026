@@ -14,17 +14,17 @@ import "github.com/noppikinatta/ebitenginegamejam2026/core"
 // NewConfig returns the canonical balance configuration for a fresh run.
 func NewConfig() core.Config {
 	return core.Config{
-		StartingNippers:        3,    // nippers the player begins every run with
-		MaxTurretTiles:         40,   // soft cap on turret size; forces non-tile offers
-		CandlestickInterval:    600,  // ticks between candlestick spawns (~10 s at 60 TPS)
-		HeartDropChance:        0.1,  // 10% of candlestick drops are a heart (HP) instead of a nipper
-		HeartHeal:              30,   // HP restored when a heart is collected
-		RepairInterval:         300,  // ticks between Repair Unit heal cycles (~5 s at 60 TPS)
-		RepairHealAmount:       1,    // HP healed per connected Repair Unit each cycle
-		ArmorReduction:         1,    // damage subtracted per connected Armor (min 1 still lands)
-		XPToNextGrowth:         1.25, // XPToNext multiplier applied each level-up
-		CapacitorFireRateBonus: 0.1,  // each connected Capacitor adds +0.1 to the fire-rate multiplier
-		DamageMult:             1,    // baseline weapon damage multiplier (meta upgrades raise it via ApplyMeta)
+		StartingNippers:      3,    // nippers the player begins every run with
+		MaxTurretTiles:       40,   // soft cap on turret size; forces non-tile offers
+		CandlestickInterval:  600,  // ticks between candlestick spawns (~10 s at 60 TPS)
+		HeartDropChance:      0.1,  // 10% of candlestick drops are a heart (HP) instead of a nipper
+		HeartHeal:            30,   // HP restored when a heart is collected
+		RepairInterval:       300,  // ticks between Repair Unit heal cycles (~5 s at 60 TPS)
+		RepairHealAmount:     1,    // HP healed per connected Repair Unit each cycle
+		ArmorReduction:       1,    // damage subtracted per connected Armor (min 1 still lands)
+		XPToNextGrowth:       1.25, // XPToNext multiplier applied each level-up
+		CapacitorDamageBonus: 0.1,  // each connected Capacitor adds +10% weapon damage (multiplicative with meta DamageMult)
+		DamageMult:           1,    // baseline weapon damage multiplier (meta upgrades raise it via ApplyMeta)
 
 		Player:          defaultPlayer(),
 		Pickup:          defaultPickupRanges(),

@@ -8,10 +8,10 @@ import (
 )
 
 func TestModifierAdd_SumsAllFields(t *testing.T) {
-	a := Modifier{FireRateAdd: 0.5, HPRegen: 1, Armor: 2}
-	b := Modifier{FireRateAdd: 0.25, HPRegen: 3, Armor: 4}
+	a := Modifier{DamageBonus: 0.5, HPRegen: 1, Armor: 2}
+	b := Modifier{DamageBonus: 0.25, HPRegen: 3, Armor: 4}
 	got := a.Add(b)
-	want := Modifier{FireRateAdd: 0.75, HPRegen: 4, Armor: 6}
+	want := Modifier{DamageBonus: 0.75, HPRegen: 4, Armor: 6}
 	if got != want {
 		t.Errorf("Add = %+v, want %+v", got, want)
 	}

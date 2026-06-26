@@ -448,16 +448,14 @@ func (o *Opening) drawAssembly(screen *ebiten.Image) {
 
 // assemblyFireRate computes the fire-rate multiplier for the tiles that have
 // landed so far, using the same maths as core's in-combat gauge: the power curve
-// evaluated at the connected consumer-tile count, plus any capacitor FireRateAdd.
-// Tiles arrive center-out, so the partial set stays connected and the count grows
-// as the doctors pile on, dropping the multiplier.
+// evaluated at the connected consumer-tile count. Tiles arrive center-out, so the
+// partial set stays connected and the count grows as the doctors pile on,
+// dropping the multiplier.
 func (o *Opening) assemblyFireRate() float64 {
 	if o.turret == nil {
 		return 1
 	}
-	tiles := o.turret.Tiles()
 	consumers := 0
-	var add float64
 	for i, idx := range o.order {
 		if o.t < arriveTick(i) {
 			continue // not landed yet
@@ -466,11 +464,8 @@ func (o *Opening) assemblyFireRate() float64 {
 			continue // the generator draws no power and adds no consumer count
 		}
 		consumers++
-		if tile := tiles[idx]; tile != nil && tile.Component != nil {
-			add += tile.Component.Mods().FireRateAdd
-		}
 	}
-	return core.PowerMultiplier(o.powerCurve, consumers) + add
+	return core.PowerMultiplier(o.powerCurve, consumers)
 }
 
 // powerMeterTarget normalises the current assembly multiplier into the [0,1] bar

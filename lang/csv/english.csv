@@ -38,7 +38,7 @@ comp-armor,Armor
 # --- Pause / cut view ---
 pause-title,PAUSED — click a tile to cut  (Nippers {{.Nippers}})
 pause-help,Cutting disconnects the tile and everything downstream. Space resumes.
-comp-capacitor-desc,Slightly raises power.
+comp-capacitor-desc,+10% damage to all weapons.
 comp-repair-unit-desc,Repairs 1 HP every few seconds.
 comp-armor-desc,Reduces the damage taken from each hit (at least 1 still lands).
 comp-wire-name,Wire

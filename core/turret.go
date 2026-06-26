@@ -37,10 +37,11 @@ func MuzzleOffset(idx hexmap.Index, facingAngle float64) geom.PointF {
 // Modifier holds the additive adjustments a connected turret component
 // contributes to the tank/turret-wide stats. The zero value is "no effect".
 // Modifiers from every connected component are summed (see Turret.Modifiers),
-// which is the extension point for equipment: the Capacitor raises the fire-rate
-// multiplier, the Repair Unit heals HP over time, and Armor reduces damage taken.
+// which is the extension point for equipment: the Capacitor raises every
+// weapon's damage, the Repair Unit heals HP over time, and Armor reduces damage
+// taken.
 type Modifier struct {
-	FireRateAdd float64 // added to the turret-wide fire-rate multiplier
+	DamageBonus float64 // added to the turret-wide weapon damage bonus (each weapon's damage is scaled by 1+DamageBonus)
 	HPRegen     float64 // HP healed each repair cycle (see Config.RepairInterval)
 	Armor       float64 // flat damage subtracted from each hit (min 1 still lands)
 }
@@ -48,7 +49,7 @@ type Modifier struct {
 // Add returns the sum of two modifiers.
 func (m Modifier) Add(o Modifier) Modifier {
 	return Modifier{
-		FireRateAdd: m.FireRateAdd + o.FireRateAdd,
+		DamageBonus: m.DamageBonus + o.DamageBonus,
 		HPRegen:     m.HPRegen + o.HPRegen,
 		Armor:       m.Armor + o.Armor,
 	}
@@ -105,16 +106,18 @@ func (j Junk) Name() string {
 
 func (j Junk) Mods() Modifier { return Modifier{} }
 
-// Capacitor is an equipment tile that raises the turret-wide fire-rate
-// multiplier by a flat FireRateBonus while it is connected. Like any tile it
-// also adds to the tile count, so the bonus is weighed against the dilution.
+// Capacitor is an equipment tile that raises every weapon's damage by a flat
+// DamageBonus (e.g. 0.1 = +10%) while it is connected; multiple capacitors stack
+// additively and the total scales damage as a multiplier (1+DamageBonus), applied
+// on top of the meta damage multiplier. Like any tile it also adds to the tile
+// count, so the bonus is weighed against the fire-rate dilution.
 type Capacitor struct {
-	FireRateBonus float64
+	DamageBonus float64
 }
 
 func (Capacitor) Name() string { return "Capacitor" }
 
-func (c Capacitor) Mods() Modifier { return Modifier{FireRateAdd: c.FireRateBonus} }
+func (c Capacitor) Mods() Modifier { return Modifier{DamageBonus: c.DamageBonus} }
 
 // RepairUnit is an equipment tile that heals the tank by HealAmount HP every
 // Config.RepairInterval ticks while connected. Like any tile it adds to the tile
@@ -181,8 +184,8 @@ func NewTurret(tiles map[hexmap.Index]*Tile, generators []hexmap.Index, genPower
 }
 
 // Modifiers returns the cached sum of stat modifiers contributed by all
-// connected components (e.g. capacitors). Recomputed only when tiles are added
-// or removed, since connectivity changes only then.
+// connected components (e.g. capacitors' damage bonus). Recomputed only when
+// tiles are added or removed, since connectivity changes only then.
 func (t *Turret) Modifiers() Modifier { return t.connectedMods }
 
 // recomputeMods recalculates the aggregate modifier over all connected
