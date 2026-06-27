@@ -22,6 +22,7 @@ type Result struct {
 	meta       *metaHolder // persistent coins/upgrades; this run's reward is banked here
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
+	junk       int // junk tiles still mounted at run's end (drives the reward)
 	earned     int // coins awarded for the run just finished (for display)
 }
 
@@ -51,15 +52,25 @@ var (
 // It runs once per result entry, so each finished run is rewarded exactly once.
 func (r *Result) OnStart() {
 	asset.PlayBGM(asset.BGMGame)
-	kills, tick := r.inGame.RunStats()
-	r.earned = core.EarnedCoins(kills, tick)
+	r.junk = r.inGame.RunJunkCount()
+	r.earned = core.EarnedCoins(r.junk)
 	r.meta.state.Coins += r.earned
 }
 
-// drawReward shows the run's coin reward and the new balance, centred at y.
+// drawReward shows the coin reward formula with the amount earned on the top
+// line, and the new balance on the line below, both centred horizontally.
 func (r *Result) drawReward(screen *ebiten.Image, y float64) {
-	drawCoinAmount(screen, lang.ExecuteTemplate("result-earned", map[string]any{"N": r.earned}), screenW/2-140, y, 22)
-	drawCoinAmount(screen, lang.ExecuteTemplate("result-total", map[string]any{"N": r.meta.state.Coins}), screenW/2+20, y, 22)
+	formula := lang.ExecuteTemplate("result-formula", map[string]any{"J": r.junk, "E": r.earned})
+	total := lang.ExecuteTemplate("result-total", map[string]any{"N": r.meta.state.Coins})
+	drawCoinLineC(screen, formula, y)
+	drawCoinLineC(screen, total, y+34)
+}
+
+// drawCoinLineC draws a coin amount line centred horizontally at y.
+func drawCoinLineC(screen *ebiten.Image, text string, y float64) {
+	tw := drawing.MeasureText(text, 22)
+	x := float64(screenW)/2 - (22+tw.X)/2
+	drawCoinAmount(screen, text, x, y, 22)
 }
 
 func (r *Result) Update() error {

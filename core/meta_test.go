@@ -2,21 +2,19 @@ package core
 
 import "testing"
 
-// TestEarnedCoins covers the run-end reward kills × (whole minutes + 1).
+// TestEarnedCoins covers the run-end reward: junk tiles + 1.
 func TestEarnedCoins(t *testing.T) {
 	cases := []struct {
-		kills, tick, want int
+		junk, want int
 	}{
-		{0, 0, 0},          // no kills → no coins regardless of time
-		{10, 0, 10},        // sub-minute run still pays kills (×1)
-		{10, 3599, 10},     // 59.98 s is still 0 whole minutes → ×1
-		{10, 3600, 20},     // exactly 1 minute → ×2
-		{5, 3 * 3600, 20},  // 3 minutes → ×4
-		{7, 10 * 3600, 77}, // 10 minutes → ×11
+		{0, 1},   // a junk-free turret still pays a single coin
+		{1, 2},   // one junk → 2
+		{5, 6},   // five junk → 6
+		{12, 13}, // a bloated turret pays out more
 	}
 	for _, c := range cases {
-		if got := EarnedCoins(c.kills, c.tick); got != c.want {
-			t.Errorf("EarnedCoins(%d, %d) = %d, want %d", c.kills, c.tick, got, c.want)
+		if got := EarnedCoins(c.junk); got != c.want {
+			t.Errorf("EarnedCoins(%d) = %d, want %d", c.junk, got, c.want)
 		}
 	}
 }
