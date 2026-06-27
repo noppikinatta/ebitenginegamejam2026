@@ -56,5 +56,5 @@ func defaultPlayer() core.Player {
 
 // defaultPickupRanges returns the standard gem/nipper pickup behaviour.
 func defaultPickupRanges() core.PickupRanges {
-	return core.PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 4}
+	return core.PickupRanges{PickupDist: 28, MagnetDist: 90, MagnetSpeed: 5}
 }
