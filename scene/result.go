@@ -22,10 +22,10 @@ type Result struct {
 	meta       *metaHolder // persistent coins/upgrades; this run's reward is banked here
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
-	kills      int // enemies destroyed this run (for the reward formula)
-	minutes    int // survived whole minutes + 1 (the time multiplier)
-	junk       int // junk tiles still mounted at run's end (for the reward formula)
-	earned     int // coins awarded for the run just finished (for display)
+	kills      int     // enemies destroyed this run (for the reward formula)
+	minutes    float64 // real (fractional) survived minutes (the time multiplier)
+	junk       int     // junk tiles still mounted at run's end (for the reward formula)
+	earned     int     // coins awarded for the run just finished (for display)
 }
 
 func NewResult(input *ui.Input) *Result {
@@ -56,8 +56,9 @@ func (r *Result) OnStart() {
 	asset.PlayBGM(asset.BGMGame)
 	tick := 0
 	r.kills, tick, r.junk = r.inGame.RunStats()
-	r.minutes = tick/(60*60) + 1 // survived whole minutes + 1, the time multiplier
-	r.earned = core.EarnedCoins(r.kills, tick, r.junk)
+	const ticksPerMinute = 60 * 60 // 60 TPS × 60 s
+	r.minutes = float64(tick) / ticksPerMinute
+	r.earned = core.EarnedCoins(r.kills, r.minutes, r.junk)
 	r.meta.state.Coins += r.earned
 }
 
