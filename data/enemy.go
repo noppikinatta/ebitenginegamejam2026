@@ -133,8 +133,8 @@ func spawnPhases() []core.SpawnPhase {
 func bosses() []core.BossSpec {
 	return []core.BossSpec{
 		// Turn caps per-tick re-aim (see enemyKinds); 0 keeps bosses on instant follow.
-		{AtTick: min3, Name: "Prototype Hauler", HP: 1200, Speed: 0.9, Turn: 0, Radius: 40, Damage: 20, XPValue: 50, Sprite: core.BossSprite1},
-		{AtTick: min6, Name: "Siege Engine", HP: 2400, Speed: 2.0, Turn: 0, Radius: 46, Damage: 26, XPValue: 100, Sprite: core.BossSprite2},
+		{AtTick: min3, Name: "Prototype Hauler", HP: 1500, Speed: 0.9, Turn: 0, Radius: 40, Damage: 20, XPValue: 50, Sprite: core.BossSprite1},
+		{AtTick: min6, Name: "Siege Engine", HP: 3000, Speed: 2.0, Turn: 0, Radius: 46, Damage: 26, XPValue: 100, Sprite: core.BossSprite2},
 		{AtTick: min10, Name: "The Disconnector", HP: 6000, Speed: 1.6, Turn: 0, Radius: 54, Damage: 32, XPValue: 200, Final: true, Sprite: core.BossSprite3},
 	}
 }

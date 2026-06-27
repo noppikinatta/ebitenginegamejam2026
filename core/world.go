@@ -1139,8 +1139,9 @@ func (w *World) spawnBosses() {
 		w.bossesSpawned++
 		angle := w.rng.Float64() * 2 * math.Pi
 		pos := w.Player.Pos.Add(geom.PointFFromPolar(w.cfg.Spawn.EnemyDist, angle))
+		hp := b.HP * float64(w.cfg.SpawnRate)
 		boss := &Enemy{
-			Pos: pos, HP: b.HP, MaxHP: b.HP,
+			Pos: pos, HP: hp, MaxHP: hp,
 			Speed: b.Speed, Turn: b.Turn, Radius: b.Radius, Damage: b.Damage, XPValue: b.XPValue,
 			IsBoss: true, Final: b.Final, Name: b.Name, Sprite: b.Sprite, alive: true,
 		}

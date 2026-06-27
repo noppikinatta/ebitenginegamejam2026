@@ -54,7 +54,7 @@ btn-accept,結果を受け入れる
 result-formula,撃破 * 生存分 * (ジャンク + 1) = {{.K}} * {{printf "%.1f" .M}} * ({{.J}} + 1) = {{.E}}
 result-total,所持 {{.N}}
 result-spawn-label,次のラン：敵の出現頻度
-result-spawn-desc,高いほど敵が増えてコインも増える、おまけの高難度設定。x1が標準です。
+result-spawn-desc,高いほど敵とボスのHPが増える、おまけの高難度設定。x1が標準です。
 
 # --- ワークショップ（永続強化） ---
 workshop-title,ワークショップ

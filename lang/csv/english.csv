@@ -54,7 +54,7 @@ btn-accept,Accept the outcome
 result-formula,Kills * Minutes * (Junks + 1) = {{.K}} * {{printf "%.1f" .M}} * ({{.J}} + 1) = {{.E}}
 result-total,Total {{.N}}
 result-spawn-label,Next run: enemy spawn rate
-result-spawn-desc,Higher means more enemies and more coins - a bonus challenge. x1 is normal.
+result-spawn-desc,An optional high-difficulty setting where enemy and boss HP increases with higher levels. x1 is the default.
 
 # --- Workshop (persistent upgrades) ---
 workshop-title,WORKSHOP
