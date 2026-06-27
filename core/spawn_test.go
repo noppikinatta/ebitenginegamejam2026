@@ -52,6 +52,28 @@ func TestSpawnEnemies_UsesPhaseInterval(t *testing.T) {
 	}
 }
 
+// TestSpawnEnemies_RateMultipliesFrequency: SpawnRate is the per-tick countdown
+// applied to the spawn timer, so a higher rate drains it that many times faster
+// (packs arrive more often).
+func TestSpawnEnemies_RateMultipliesFrequency(t *testing.T) {
+	w := NewWorld(1, testConfig())
+
+	// Default rate (unset → treated as 1): the timer ticks down by 1.
+	w.spawnTimer = 10
+	w.spawnEnemies()
+	if w.spawnTimer != 9 {
+		t.Errorf("default rate: timer = %d, want 9", w.spawnTimer)
+	}
+
+	// Rate 4: the timer drops by 4 per tick.
+	w.cfg.SpawnRate = 4
+	w.spawnTimer = 10
+	w.spawnEnemies()
+	if w.spawnTimer != 6 {
+		t.Errorf("rate 4: timer = %d, want 6", w.spawnTimer)
+	}
+}
+
 // TestMakeEnemy_HPScalesWithTime: HP doubles after one HPDoublingTicks interval.
 func TestMakeEnemy_HPScalesWithTime(t *testing.T) {
 	w := NewWorld(1, testConfig())

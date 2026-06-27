@@ -53,6 +53,8 @@ btn-retry,Retry
 btn-accept,Accept the outcome
 result-formula,Kills * Minutes * (Junks + 1) = {{.K}} * {{printf "%.1f" .M}} * ({{.J}} + 1) = {{.E}}
 result-total,Total {{.N}}
+result-spawn-label,Next run: enemy spawn rate
+result-spawn-desc,Higher means more enemies and more coins - a bonus challenge. x1 is normal.
 
 # --- Workshop (persistent upgrades) ---
 workshop-title,WORKSHOP

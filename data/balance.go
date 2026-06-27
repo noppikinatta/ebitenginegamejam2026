@@ -33,6 +33,7 @@ func NewConfig() core.Config {
 		EnemyKinds:      enemyKinds(),
 		HPDoublingTicks: 18000, // zako HP doubles every 5 min at 60 TPS (×2 @5min, ×4 @10min)
 		SpawnPhases:     spawnPhases(),
+		SpawnRate:       1, // normal spawn cadence; the result screen can raise this for the next run
 		Bosses:          bosses(),
 		Candlestick:     candlestick(),
 		TurretGen:       defaultTurretGen(),

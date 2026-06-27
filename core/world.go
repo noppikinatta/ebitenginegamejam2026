@@ -1005,8 +1005,14 @@ func (w *World) rollAddable() (Component, OfferItem) {
 const defaultSpawnInterval = 60
 
 func (w *World) spawnEnemies() {
+	rate := w.cfg.SpawnRate
+	if rate < 1 {
+		rate = 1
+	}
 	if w.spawnTimer > 0 {
-		w.spawnTimer--
+		// Counting down by rate (instead of 1) per tick reaches zero rate× sooner,
+		// so a higher SpawnRate makes packs arrive that many times more often.
+		w.spawnTimer -= rate
 		return
 	}
 	ph := w.currentPhase()

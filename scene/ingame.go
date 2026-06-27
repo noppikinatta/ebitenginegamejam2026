@@ -67,21 +67,42 @@ type InGame struct {
 	// hpShake counts down the HP bar's post-hit shake (set when the tank takes
 	// damage, decremented each tick).
 	hpShake int
+
+	// spawnMult is the enemy-spawn-frequency multiplier (1/2/4/8) for the next run,
+	// chosen on the result screen as a bonus high-difficulty option. It is folded
+	// into the run config as Config.SpawnRate. Persists across runs until changed;
+	// the first run starts at 1 (normal).
+	spawnMult int
 }
 
 func NewInGame(input *ui.Input, seed *runSeed, meta *metaHolder) *InGame {
 	return &InGame{
-		input:   input,
-		runSeed: seed,
-		meta:    meta,
+		input:     input,
+		runSeed:   seed,
+		meta:      meta,
+		spawnMult: 1, // first run runs at normal spawn cadence
 	}
 }
 
 // runConfig builds the balance config for a fresh run with the player's
-// persistent upgrades folded in.
+// persistent upgrades folded in, plus the chosen enemy-spawn-frequency option.
 func (g *InGame) runConfig() core.Config {
-	return data.ApplyMeta(data.NewConfig(), g.meta.state)
+	cfg := data.ApplyMeta(data.NewConfig(), g.meta.state)
+	cfg.SpawnRate = g.SpawnMult()
+	return cfg
 }
+
+// SpawnMult returns the enemy-spawn-frequency multiplier set for the next run
+// (1 if unset), so the result screen can show the current selection.
+func (g *InGame) SpawnMult() int {
+	if g.spawnMult < 1 {
+		return 1
+	}
+	return g.spawnMult
+}
+
+// SetSpawnMult records the enemy-spawn-frequency multiplier for the next run.
+func (g *InGame) SetSpawnMult(m int) { g.spawnMult = m }
 
 // RunStats reports the finished run's kill count, elapsed ticks, and the junk
 // tiles still mounted on the turret, for the result screen to compute the coin
