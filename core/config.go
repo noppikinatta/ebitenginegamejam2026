@@ -35,6 +35,7 @@ type Config struct {
 	EnemyKinds      map[EnemyKind]EnemyStats
 	HPDoublingTicks float64
 	SpawnPhases     []SpawnPhase
+	SpawnRate       int // per-tick countdown applied to the spawn timer (difficulty option): 1 = normal cadence, 2/4/8 spawn that many times more often
 	Bosses          []BossSpec
 
 	Doctor      DoctorSpec                  // level-up offer balance

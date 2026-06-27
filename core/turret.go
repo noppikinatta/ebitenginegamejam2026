@@ -357,6 +357,30 @@ func (t *Turret) TileCount() int {
 	return n
 }
 
+// JunkCount returns the number of connected (powered, non-purged) junk tiles
+// currently mounted on the turret, excluding the generator. Used for the
+// end-of-run coin reward.
+func (t *Turret) JunkCount() int {
+	if len(t.generators) == 0 {
+		return 0
+	}
+	reachable := t.distancesFrom(t.generators[0])
+	n := 0
+	for idx := range reachable {
+		if t.IsGenerator(idx) {
+			continue
+		}
+		tile := t.tiles[idx]
+		if tile == nil || tile.purged || tile.Component == nil {
+			continue
+		}
+		if _, ok := tile.Component.(Junk); ok {
+			n++
+		}
+	}
+	return n
+}
+
 // AddTile places comp on a random empty cell adjacent to an existing active
 // tile, growing the turret outward. Purged cells are reusable. Returns the
 // chosen index and true, or false if there is no adjacent room.

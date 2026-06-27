@@ -86,6 +86,15 @@ func (w *World) ActiveBosses() []*Enemy {
 // Turret exposes the turret grid read-only so the scene layer can draw it.
 func (w *World) Turret() *Turret { return w.turret }
 
+// JunkCount returns the number of connected junk tiles still on the turret, used
+// for the end-of-run coin reward.
+func (w *World) JunkCount() int {
+	if w.turret == nil {
+		return 0
+	}
+	return w.turret.JunkCount()
+}
+
 // FireRateMultiplier is the turret-wide power multiplier applied to every
 // weapon's fire interval (interval = baseInterval / multiplier). It is derived
 // from the connected consumer tile count via the configured power curve, so
@@ -996,8 +1005,14 @@ func (w *World) rollAddable() (Component, OfferItem) {
 const defaultSpawnInterval = 60
 
 func (w *World) spawnEnemies() {
+	rate := w.cfg.SpawnRate
+	if rate < 1 {
+		rate = 1
+	}
 	if w.spawnTimer > 0 {
-		w.spawnTimer--
+		// Counting down by rate (instead of 1) per tick reaches zero rate× sooner,
+		// so a higher SpawnRate makes packs arrive that many times more often.
+		w.spawnTimer -= rate
 		return
 	}
 	ph := w.currentPhase()

@@ -53,9 +53,10 @@ type MetaState struct {
 // Level returns the purchased level of one stat.
 func (m MetaState) Level(s MetaStat) int { return m.Lv[s] }
 
-// EarnedCoins is the coin reward for a finished run: kills × (survived whole
-// minutes + 1), so even a sub-minute run still pays out its kills.
-func EarnedCoins(kills, tick int) int {
-	const ticksPerMinute = 60 * 60 // 60 TPS × 60 s
-	return kills * (tick/ticksPerMinute + 1)
+// EarnedCoins is the coin reward for a finished run: kills × survived minutes ×
+// (junk tiles still mounted + 1), truncated to a whole coin. minutes is a real
+// (fractional) value supplied by the caller so the tick→minutes conversion lives
+// in one place (the result scene) rather than being duplicated here.
+func EarnedCoins(kills int, minutes float64, junk int) int {
+	return int(float64(kills) * minutes * float64(junk+1))
 }
