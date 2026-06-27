@@ -44,20 +44,20 @@ func (r *Result) Init(inGame *InGame, opening, workshop ebiten.Game, meta *metaH
 
 // Result button layout.
 var (
-	resReturnBtn = sceneButton{x: screenW/2 - 170, y: 470, w: 340, h: 60, labelKey: "btn-return"}
-	resRetryBtn  = sceneButton{x: screenW/2 - 350, y: 470, w: 320, h: 60, labelKey: "btn-retry"}
-	resAcceptBtn = sceneButton{x: screenW/2 + 30, y: 470, w: 320, h: 60, labelKey: "btn-accept"}
+	resReturnBtn = sceneButton{x: screenW/2 - 170, y: 400, w: 340, h: 60, labelKey: "btn-return"}
+	resRetryBtn  = sceneButton{x: screenW/2 - 350, y: 400, w: 320, h: 60, labelKey: "btn-retry"}
+	resAcceptBtn = sceneButton{x: screenW/2 + 30, y: 400, w: 320, h: 60, labelKey: "btn-accept"}
 )
 
 // spawnMultOptions are the enemy-spawn-frequency multipliers offered for the
 // next run (a bonus high-difficulty option, picked radio-button style).
-var spawnMultOptions = []int{1, 2, 4, 8}
+var spawnMultOptions = []int{1, 2, 4, 8, 16}
 
-// Enemy-spawn-rate selector layout: a centred row of icon+label cells near the
-// bottom of the screen.
+// Enemy-spawn-rate selector layout: a centred row of icon+label cells in the
+// lower third of the screen.
 const (
-	spawnSelY    = 600.0 // top of the option cells
-	spawnCellW   = 116.0
+	spawnSelY    = 530.0 // top of the option cells
+	spawnCellW   = 112.0
 	spawnCellH   = 54.0
 	spawnCellGap = 16.0
 )
@@ -183,17 +183,17 @@ func (r *Result) Draw(screen *ebiten.Image) {
 	mx, my := ebiten.CursorPosition()
 	if r.inGame.Outcome() == OutcomeWin {
 		screen.Fill(color.RGBA{10, 18, 12, 255})
-		drawTelopC(screen, lang.Text("result-win"), screenW/2, 280, 40, 0.8, 1, 0.8, 1)
-		r.drawReward(screen, 370)
+		drawTelopC(screen, lang.Text("result-win"), screenW/2, 170, 40, 0.8, 1, 0.8, 1)
+		r.drawReward(screen, 280)
 		resReturnBtn.draw(screen, resReturnBtn.hit(mx, my))
 		r.drawSpawnSelector(screen, mx, my)
 		return
 	}
 
 	screen.Fill(color.RGBA{18, 10, 10, 255})
-	drawTelopC(screen, lang.Text("result-lose-1"), screenW/2, 250, 38, 1, 0.8, 0.8, 1)
-	drawTelopC(screen, lang.Text("result-lose-2"), screenW/2, 320, 26, 0.85, 0.7, 0.7, 1)
-	r.drawReward(screen, 390)
+	drawTelopC(screen, lang.Text("result-lose-1"), screenW/2, 140, 38, 1, 0.8, 0.8, 1)
+	drawTelopC(screen, lang.Text("result-lose-2"), screenW/2, 210, 26, 0.85, 0.7, 0.7, 1)
+	r.drawReward(screen, 300)
 	resRetryBtn.draw(screen, resRetryBtn.hit(mx, my))
 	resAcceptBtn.draw(screen, resAcceptBtn.hit(mx, my))
 	r.drawSpawnSelector(screen, mx, my)
