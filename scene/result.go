@@ -22,7 +22,9 @@ type Result struct {
 	meta       *metaHolder // persistent coins/upgrades; this run's reward is banked here
 	sequence   *bamenn.Sequence
 	transition bamenn.Transition
-	junk       int // junk tiles still mounted at run's end (drives the reward)
+	kills      int // enemies destroyed this run (for the reward formula)
+	minutes    int // survived whole minutes + 1 (the time multiplier)
+	junk       int // junk tiles still mounted at run's end (for the reward formula)
 	earned     int // coins awarded for the run just finished (for display)
 }
 
@@ -52,15 +54,19 @@ var (
 // It runs once per result entry, so each finished run is rewarded exactly once.
 func (r *Result) OnStart() {
 	asset.PlayBGM(asset.BGMGame)
-	r.junk = r.inGame.RunJunkCount()
-	r.earned = core.EarnedCoins(r.junk)
+	tick := 0
+	r.kills, tick, r.junk = r.inGame.RunStats()
+	r.minutes = tick/(60*60) + 1 // survived whole minutes + 1, the time multiplier
+	r.earned = core.EarnedCoins(r.kills, tick, r.junk)
 	r.meta.state.Coins += r.earned
 }
 
 // drawReward shows the coin reward formula with the amount earned on the top
 // line, and the new balance on the line below, both centred horizontally.
 func (r *Result) drawReward(screen *ebiten.Image, y float64) {
-	formula := lang.ExecuteTemplate("result-formula", map[string]any{"J": r.junk, "E": r.earned})
+	formula := lang.ExecuteTemplate("result-formula", map[string]any{
+		"K": r.kills, "M": r.minutes, "J": r.junk, "E": r.earned,
+	})
 	total := lang.ExecuteTemplate("result-total", map[string]any{"N": r.meta.state.Coins})
 	drawCoinLineC(screen, formula, y)
 	drawCoinLineC(screen, total, y+34)

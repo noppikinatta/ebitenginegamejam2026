@@ -53,9 +53,10 @@ type MetaState struct {
 // Level returns the purchased level of one stat.
 func (m MetaState) Level(s MetaStat) int { return m.Lv[s] }
 
-// EarnedCoins is the coin reward for a finished run: one coin per junk tile
-// still mounted on the turret at the end, plus one (so a junk-free turret still
-// pays out a single coin).
-func EarnedCoins(junk int) int {
-	return junk + 1
+// EarnedCoins is the coin reward for a finished run: kills × (survived whole
+// minutes + 1) × (junk tiles still mounted + 1). The +1 terms make even a
+// sub-minute, junk-free run still pay out its kills.
+func EarnedCoins(kills, tick, junk int) int {
+	const ticksPerMinute = 60 * 60 // 60 TPS × 60 s
+	return kills * (tick/ticksPerMinute + 1) * (junk + 1)
 }

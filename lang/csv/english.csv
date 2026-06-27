@@ -51,7 +51,7 @@ result-lose-2,"We toil four hours a day, with only four days off a week"
 btn-return,Back to Opening
 btn-retry,Retry
 btn-accept,Accept the outcome
-result-formula,Junk {{.J}} + 1 = {{.E}}
+result-formula,Kills * Minutes * (Junks + 1) = {{.K}} * {{.M}} * ({{.J}} + 1) = {{.E}}
 result-total,Total {{.N}}
 
 # --- Workshop (persistent upgrades) ---

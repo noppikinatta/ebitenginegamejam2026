@@ -83,14 +83,14 @@ func (g *InGame) runConfig() core.Config {
 	return data.ApplyMeta(data.NewConfig(), g.meta.state)
 }
 
-// RunJunkCount reports the number of junk tiles still mounted on the turret at
-// the end of the run, for the result screen to compute the coin reward. Zero
-// before a world exists.
-func (g *InGame) RunJunkCount() int {
+// RunStats reports the finished run's kill count, elapsed ticks, and the junk
+// tiles still mounted on the turret, for the result screen to compute the coin
+// reward. Zero before a world exists.
+func (g *InGame) RunStats() (kills, tick, junk int) {
 	if g.world == nil {
-		return 0
+		return 0, 0, 0
 	}
-	return g.world.JunkCount()
+	return g.world.Kills, g.world.Tick, g.world.JunkCount()
 }
 
 // Outcome reports how the last run ended, for the result screen to branch on.
